@@ -4,7 +4,15 @@ use crate::core::entities::auth::ClaimsToUserToken;
 
 
 pub trait TokenGeneratorPort: Send + Sync {
-    fn generate_token(&self, id: String, full_name: String, email: String, secret: &str) -> Result<String, JwtError>;
+    fn generate_token(&self,
+        id: String,
+        rank: String,
+        registration: String,
+        full_name: String,
+        profile: String,
+        email: String,
+        secret: &str
+    ) -> Result<String, JwtError>;
 }
 
 #[derive(Clone)]
@@ -23,7 +31,15 @@ impl JwtTokenGenerator {
 }
 
 impl TokenGeneratorPort for JwtTokenGenerator {
-    fn generate_token(&self, id: String, full_name: String, email: String, secret: &str) -> Result<String, JwtError> {
+    fn generate_token(&self,
+        id: String,
+        rank: String,
+        registration: String,
+        full_name: String,
+        profile: String,
+        email: String,
+        secret: &str
+    ) -> Result<String, JwtError> {
         let expiration: usize = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -32,7 +48,10 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         let claims = ClaimsToUserToken {
             id,
             exp: expiration,
+            rank,
+            registration,
             full_name,
+            profile,
             email,
         };
 
