@@ -49,7 +49,6 @@ where
         if let Err(e) = self.verify_api_key(&req, config) {
             return Box::pin(err(e));
         }
-        println!("PATHHHHHHHHH {:?}", req.path());
         if is_public_route(req.path()) {
             return Box::pin(self.service.call(req));
         }
