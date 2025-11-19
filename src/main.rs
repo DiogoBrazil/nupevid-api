@@ -1,3 +1,68 @@
-fn main() {
-    println!("Hello, world!");
+use actix_web::{web, App, HttpServer, middleware::Logger};
+use actix_cors::Cors;
+use env_logger::{Builder, Env};
+use log::info;
+use nupevid_api::adapters::password_hasher::Argon2PasswordHasher;
+use nupevid_api::config::{config_env::Config, database::init_database};
+use nupevid_api::repositories::users::PgUserRepository;
+use nupevid_api::routes::config::base_routes::configure_routes;
+use nupevid_api::services::users::UserService;
+use nupevid_api::middleware::auth::AuthMiddleware;
+
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let env = Env::default()
+        .filter_or("RUST_LOG", "info,actix_web=info");
+
+    Builder::from_env(env)
+        .format_timestamp_millis()
+        .format_module_path(true)
+        .init();
+
+    dotenv::dotenv().ok();
+
+    let config = Config::from_env();
+
+    let pool = init_database(&config.database_url).await;
+    info!("Database connection established");
+
+    // Create adapters
+    let password_hasher = Box::new(Argon2PasswordHasher::new());
+    info!("Adapters created");
+
+    // Create repositories
+    let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
+    info!("Repositories created");
+
+    // Create services
+    let user_service = web::Data::new(UserService::new(
+        user_repository.clone(),
+        password_hasher.clone(),
+    ));
+    info!("Services created");
+
+    // Start the server
+    let server_addr = config.sercer_addr.clone();
+    info!("Server will be started at: http://{}", server_addr);
+
+    HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
+        App::new()
+            .wrap(cors)
+            .wrap(Logger::default())
+            .wrap(AuthMiddleware)
+            .app_data(user_repository.clone())
+            .app_data(user_service.clone())
+            .app_data(web::Data::new(config.clone()))
+            .configure(configure_routes)
+    })
+    .bind(server_addr)?
+    .run()
+    .await
 }
