@@ -13,7 +13,6 @@ pub fn is_valid_email(email: &str) -> bool {
 pub fn is_public_route(path: &str) -> bool {
     let public_routes = [
         "/api/v1/auth/login",
-        "/api/v1/users"
     ];
     public_routes.iter().any(|route | path.starts_with(route))
 }
