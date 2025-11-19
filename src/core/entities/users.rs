@@ -39,16 +39,3 @@ pub struct UserDataCreatedWithoutPassword {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct CompleteUserData {
-    pub id: Uuid,
-    pub rank: String,
-    pub registration: String,
-    pub full_name: String,
-    pub profile: String,
-    pub email: String,
-    pub password: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
