@@ -6,4 +6,45 @@ impl UsersQueries {
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id, rank, registration, full_name, profile, email, created_at, updated_at
     "#;
+
+    pub const GET_USER_BY_ID: &'static str = r#"
+        SELECT * FROM users WHERE id = $1
+    "#;
+
+    pub const UPDATE_USER_BY_ID: &'static str = r#"
+        UPDATE users
+        SET rank = $2, registration = $3, full_name = $4, profile = $5, email = $6
+        WHERE id = $1
+        RETURNING id, rank, registration, full_name, profile, email, created_at, updated_at
+    "#;
+
+    pub const CHECK_USER_EXISTS_BY_EMAIL: &'static str = r#"
+        SELECT EXISTS (SELECT 1 FROM users WHERE email = $1);
+    "#;
+
+    pub const CHECK_EMAIL_EXISTS_FOR_OTHER_USER: &'static str = r#"
+        SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2) as exists
+    "#;
+
+    pub const GET_ALL_USERS: &'static str = r#"
+        SELECT id, rank, registration, full_name, profile, email, created_at, updated_at
+        FROM users
+        ORDER BY created_at DESC
+    "#;
+
+    pub const DELETE_USER_BY_ID: &'static str = r#"
+        DELETE FROM users WHERE id = $1
+        RETURNING id, rank, registration, full_name, profile, email, created_at, updated_at
+    "#;
+
+    pub const GET_USER_PASSWORD_BY_ID: &'static str = r#"
+        SELECT password FROM users WHERE id = $1
+    "#;
+
+    pub const UPDATE_USER_PASSWORD_BY_ID: &'static str = r#"
+        UPDATE users
+        SET password = $2
+        WHERE id = $1
+        RETURNING id, rank, registration, full_name, profile, email, created_at, updated_at
+    "#;
 }
