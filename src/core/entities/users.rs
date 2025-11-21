@@ -22,8 +22,8 @@ pub struct UpdateUser {
     pub email: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct UpdatePasswordUser {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateUserPassword {
     pub current_password: String,
     pub new_password: String,
 }
