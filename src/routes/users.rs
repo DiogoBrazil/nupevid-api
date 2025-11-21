@@ -7,13 +7,17 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("")
                     .route(web::post().to(users::create_user))
-                //.route(web::get().to(users::find_all_users))
+                    .route(web::get().to(users::get_all_users))
             )
-            // .service(
-            //     web::resource("/{id}")
-            //         .route(web::put().to(users::update_user))
-            //         .route(web::get().to(users::find_user_by_id))
-            //         .route(web::delete().to(users::delete_user_by_id))
-            // )
+            .service(
+                web::resource("/{id}")
+                    .route(web::put().to(users::update_user_by_id))
+                    .route(web::get().to(users::get_user_by_id))
+                    .route(web::delete().to(users::delete_user_by_id))
+            )
+            .service(
+                web::resource("/{id}/password")
+                    .route(web::patch().to(users::update_user_password_by_id))
+            )
     );
 }
