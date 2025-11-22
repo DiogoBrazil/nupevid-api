@@ -1,20 +1,9 @@
-use jsonwebtoken::{encode, EncodingKey, Header, errors::Error as JwtError};
+use jsonwebtoken::{encode, errors::Error as JwtError, EncodingKey, Header};
 use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::core::entities::auth::ClaimsToUserToken;
 
-
-pub trait TokenGeneratorPort: Send + Sync {
-    fn generate_token(&self,
-        id: String,
-        rank: String,
-        registration: String,
-        full_name: String,
-        profile: String,
-        email: String,
-        city_id: Option<String>,
-        secret: &str
-    ) -> Result<String, JwtError>;
-}
+pub use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
 
 #[derive(Clone)]
 pub struct JwtTokenGenerator;
