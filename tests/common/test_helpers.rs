@@ -1,34 +1,23 @@
-use actix_web::{test, web, App, dev::Service, Error};
-use jsonwebtoken::{EncodingKey, Header, encode};
+use actix_web::{dev::Service, test, web, App, Error};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use nupevid_api::adapters::{
-    password_hasher::Argon2PasswordHasher,
-    token_generator::JwtTokenGenerator,
+    password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator,
 };
-use nupevid_api::config::{
-    config_env::Config,
-    database::init_database,
-};
+use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
-    attendances::{PgAttendanceAddressRepository, PgAttendanceRepository},
-    auth::PgAuthRepository,
-    cities::PgCityRepository,
-    protective_measures::PgProtectiveMeasureRepository,
-    users::PgUserRepository,
-    victims::{PgVictimAddressRepository, PgVictimRepository},
+    attendances::PgAttendanceRepository, auth::PgAuthRepository, cities::PgCityRepository,
+    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    victims::PgVictimRepository,
 };
 use nupevid_api::routes::{
     config::base_routes::configure_routes as configure_base_routes,
     users::configure_routes as configure_user_routes,
 };
 use nupevid_api::services::{
-    attendances::AttendanceService,
-    auth::AuthService,
-    cities::CityService,
-    protective_measures::ProtectiveMeasureService,
-    users::UserService,
-    victims::VictimService,
+    attendances::AttendanceService, auth::AuthService, cities::CityService,
+    protective_measures::ProtectiveMeasureService, users::UserService, victims::VictimService,
 };
 use sqlx::PgPool;
 use std::env;
@@ -101,13 +90,12 @@ pub async fn clean_database(pool: &PgPool) {
 }
 
 /// Create test app with only /users routes (existing user tests).
-pub async fn create_test_app(pool: PgPool) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
+pub async fn create_test_app(
+    pool: PgPool,
+) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
     let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
     let password_hasher = Box::new(Argon2PasswordHasher::new());
-    let user_service = web::Data::new(UserService::new(
-        user_repository.clone(),
-        password_hasher,
-    ));
+    let user_service = web::Data::new(UserService::new(user_repository.clone(), password_hasher));
 
     test::init_service(
         App::new()
@@ -132,10 +120,9 @@ pub async fn create_full_test_app(
     let auth_repository = web::Data::new(PgAuthRepository::new(pool.clone()));
     let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
     let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
-    let victim_address_repository = web::Data::new(PgVictimAddressRepository::new(pool.clone()));
-    let protective_measure_repository = web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let protective_measure_repository =
+        web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
     let attendance_repository = web::Data::new(PgAttendanceRepository::new(pool.clone()));
-    let attendance_address_repository = web::Data::new(PgAttendanceAddressRepository::new(pool.clone()));
 
     // Shared config
     let config_data = web::Data::new(config.clone());
@@ -151,20 +138,14 @@ pub async fn create_full_test_app(
         password_hasher.clone(),
         token_generator.clone(),
     ));
-    let city_service = web::Data::new(CityService::new(
-        city_repository.clone(),
-    ));
-    let victim_service = web::Data::new(VictimService::new(
-        victim_repository.clone(),
-        victim_address_repository.clone(),
-    ));
+    let city_service = web::Data::new(CityService::new(city_repository.clone()));
+    let victim_service = web::Data::new(VictimService::new(victim_repository.clone()));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
         victim_repository.clone(),
     ));
     let attendance_service = web::Data::new(AttendanceService::new(
         attendance_repository.clone(),
-        attendance_address_repository.clone(),
         victim_repository.clone(),
     ));
 
@@ -175,10 +156,8 @@ pub async fn create_full_test_app(
             .app_data(auth_repository.clone())
             .app_data(city_repository.clone())
             .app_data(victim_repository.clone())
-            .app_data(victim_address_repository.clone())
             .app_data(protective_measure_repository.clone())
             .app_data(attendance_repository.clone())
-            .app_data(attendance_address_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
             .app_data(city_service.clone())
@@ -226,7 +205,6 @@ pub fn build_city_admin_claims(city_id: Uuid) -> ClaimsToUserToken {
     }
 }
 
-
 /// Generate a signed JWT for the given claims and secret.
 pub fn generate_jwt(claims: &ClaimsToUserToken, secret: &str) -> String {
     encode(
@@ -238,11 +216,7 @@ pub fn generate_jwt(claims: &ClaimsToUserToken, secret: &str) -> String {
 }
 
 /// Convenience helper to add api_key and Authorization headers to a TestRequest.
-pub fn with_auth_headers(
-    req: test::TestRequest,
-    config: &Config,
-    token: &str,
-) -> test::TestRequest {
+pub fn with_auth_headers(req: test::TestRequest, config: &Config, token: &str) -> test::TestRequest {
     req.insert_header(("api_key", config.api_key.clone()))
         .insert_header(("Authorization", format!("Bearer {}", token)))
 }

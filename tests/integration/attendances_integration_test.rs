@@ -1,8 +1,8 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
     serde_json::json!({
@@ -13,19 +13,28 @@ fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
         "description": "Atendimento realizado",
         "latitude": serde_json::Value::Null,
         "longitude": serde_json::Value::Null,
+        "address": serde_json::Value::Null,
     })
 }
 
-fn build_attendance_address_payload(attendance_id: &str) -> serde_json::Value {
+fn build_attendance_payload_with_address(victim_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "attendance_id": attendance_id,
-        "street": "Rua Atendimento",
-        "number": "100",
-        "district": "Centro",
-        "city_name": "Cidade A",
-        "state": "SP",
-        "zip_code": "22222-222",
-        "complement": "Casa"
+        "victim_id": victim_id,
+        "was_victim_present": true,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
+        "description": "Visita domiciliar",
+        "latitude": -23.5505,
+        "longitude": -46.6333,
+        "address": {
+            "street": "Rua Atendimento",
+            "number": "100",
+            "district": "Centro",
+            "city_name": "Cidade A",
+            "state": "SP",
+            "zip_code": "22222-222",
+            "complement": "Casa"
+        }
     })
 }
 
@@ -45,7 +54,9 @@ async fn create_attendance_success_for_victim_in_own_city() {
 
     let payload = build_attendance_payload(victim_id);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendances").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
         &config,
         &admin_token,
     )
@@ -56,7 +67,10 @@ async fn create_attendance_success_for_victim_in_own_city() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 201);
-    assert_eq!(body["data"]["victim_id"].as_str().unwrap(), victim_id.to_string());
+    assert_eq!(
+        body["data"]["victim_id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -76,7 +90,9 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim() {
 
     let payload = build_attendance_payload(victim_b);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendances").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
         &config,
         &admin_a_token,
     )
@@ -106,7 +122,9 @@ async fn list_attendances_filtered_by_city() {
     for victim_id in [victim_a, victim_b] {
         let payload = build_attendance_payload(victim_id);
         let req = test_helpers::with_auth_headers(
-            test::TestRequest::post().uri("/api/v1/attendances").set_json(&payload),
+            test::TestRequest::post()
+                .uri("/api/v1/attendances")
+                .set_json(&payload),
             &config,
             &root_token,
         )
@@ -149,7 +167,9 @@ async fn delete_attendance_soft_delete_and_not_listed() {
 
     let payload = build_attendance_payload(victim_id);
     let create_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendances").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
         &config,
         &admin_token,
     )
@@ -189,7 +209,9 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
     let atts = list_body["data"].as_array().unwrap();
-    assert!(atts.iter().all(|a| a["id"].as_str().unwrap() != attendance_id));
+    assert!(atts
+        .iter()
+        .all(|a| a["id"].as_str().unwrap() != attendance_id));
 }
 
 #[actix_rt::test]
@@ -209,7 +231,9 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let payload = build_attendance_payload(victim_b);
     let create_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendances").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
         &config,
         &root_token,
     )
@@ -234,7 +258,188 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
 }
 
 #[actix_rt::test]
-async fn attendance_addresses_respect_city_access() {
+async fn create_attendance_with_address_in_single_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Addr").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create attendance with address
+    let payload = build_attendance_payload_with_address(victim_id);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    let body: serde_json::Value = test::read_body_json(create_resp).await;
+
+    // Verify attendance data
+    assert_eq!(
+        body["data"]["description"].as_str().unwrap(),
+        "Visita domiciliar"
+    );
+    assert!(body["data"]["latitude"].is_number());
+    assert!(body["data"]["longitude"].is_number());
+
+    // Verify address data is included
+    assert!(body["data"]["address"].is_object());
+    assert_eq!(
+        body["data"]["address"]["street"].as_str().unwrap(),
+        "Rua Atendimento"
+    );
+    assert_eq!(body["data"]["address"]["number"].as_str().unwrap(), "100");
+    assert_eq!(
+        body["data"]["address"]["district"].as_str().unwrap(),
+        "Centro"
+    );
+    assert_eq!(body["data"]["address"]["state"].as_str().unwrap(), "SP");
+}
+
+#[actix_rt::test]
+async fn get_attendance_returns_address_when_exists() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Get").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create attendance with address
+    let payload = build_attendance_payload_with_address(victim_id);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let attendance_id = create_body["data"]["id"].as_str().unwrap();
+
+    // GET attendance should include address
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/attendances/{}", attendance_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let get_resp = test::call_service(&app, get_req).await;
+    assert_eq!(get_resp.status(), StatusCode::OK);
+
+    let body: serde_json::Value = test::read_body_json(get_resp).await;
+    assert!(body["data"]["address"].is_object());
+    assert_eq!(
+        body["data"]["address"]["street"].as_str().unwrap(),
+        "Rua Atendimento"
+    );
+}
+
+#[actix_rt::test]
+async fn update_attendance_can_add_or_update_address() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Update").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create attendance without address
+    let payload = build_attendance_payload(victim_id);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let attendance_id = create_body["data"]["id"].as_str().unwrap();
+
+    // Verify no address initially
+    assert!(create_body["data"]["address"].is_null());
+
+    // Update attendance adding address
+    let update_payload = serde_json::json!({
+        "victim_id": victim_id,
+        "was_victim_present": false,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(16, 0, 0).unwrap(),
+        "description": "Atendimento atualizado",
+        "latitude": null,
+        "longitude": null,
+        "address": {
+            "street": "Nova Rua",
+            "number": "200",
+            "district": "Bairro Novo",
+            "city_name": "Nova Cidade",
+            "state": "RJ",
+            "zip_code": "20000-000",
+            "complement": null
+        }
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/attendances/{}", attendance_id))
+            .set_json(&update_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::OK);
+
+    let update_body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(
+        update_body["data"]["description"].as_str().unwrap(),
+        "Atendimento atualizado"
+    );
+    assert!(!update_body["data"]["was_victim_present"].as_bool().unwrap());
+    assert!(update_body["data"]["address"].is_object());
+    assert_eq!(
+        update_body["data"]["address"]["street"].as_str().unwrap(),
+        "Nova Rua"
+    );
+    assert_eq!(
+        update_body["data"]["address"]["state"].as_str().unwrap(),
+        "RJ"
+    );
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -243,36 +448,22 @@ async fn attendance_addresses_respect_city_access() {
 
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
-
-    let root_claims = test_helpers::build_root_claims();
-    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
-
-    // Create victim in B and attendance as ROOT
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
-    let att_payload = build_attendance_payload(victim_b);
-    let create_att_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendances").set_json(&att_payload),
-        &config,
-        &root_token,
-    )
-    .to_request();
-    let create_att_resp = test::call_service(&app, create_att_req).await;
-    assert_eq!(create_att_resp.status(), StatusCode::CREATED);
-    let att_body: serde_json::Value = test::read_body_json(create_att_resp).await;
-    let attendance_id = att_body["data"]["id"].as_str().unwrap();
 
-    // CITY_ADMIN A
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
-    // CITY_ADMIN A cannot create address for attendance in city B
-    let addr_payload = build_attendance_address_payload(attendance_id);
-    let create_addr_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/attendance-addresses").set_json(&addr_payload),
+    // Try to create attendance with address for victim in city B
+    let payload = build_attendance_payload_with_address(victim_b);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
         &config,
         &admin_a_token,
     )
     .to_request();
-    let create_addr_resp = test::call_service(&app, create_addr_req).await;
-    assert_eq!(create_addr_resp.status(), StatusCode::FORBIDDEN);
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }

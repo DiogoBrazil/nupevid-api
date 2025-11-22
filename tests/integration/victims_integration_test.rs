@@ -1,7 +1,7 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
@@ -10,9 +10,28 @@ fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
         "birth_date": serde_json::Value::Null,
         "phone": serde_json::Value::Null,
         "city_id": city_id,
+        "address": serde_json::Value::Null,
     })
 }
 
+fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_json::Value {
+    serde_json::json!({
+        "full_name": full_name,
+        "document_id": "123456789",
+        "birth_date": "1990-01-01",
+        "phone": "11999999999",
+        "city_id": city_id,
+        "address": {
+            "street": "Rua Teste",
+            "number": "100",
+            "district": "Centro",
+            "city_name": "Cidade Teste",
+            "state": "SP",
+            "zip_code": "01000-000",
+            "complement": "Apt 10"
+        }
+    })
+}
 
 #[actix_rt::test]
 async fn root_can_create_and_list_victims_in_multiple_cities() {
@@ -77,7 +96,9 @@ async fn city_admin_can_only_access_victims_in_own_city() {
     let v2_payload = build_victim_payload("Vitima B", city_b);
 
     let create_v1 = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&v1_payload),
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&v1_payload),
         &config,
         &root_token,
     )
@@ -88,7 +109,9 @@ async fn city_admin_can_only_access_victims_in_own_city() {
     let victim_a_id = v1_body["data"]["id"].as_str().unwrap().to_string();
 
     let create_v2 = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&v2_payload),
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&v2_payload),
         &config,
         &root_token,
     )
@@ -150,7 +173,9 @@ async fn delete_victim_soft_delete_and_not_listed() {
 
     let payload = build_victim_payload("Vitima Delete", city);
     let create_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
         &config,
         &root_token,
     )
@@ -191,7 +216,9 @@ async fn delete_victim_soft_delete_and_not_listed() {
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
     let victims = list_body["data"].as_array().unwrap();
-    assert!(victims.iter().all(|v| v["id"].as_str().unwrap() != victim_id));
+    assert!(victims
+        .iter()
+        .all(|v| v["id"].as_str().unwrap() != victim_id));
 }
 
 #[actix_rt::test]
@@ -211,7 +238,9 @@ async fn city_admin_cannot_create_victim_in_other_city() {
     // Try to create victim in a different city (B)
     let payload = build_victim_payload("Vitima", city_b);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&payload),
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
         &config,
         &admin_a_token,
     )
@@ -222,7 +251,157 @@ async fn city_admin_cannot_create_victim_in_other_city() {
 }
 
 #[actix_rt::test]
-async fn victim_addresses_respect_city_access_rules() {
+async fn create_victim_with_address_in_single_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Addr").await;
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create victim with address
+    let payload = build_victim_payload_with_address("Vitima Com Endereco", city);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    let body: serde_json::Value = test::read_body_json(create_resp).await;
+
+    // Verify victim data
+    assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Vitima Com Endereco");
+    assert_eq!(body["data"]["document_id"].as_str().unwrap(), "123456789");
+
+    // Verify address data is included
+    assert!(body["data"]["address"].is_object());
+    assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Teste");
+    assert_eq!(body["data"]["address"]["number"].as_str().unwrap(), "100");
+    assert_eq!(body["data"]["address"]["district"].as_str().unwrap(), "Centro");
+    assert_eq!(body["data"]["address"]["state"].as_str().unwrap(), "SP");
+}
+
+#[actix_rt::test]
+async fn get_victim_returns_address_when_exists() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Get").await;
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create victim with address
+    let payload = build_victim_payload_with_address("Vitima Get", city);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let victim_id = create_body["data"]["id"].as_str().unwrap();
+
+    // GET victim should include address
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/victims/{}", victim_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let get_resp = test::call_service(&app, get_req).await;
+    assert_eq!(get_resp.status(), StatusCode::OK);
+
+    let body: serde_json::Value = test::read_body_json(get_resp).await;
+    assert!(body["data"]["address"].is_object());
+    assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Teste");
+}
+
+#[actix_rt::test]
+async fn update_victim_can_add_or_update_address() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Update").await;
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create victim without address
+    let payload = build_victim_payload("Vitima Update", city);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let victim_id = create_body["data"]["id"].as_str().unwrap();
+
+    // Verify no address initially
+    assert!(create_body["data"]["address"].is_null());
+
+    // Update victim adding address
+    let update_payload = serde_json::json!({
+        "full_name": "Vitima Update Renamed",
+        "document_id": null,
+        "birth_date": null,
+        "phone": null,
+        "city_id": city,
+        "address": {
+            "street": "Nova Rua",
+            "number": "200",
+            "district": "Bairro Novo",
+            "city_name": "Nova Cidade",
+            "state": "RJ",
+            "zip_code": "20000-000",
+            "complement": null
+        }
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/victims/{}", victim_id))
+            .set_json(&update_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::OK);
+
+    let update_body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(update_body["data"]["full_name"].as_str().unwrap(), "Vitima Update Renamed");
+    assert!(update_body["data"]["address"].is_object());
+    assert_eq!(update_body["data"]["address"]["street"].as_str().unwrap(), "Nova Rua");
+    assert_eq!(update_body["data"]["address"]["state"].as_str().unwrap(), "RJ");
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_create_victim_with_address_in_other_city() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -232,47 +411,20 @@ async fn victim_addresses_respect_city_access_rules() {
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
 
-    let root_claims = test_helpers::build_root_claims();
-    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
-
-    // Create victim in city B as ROOT
-    let victim_payload = build_victim_payload("Vitima B", city_b);
-    let create_victim_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&victim_payload),
-        &config,
-        &root_token,
-    )
-    .to_request();
-    let create_victim_resp = test::call_service(&app, create_victim_req).await;
-    assert_eq!(create_victim_resp.status(), StatusCode::CREATED);
-    let create_victim_body: serde_json::Value = test::read_body_json(create_victim_resp).await;
-    let victim_b_id = create_victim_body["data"]["id"].as_str().unwrap();
-
-    // CITY_ADMIN A
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
-    // CITY_ADMIN A cannot create address for victim in city B
-    let addr_payload = serde_json::json!({
-        "victim_id": victim_b_id,
-        "street": "Rua B",
-        "number": "10",
-        "district": "Centro",
-        "city_name": "Cidade B",
-        "state": "SP",
-        "zip_code": "11111-111",
-        "complement": "Casa"
-    });
-
-    let create_addr_req = test_helpers::with_auth_headers(
+    // Try to create victim with address in city B
+    let payload = build_victim_payload_with_address("Vitima", city_b);
+    let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/victim-addresses")
-            .set_json(&addr_payload),
+            .uri("/api/v1/victims")
+            .set_json(&payload),
         &config,
         &admin_a_token,
     )
     .to_request();
 
-    let create_addr_resp = test::call_service(&app, create_addr_req).await;
-    assert_eq!(create_addr_resp.status(), StatusCode::FORBIDDEN);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
