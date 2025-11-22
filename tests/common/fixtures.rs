@@ -8,6 +8,7 @@ pub fn valid_create_user() -> CreateUser {
         profile: "admin".to_string(),
         email: "joao.silva@test.com".to_string(),
         password: "senha123".to_string(),
+        city_id: None,
     }
 }
 
@@ -19,6 +20,7 @@ pub fn valid_create_user_2() -> CreateUser {
         profile: "user".to_string(),
         email: "maria.santos@test.com".to_string(),
         password: "senha456".to_string(),
+        city_id: None,
     }
 }
 
@@ -30,6 +32,7 @@ pub fn create_user_with_invalid_email() -> CreateUser {
         profile: "user".to_string(),
         email: "invalid-email".to_string(),
         password: "senha123".to_string(),
+        city_id: None,
     }
 }
 
@@ -41,6 +44,7 @@ pub fn create_user_with_empty_fields() -> CreateUser {
         profile: "".to_string(),
         email: "".to_string(),
         password: "".to_string(),
+        city_id: None,
     }
 }
 
@@ -51,6 +55,7 @@ pub fn valid_update_user() -> UpdateUser {
         full_name: "João Silva Updated".to_string(),
         profile: "admin".to_string(),
         email: "joao.silva.updated@test.com".to_string(),
+        city_id: None,
     }
 }
 
