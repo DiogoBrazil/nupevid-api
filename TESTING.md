@@ -4,12 +4,19 @@
 tests/
 ├── common/                          # Código compartilhado entre testes
 │   ├── fixtures.rs                  # Dados de teste (usuários válidos, inválidos, etc.)
-│   └── test_helpers.rs             # Helpers para setup de DB e app de teste
+│   ├── test_helpers.rs             # Helpers para setup de DB e app de teste (/users e full app)
+│   └── db_fixtures.rs              # Funções de apoio para inserir cidades e vítimas diretamente no DB
 └── integration/                     # Testes de integração
-    ├── users_create_test.rs        # Testes de criação de usuário
-    ├── users_read_test.rs          # Testes de leitura (GET)
-    ├── users_update_delete_test.rs # Testes de atualização e deleção
-    └── users_password_test.rs      # Testes de atualização de senha
+    ├── users_create_test.rs                    # CRUD básico de usuários
+    ├── users_read_test.rs                      # Leitura de usuários
+    ├── users_update_delete_test.rs             # Atualização e deleção de usuários
+    ├── users_password_test.rs                  # Atualização de senha
+    ├── auth_login_test.rs                      # Login (auth)
+    ├── cities_integration_test.rs              # /api/v1/cities
+    ├── users_multicity_test.rs                 # Regras de multi-cidade para usuários
+    ├── victims_integration_test.rs             # Vítimas e endereços de vítima
+    ├── protective_measures_integration_test.rs # Medidas protetivas
+    └── attendances_integration_test.rs         # Atendimentos e endereços de atendimento
 
 src/
 ├── adapters/
@@ -34,40 +41,98 @@ cargo test --lib
 
 ### Testes de Integração
 
-Testam endpoints completos com banco de dados real:
+Testam endpoints completos com banco de dados real, passando pelo middleware de autenticação (API key + JWT) quando aplicável.
 
-#### Endpoint POST /users (Criar Usuário)
-- ✅ Criar usuário válido
-- ✅ Email duplicado retorna erro 400
-- ✅ Registration duplicado retorna erro 400
-- ✅ Email inválido retorna erro 400
-- ✅ Campos vazios retornam erro 400
+#### /users (sem AuthMiddleware nos testes existentes)
+- ✅ POST /users
+  - Criar usuário válido
+  - Email duplicado → 400
+  - Registration duplicado → 400
+  - Email inválido → 400
+  - Campos vazios → 400
+- ✅ GET /users
+  - Lista todos os usuários
+  - Lista vazia quando não há usuários
+- ✅ GET /users/{id}
+  - Usuário existente
+  - 404 para inexistente
+  - 404 para UUID inválido (rota não encontrada)
+- ✅ PUT /users/{id}
+  - Atualização com sucesso
+  - Email duplicado com outro usuário → 400
+  - Registration duplicado → 400
+  - Usuário inexistente → 404
+- ✅ DELETE /users/{id}
+  - Soft delete de usuário existente
+  - GET subsequente retorna 404
+  - Usuário inexistente → 404
+- ✅ PATCH /users/{id}/password
+  - Atualiza senha com senha atual correta
+  - Senha atual incorreta → 400
+  - Usuário inexistente → 404
+  - Campos vazios → 400
 
-#### Endpoint GET /users (Listar Usuários)
-- ✅ Lista todos os usuários
-- ✅ Retorna lista vazia quando não há usuários
+#### Regras de multi-cidade para usuários
+- ✅ CITY_ADMIN/CITY_USER sem city_id em create/update → 400
+- ✅ CITY_ADMIN com city_id válido → criado com sucesso
+- ✅ Segundo CITY_ADMIN para mesma cidade (create ou update) → 400 (regra + índice parcial)
 
-#### Endpoint GET /users/{id} (Buscar Usuário)
-- ✅ Encontra usuário existente
-- ✅ Retorna 404 para usuário inexistente
-- ✅ Retorna 404 para UUID inválido
+#### /api/v1/auth/login
+- ✅ Login com credenciais válidas → 200 + token JWT
+- ✅ Email inexistente → 401 (Invalid credentials)
+- ✅ Senha incorreta → 401 (Invalid credentials)
 
-#### Endpoint PUT /users/{id} (Atualizar Usuário)
-- ✅ Atualiza usuário existente
-- ✅ Email duplicado com outro usuário retorna erro 400
-- ✅ Registration duplicado retorna erro 400
-- ✅ Usuário inexistente retorna 404
+#### /api/v1/cities
+- ✅ POST /cities
+  - Criação válida
+  - state com tamanho != 2 → 400
+  - Campos vazios → 400
+- ✅ GET /cities
+  - Lista vazia
+  - Lista com múltiplas cidades
+- ✅ GET /cities/{id}
+  - Cidade existente
+  - Cidade inexistente → 404
+- ✅ PUT /cities/{id}
+  - Atualização válida
+  - state inválido → 400
+  - Cidade inexistente → 404
+- ✅ DELETE /cities/{id}
+  - Soft delete → não aparece mais na listagem
+  - Cidade inexistente → 404
 
-#### Endpoint DELETE /users/{id} (Deletar Usuário)
-- ✅ Deleta usuário existente
-- ✅ Verifica que usuário foi deletado (GET retorna 404)
-- ✅ Usuário inexistente retorna 404
+#### /api/v1/victims & /api/v1/victim-addresses
+- ✅ ROOT
+  - Cria vítimas em cidades diferentes
+  - Lista vítimas de todas as cidades
+- ✅ CITY_ADMIN
+  - Lista apenas vítimas da própria cidade
+  - Não cria vítima em outra cidade → 403
+- ✅ Soft delete de vítima
+  - DELETE remove da listagem e GET/{id} → 404
+- ✅ Endereços de vítima
+  - CITY_ADMIN de cidade A não pode criar endereço para vítima de cidade B → 403
 
-#### Endpoint PATCH /users/{id}/password (Atualizar Senha)
-- ✅ Atualiza senha com senha atual correta
-- ✅ Senha atual incorreta retorna erro 400
-- ✅ Usuário inexistente retorna 404
-- ✅ Campos vazios retornam erro 400
+#### /api/v1/protective-measures
+- ✅ Criação de medida para vítima na mesma cidade
+- ✅ Regra "uma medida ativa por vítima"
+  - Segunda medida ativa para mesma vítima → 400
+- ✅ CITY_ADMIN de cidade A não cria medida para vítima em cidade B → 403
+- ✅ Listagem por vítima `/victim/{victim_id}` retorna apenas medidas daquela vítima
+- ✅ Criação para vítima inexistente → 404
+- ✅ Soft delete de medida
+  - DELETE → 200, GET/{id} → 404
+
+#### /api/v1/attendances & /api/v1/attendance-addresses
+- ✅ Criação de atendimento para vítima na mesma cidade
+- ✅ CITY_ADMIN de cidade A não cria atendimento para vítima em cidade B → 403
+- ✅ Listagem de atendimentos
+  - ROOT vê todos
+  - CITY_ADMIN vê apenas da própria cidade
+- ✅ Soft delete de atendimento
+  - DELETE → 200, GET/{id} → 404, não aparece na listagem
+- ✅ CITY_ADMIN de cidade A não cria endereço de atendimento para atendimento em cidade B → 403
+- ✅ CITY_ADMIN de cidade A é proibido de acessar atendimento (GET /{id}) em cidade B → 403
 
 ## Configuração para Testes de Integração
 
@@ -138,13 +203,16 @@ cargo test
   - Password Hasher: 6 testes
   - Validações: 5 testes
 
-- **Testes de Integração**: 16 testes
-  - Criação: 5 testes
-  - Leitura: 4 testes
-  - Atualização/Deleção: 5 testes
-  - Atualização de Senha: 4 testes
+- **Testes de Integração**: ~58 testes
+  - Users CRUD + senha
+  - Regras de multi-cidade de usuários
+  - Login (/auth)
+  - Cidades (/api/v1/cities)
+  - Vítimas e endereços de vítima
+  - Medidas protetivas
+  - Atendimentos e endereços de atendimento
 
-**Total: 27 testes**
+**Total aproximado: ~69 testes**
 
 ### Cenários Cobertos
 
@@ -163,10 +231,10 @@ cargo test
 
 ## Boas Práticas
 
-1. **Isolamento**: Cada teste de integração limpa o banco antes de executar
-2. **Independência**: Testes não dependem uns dos outros
-3. **Dados de Teste**: Use fixtures do módulo `common::fixtures`
-4. **Nomes Descritivos**: Nomes de teste indicam claramente o que testam
+1. **Isolamento**: Cada teste de integração limpa o banco antes de executar (helpers `clean_users_table` / `clean_database`).
+2. **Independência**: Testes não dependem uns dos outros.
+3. **Dados de Teste**: Use fixtures do módulo `common::fixtures` e `common::db_fixtures`.
+4. **Nomes Descritivos**: Nomes de teste indicam claramente o que testam.
 
 ## Fixtures Disponíveis
 
@@ -349,9 +417,8 @@ Alguns testes podem precisar de atenção especial ao implementar execução par
 Melhorias futuras para a suíte de testes:
 
 1. **Isolamento de testes** - Avaliar migração para Opção 2 ou Opção 1 conforme suíte crescer
-2. Testes de autenticação (endpoints de login/token)
-3. Testes de middleware de autenticação
-4. Testes de performance/carga
-5. Cobertura de código automatizada (tarpaulin)
-6. Testes com mocks para serviços externos
-7. Testes de concorrência
+2. Testes de middleware de autenticação (cobrir erros de API key ausente/errada)
+3. Testes de performance/carga
+4. Cobertura de código automatizada (tarpaulin)
+5. Testes com mocks para serviços externos
+6. Testes de concorrência
