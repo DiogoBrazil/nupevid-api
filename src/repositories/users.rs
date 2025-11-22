@@ -41,6 +41,7 @@ impl UserRepository for PgUserRepository {
             .bind(user.profile)
             .bind(user.email)
             .bind(user.password)
+            .bind(user.city_id)
             .fetch_one(&self.pool)
             .await?;
 
@@ -59,6 +60,7 @@ impl UserRepository for PgUserRepository {
             .bind(data.full_name)
             .bind(data.profile)
             .bind(data.email)
+            .bind(data.city_id)
             .fetch_one(&self.pool)
             .await?;
 
@@ -157,6 +159,20 @@ impl UserRepository for PgUserRepository {
         info!("[Repository] Password updated successfully for user with ID: {}", id);
 
         Ok(updated_user)
+    }
+
+    async fn check_city_admin_exists_for_city(&self, city_id: Uuid, exclude_user_id: Uuid) -> Result<bool, sqlx::Error> {
+        info!("[Repository] Executing SQL query to check if CITY_ADMIN exists for city: {} excluding user: {}", city_id, exclude_user_id);
+
+        let result: bool = sqlx::query_scalar(UsersQueries::CHECK_CITY_ADMIN_EXISTS_FOR_CITY)
+            .bind(city_id)
+            .bind(exclude_user_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        info!("[Repository] CITY_ADMIN exists for city {}: {}", city_id, result);
+
+        Ok(result)
     }
 
 }
