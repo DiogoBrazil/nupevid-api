@@ -2,11 +2,28 @@ use actix_web::{web, App, HttpServer, middleware::Logger};
 use actix_cors::Cors;
 use env_logger::{Builder, Env};
 use log::info;
-use nupevid_api::adapters::{password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator};
+use nupevid_api::adapters::{
+    password_hasher::Argon2PasswordHasher,
+    token_generator::JwtTokenGenerator
+};
 use nupevid_api::config::{config_env::Config, database::init_database};
-use nupevid_api::repositories::{users::PgUserRepository, auth::PgAuthRepository};
+use nupevid_api::repositories::{
+    attendances::{PgAttendanceRepository, PgAttendanceAddressRepository},
+    auth::PgAuthRepository,
+    cities::PgCityRepository,
+    protective_measures::PgProtectiveMeasureRepository,
+    users::PgUserRepository,
+    victims::{PgVictimRepository,PgVictimAddressRepository}
+};
 use nupevid_api::routes::config::base_routes::configure_routes;
-use nupevid_api::services::{users::UserService, auth::AuthService};
+use nupevid_api::services::{
+    attendances::AttendanceService,
+    auth::AuthService,
+    cities::CityService,
+    protective_measures::ProtectiveMeasureService,
+    users::UserService,
+    victims::VictimService
+};
 use nupevid_api::middleware::auth::AuthMiddleware;
 
 
@@ -35,6 +52,12 @@ async fn main() -> std::io::Result<()> {
     // Create repositories
     let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
     let auth_repository = web::Data::new(PgAuthRepository::new(pool.clone()));
+    let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
+    let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
+    let victim_address_repository = web::Data::new(PgVictimAddressRepository::new(pool.clone()));
+    let protective_measure_repository = web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let attendance_repository = web::Data::new(PgAttendanceRepository::new(pool.clone()));
+    let attendance_address_repository = web::Data::new(PgAttendanceAddressRepository::new(pool.clone()));
     info!("Repositories created");
 
     // Create services
@@ -47,6 +70,22 @@ async fn main() -> std::io::Result<()> {
         web::Data::new(config.clone()),
         password_hasher.clone(),
         token_generator.clone()
+    ));
+    let city_service = web::Data::new(CityService::new(
+        city_repository.clone(),
+    ));
+    let victim_service = web::Data::new(VictimService::new(
+        victim_repository.clone(),
+        victim_address_repository.clone(),
+    ));
+    let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
+        protective_measure_repository.clone(),
+        victim_repository.clone(),
+    ));
+    let attendance_service = web::Data::new(AttendanceService::new(
+        attendance_repository.clone(),
+        attendance_address_repository.clone(),
+        victim_repository.clone(),
     ));
     info!("Services created");
 
@@ -67,8 +106,18 @@ async fn main() -> std::io::Result<()> {
             .wrap(AuthMiddleware)
             .app_data(user_repository.clone())
             .app_data(auth_repository.clone())
+            .app_data(city_repository.clone())
+            .app_data(victim_repository.clone())
+            .app_data(victim_address_repository.clone())
+            .app_data(protective_measure_repository.clone())
+            .app_data(attendance_repository.clone())
+            .app_data(attendance_address_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
+            .app_data(city_service.clone())
+            .app_data(victim_service.clone())
+            .app_data(protective_measure_service.clone())
+            .app_data(attendance_service.clone())
             .app_data(web::Data::new(config.clone()))
             .configure(configure_routes)
     })
