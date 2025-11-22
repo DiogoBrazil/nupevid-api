@@ -51,12 +51,6 @@ impl VictimAddressesQueries {
         RETURNING id, victim_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
-    pub const GET_VICTIM_ADDRESS_BY_ID: &'static str = r#"
-        SELECT id, victim_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
-        FROM victim_addresses
-        WHERE id = $1 AND is_deleted = false
-    "#;
-
     pub const GET_VICTIM_ADDRESS_BY_VICTIM_ID: &'static str = r#"
         SELECT id, victim_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
         FROM victim_addresses
@@ -65,17 +59,24 @@ impl VictimAddressesQueries {
         LIMIT 1
     "#;
 
-    pub const UPDATE_VICTIM_ADDRESS_BY_ID: &'static str = r#"
+    pub const UPDATE_VICTIM_ADDRESS_BY_VICTIM_ID: &'static str = r#"
         UPDATE victim_addresses
         SET street = $2, number = $3, district = $4, city_name = $5, state = $6, zip_code = $7, complement = $8
-        WHERE id = $1 AND is_deleted = false
+        WHERE victim_id = $1 AND is_deleted = false
         RETURNING id, victim_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
-    pub const DELETE_VICTIM_ADDRESS_BY_ID: &'static str = r#"
+    pub const DELETE_VICTIM_ADDRESS_BY_VICTIM_ID: &'static str = r#"
         UPDATE victim_addresses
         SET is_deleted = true
-        WHERE id = $1 AND is_deleted = false
+        WHERE victim_id = $1 AND is_deleted = false
         RETURNING id, victim_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+    "#;
+
+    pub const CHECK_ADDRESS_EXISTS_FOR_VICTIM: &'static str = r#"
+        SELECT EXISTS(
+            SELECT 1 FROM victim_addresses
+            WHERE victim_id = $1 AND is_deleted = false
+        ) as exists
     "#;
 }

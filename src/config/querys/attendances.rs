@@ -51,12 +51,6 @@ impl AttendanceAddressesQueries {
         RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
-    pub const GET_ATTENDANCE_ADDRESS_BY_ID: &'static str = r#"
-        SELECT id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
-        FROM attendance_addresses
-        WHERE id = $1 AND is_deleted = false
-    "#;
-
     pub const GET_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
         SELECT id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
         FROM attendance_addresses
@@ -65,17 +59,24 @@ impl AttendanceAddressesQueries {
         LIMIT 1
     "#;
 
-    pub const UPDATE_ATTENDANCE_ADDRESS_BY_ID: &'static str = r#"
+    pub const UPDATE_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
         UPDATE attendance_addresses
         SET street = $2, number = $3, district = $4, city_name = $5, state = $6, zip_code = $7, complement = $8
-        WHERE id = $1 AND is_deleted = false
+        WHERE attendance_id = $1 AND is_deleted = false
         RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
-    pub const DELETE_ATTENDANCE_ADDRESS_BY_ID: &'static str = r#"
+    pub const DELETE_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
         UPDATE attendance_addresses
         SET is_deleted = true
-        WHERE id = $1 AND is_deleted = false
+        WHERE attendance_id = $1 AND is_deleted = false
         RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+    "#;
+
+    pub const CHECK_ADDRESS_EXISTS_FOR_ATTENDANCE: &'static str = r#"
+        SELECT EXISTS(
+            SELECT 1 FROM attendance_addresses
+            WHERE attendance_id = $1 AND is_deleted = false
+        ) as exists
     "#;
 }
