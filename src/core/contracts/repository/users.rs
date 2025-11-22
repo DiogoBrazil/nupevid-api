@@ -21,4 +21,5 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn check_email_exists_for_other_user(&self, email: &str, id: Uuid) -> Result<bool, sqlx::Error>;
     async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, sqlx::Error>;
     async fn update_user_password_by_id(&self, id: Uuid, new_password: String) -> Result<UserDataCreatedWithoutPassword, sqlx::Error>;
+    async fn check_city_admin_exists_for_city(&self, city_id: Uuid, exclude_user_id: Uuid) -> Result<bool, sqlx::Error>;
 }
