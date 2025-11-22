@@ -1,12 +1,9 @@
 use async_trait::async_trait;
 use uuid::Uuid;
-//use uuid::Uuid;
 use crate::core::entities::users::{
     CreateUser,
     UpdateUser,
-    //UpdatePasswordUser,
     UserDataCreatedWithoutPassword,
-    //CompleteUserData
 };
 
 
