@@ -1,11 +1,39 @@
 use actix_web::{test, web, App, dev::Service, Error};
-use nupevid_api::adapters::password_hasher::Argon2PasswordHasher;
-use nupevid_api::config::database::init_database;
-use nupevid_api::repositories::users::PgUserRepository;
-use nupevid_api::routes::users::configure_routes;
-use nupevid_api::services::users::UserService;
+use jsonwebtoken::{EncodingKey, Header, encode};
+use nupevid_api::adapters::{
+    password_hasher::Argon2PasswordHasher,
+    token_generator::JwtTokenGenerator,
+};
+use nupevid_api::config::{
+    config_env::Config,
+    database::init_database,
+};
+use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::middleware::auth::AuthMiddleware;
+use nupevid_api::repositories::{
+    attendances::{PgAttendanceAddressRepository, PgAttendanceRepository},
+    auth::PgAuthRepository,
+    cities::PgCityRepository,
+    protective_measures::PgProtectiveMeasureRepository,
+    users::PgUserRepository,
+    victims::{PgVictimAddressRepository, PgVictimRepository},
+};
+use nupevid_api::routes::{
+    config::base_routes::configure_routes as configure_base_routes,
+    users::configure_routes as configure_user_routes,
+};
+use nupevid_api::services::{
+    attendances::AttendanceService,
+    auth::AuthService,
+    cities::CityService,
+    protective_measures::ProtectiveMeasureService,
+    users::UserService,
+    victims::VictimService,
+};
 use sqlx::PgPool;
 use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 /// Setup test database pool
 pub async fn setup_test_db() -> PgPool {
@@ -25,7 +53,27 @@ pub async fn setup_test_db() -> PgPool {
     pool
 }
 
-/// Clean all users from database
+/// Build a Config instance suitable for tests, using DATABASE_TEST_URL and
+/// default values for SERVER_ADDR / JWT_SECRET / API_KEY when not provided.
+pub fn build_test_config() -> Config {
+    dotenv::dotenv().ok();
+
+    let database_url = env::var("DATABASE_TEST_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/nupevid_test".to_string());
+
+    let sercer_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
+    let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
+    let api_key = env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
+
+    Config {
+        database_url,
+        sercer_addr,
+        jwt_secret,
+        api_key,
+    }
+}
+
+/// Clean all users from database (legacy helper for user-only tests)
 pub async fn clean_users_table(pool: &PgPool) {
     sqlx::query("DELETE FROM users")
         .execute(pool)
@@ -33,7 +81,26 @@ pub async fn clean_users_table(pool: &PgPool) {
         .expect("Failed to clean users table");
 }
 
-/// Create test app with all dependencies
+/// Clean all domain tables from database in foreign-key safe order.
+pub async fn clean_database(pool: &PgPool) {
+    // Child tables first, then parents
+    for sql in [
+        "DELETE FROM attendance_addresses",
+        "DELETE FROM attendances",
+        "DELETE FROM protective_measures",
+        "DELETE FROM victim_addresses",
+        "DELETE FROM victims",
+        "DELETE FROM users",
+        "DELETE FROM cities",
+    ] {
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .expect("Failed to clean table");
+    }
+}
+
+/// Create test app with only /users routes (existing user tests).
 pub async fn create_test_app(pool: PgPool) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
     let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
     let password_hasher = Box::new(Argon2PasswordHasher::new());
@@ -46,7 +113,136 @@ pub async fn create_test_app(pool: PgPool) -> impl Service<actix_http::Request, 
         App::new()
             .app_data(user_repository)
             .app_data(user_service)
-            .configure(configure_routes),
+            .configure(configure_user_routes),
     )
     .await
+}
+
+/// Create a full test app mirroring main.rs, with AuthMiddleware and /api/v1 routes.
+pub async fn create_full_test_app(
+    pool: PgPool,
+    config: Config,
+) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
+    // Adapters
+    let password_hasher = Box::new(Argon2PasswordHasher::new());
+    let token_generator = Box::new(JwtTokenGenerator::new());
+
+    // Repositories
+    let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
+    let auth_repository = web::Data::new(PgAuthRepository::new(pool.clone()));
+    let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
+    let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
+    let victim_address_repository = web::Data::new(PgVictimAddressRepository::new(pool.clone()));
+    let protective_measure_repository = web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let attendance_repository = web::Data::new(PgAttendanceRepository::new(pool.clone()));
+    let attendance_address_repository = web::Data::new(PgAttendanceAddressRepository::new(pool.clone()));
+
+    // Shared config
+    let config_data = web::Data::new(config.clone());
+
+    // Services
+    let user_service = web::Data::new(UserService::new(
+        user_repository.clone(),
+        password_hasher.clone(),
+    ));
+    let auth_service = web::Data::new(AuthService::new(
+        auth_repository.clone(),
+        config_data.clone(),
+        password_hasher.clone(),
+        token_generator.clone(),
+    ));
+    let city_service = web::Data::new(CityService::new(
+        city_repository.clone(),
+    ));
+    let victim_service = web::Data::new(VictimService::new(
+        victim_repository.clone(),
+        victim_address_repository.clone(),
+    ));
+    let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
+        protective_measure_repository.clone(),
+        victim_repository.clone(),
+    ));
+    let attendance_service = web::Data::new(AttendanceService::new(
+        attendance_repository.clone(),
+        attendance_address_repository.clone(),
+        victim_repository.clone(),
+    ));
+
+    test::init_service(
+        App::new()
+            .wrap(AuthMiddleware)
+            .app_data(user_repository.clone())
+            .app_data(auth_repository.clone())
+            .app_data(city_repository.clone())
+            .app_data(victim_repository.clone())
+            .app_data(victim_address_repository.clone())
+            .app_data(protective_measure_repository.clone())
+            .app_data(attendance_repository.clone())
+            .app_data(attendance_address_repository.clone())
+            .app_data(user_service.clone())
+            .app_data(auth_service.clone())
+            .app_data(city_service.clone())
+            .app_data(victim_service.clone())
+            .app_data(protective_measure_service.clone())
+            .app_data(attendance_service.clone())
+            .app_data(config_data.clone())
+            .configure(configure_base_routes),
+    )
+    .await
+}
+
+/// Build common JWT claims helpers for tests.
+fn default_exp() -> usize {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize
+        + 3600
+}
+
+pub fn build_root_claims() -> ClaimsToUserToken {
+    ClaimsToUserToken {
+        id: Uuid::new_v4().to_string(),
+        exp: default_exp(),
+        rank: "ROOT".to_string(),
+        registration: "0000".to_string(),
+        full_name: "Root User".to_string(),
+        profile: "ROOT".to_string(),
+        email: "root@test.com".to_string(),
+        city_id: None,
+    }
+}
+
+pub fn build_city_admin_claims(city_id: Uuid) -> ClaimsToUserToken {
+    ClaimsToUserToken {
+        id: Uuid::new_v4().to_string(),
+        exp: default_exp(),
+        rank: "CITY_ADMIN".to_string(),
+        registration: "1000".to_string(),
+        full_name: "City Admin".to_string(),
+        profile: "CITY_ADMIN".to_string(),
+        email: "city.admin@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    }
+}
+
+
+/// Generate a signed JWT for the given claims and secret.
+pub fn generate_jwt(claims: &ClaimsToUserToken, secret: &str) -> String {
+    encode(
+        &Header::default(),
+        claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .expect("Failed to encode JWT for tests")
+}
+
+/// Convenience helper to add api_key and Authorization headers to a TestRequest.
+pub fn with_auth_headers(
+    req: test::TestRequest,
+    config: &Config,
+    token: &str,
+) -> test::TestRequest {
+    req.insert_header(("api_key", config.api_key.clone()))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
 }
