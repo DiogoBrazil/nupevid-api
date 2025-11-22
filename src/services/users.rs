@@ -39,6 +39,36 @@ impl UserService {
             "Error adding user: ",
         )?;
 
+        // Validate city_id requirement based on profile
+        if user.profile == "CITY_ADMIN" || user.profile == "CITY_USER" {
+            if user.city_id.is_none() {
+                error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
+                return Err(AppError::BadRequest(
+                    "Error adding user: city_id is required for CITY_ADMIN and CITY_USER profiles".to_string()
+                ));
+            }
+        }
+
+        // Check if CITY_ADMIN already exists for this city
+        if user.profile == "CITY_ADMIN" {
+            if let Some(city_id) = user.city_id {
+                let admin_exists = self.user_repository
+                    .check_city_admin_exists_for_city(city_id, Uuid::nil())
+                    .await
+                    .map_err(|e| {
+                        error!("[UserService] Failed to check for existing CITY_ADMIN: {:?}", e);
+                        AppError::InternalServerError
+                    })?;
+
+                if admin_exists {
+                    error!("[UserService] CITY_ADMIN already exists for city: {}", city_id);
+                    return Err(AppError::BadRequest(
+                        "Error adding user: a CITY_ADMIN already exists for this city".to_string()
+                    ));
+                }
+            }
+        }
+
         info!("[UserService] Checking if email already exists: {}", user.email);
 
         let user_exists = self.user_repository
@@ -107,6 +137,36 @@ impl UserService {
             None,
             "Error updating user: "
         )?;
+
+        // Validate city_id requirement based on profile
+        if data.profile == "CITY_ADMIN" || data.profile == "CITY_USER" {
+            if data.city_id.is_none() {
+                error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
+                return Err(AppError::BadRequest(
+                    "Error updating user: city_id is required for CITY_ADMIN and CITY_USER profiles".to_string()
+                ));
+            }
+        }
+
+        // Check if CITY_ADMIN already exists for this city (excluding current user)
+        if data.profile == "CITY_ADMIN" {
+            if let Some(city_id) = data.city_id {
+                let admin_exists = self.user_repository
+                    .check_city_admin_exists_for_city(city_id, id)
+                    .await
+                    .map_err(|e| {
+                        error!("[UserService] Failed to check for existing CITY_ADMIN: {:?}", e);
+                        AppError::InternalServerError
+                    })?;
+
+                if admin_exists {
+                    error!("[UserService] CITY_ADMIN already exists for city: {}", city_id);
+                    return Err(AppError::BadRequest(
+                        "Error updating user: a CITY_ADMIN already exists for this city".to_string()
+                    ));
+                }
+            }
+        }
 
         info!("[Service] Checking if the email is already in use by another user");
 

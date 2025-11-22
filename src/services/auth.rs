@@ -62,6 +62,7 @@ impl AuthService {
                 user.full_name.clone(),
                 user.profile,
                 user.email.to_string(),
+                user.city_id.map(|id| id.to_string()),
                 &self.config.jwt_secret,
             )
             .map_err(|_| AppError::InternalServerError)?;
