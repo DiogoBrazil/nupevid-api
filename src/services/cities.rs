@@ -23,14 +23,12 @@ impl CityService {
     pub async fn create_city(&self, city: CreateCity) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city creation: {}", city.name);
 
-        // Validate required fields
         validate_required_fields(&[
             ("name", city.name.is_empty()),
             ("state", city.state.is_empty()),
             ("battalion", city.battalion.is_empty()),
         ], "Error adding city: ")?;
 
-        // Validate state format (2 characters)
         if city.state.len() != 2 {
             error!("[CityService] Invalid state format: {}", city.state);
             return Err(AppError::BadRequest(
@@ -89,14 +87,12 @@ impl CityService {
     pub async fn update_city_by_id(&self, data: UpdateCity, id: Uuid) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city update for id: {}", id);
 
-        // Validate required fields
         validate_required_fields(&[
             ("name", data.name.is_empty()),
             ("state", data.state.is_empty()),
             ("battalion", data.battalion.is_empty()),
         ], "Error updating city: ")?;
 
-        // Validate state format (2 characters)
         if data.state.len() != 2 {
             error!("[CityService] Invalid state format: {}", data.state);
             return Err(AppError::BadRequest(

@@ -35,7 +35,6 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        // Verify victim exists and user has access
         let victim = match self.victim_repository.get_victim_by_id(measure.victim_id).await {
             Ok(v) => v,
             Err(sqlx::Error::RowNotFound) => {
@@ -49,7 +48,6 @@ impl ProtectiveMeasureService {
 
         self.validate_city_access(&claims, &victim.city_id)?;
 
-        // Validate required fields
         validate_required_fields(&[
             ("process_number", measure.process_number.is_empty()),
             ("judicial_authority", measure.judicial_authority.is_empty()),
@@ -95,7 +93,6 @@ impl ProtectiveMeasureService {
 
         match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(measure) => {
-                // Verify user has access to this measure's victim's city
                 let victim = self.victim_repository.get_victim_by_id(measure.victim_id).await
                     .map_err(|e| {
                         error!("[ProtectiveMeasureService] Error fetching victim: {:?}", e);
@@ -122,12 +119,9 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        // ROOT sees all measures, others see only their city's measures (via victim filtering)
         let measures = if claims.profile == "ROOT" {
             self.measure_repository.get_all_protective_measures().await
         } else {
-            // For non-ROOT users, we need to filter by city
-            // This requires joining with victims table, so let's fetch all and filter
             match self.measure_repository.get_all_protective_measures().await {
                 Ok(all_measures) => {
                     let city_id = self.get_user_city_id(&claims)?;
@@ -164,7 +158,6 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        // Verify victim exists and user has access
         let victim = match self.victim_repository.get_victim_by_id(victim_id).await {
             Ok(v) => v,
             Err(sqlx::Error::RowNotFound) => {
@@ -195,7 +188,6 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        // Get existing measure
         let existing_measure = match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(m) => m,
             Err(sqlx::Error::RowNotFound) => {
@@ -207,7 +199,6 @@ impl ProtectiveMeasureService {
             }
         };
 
-        // Verify access to existing measure's victim
         let existing_victim = self.victim_repository.get_victim_by_id(existing_measure.victim_id).await
             .map_err(|e| {
                 error!("[ProtectiveMeasureService] Error fetching existing victim: {:?}", e);
@@ -216,7 +207,6 @@ impl ProtectiveMeasureService {
 
         self.validate_city_access(&claims, &existing_victim.city_id)?;
 
-        // Verify access to new victim if changed
         if data.victim_id != existing_measure.victim_id {
             let new_victim = match self.victim_repository.get_victim_by_id(data.victim_id).await {
                 Ok(v) => v,
@@ -232,7 +222,6 @@ impl ProtectiveMeasureService {
             self.validate_city_access(&claims, &new_victim.city_id)?;
         }
 
-        // Validate required fields
         validate_required_fields(&[
             ("process_number", data.process_number.is_empty()),
             ("judicial_authority", data.judicial_authority.is_empty()),
@@ -277,7 +266,6 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        // Get measure and verify access
         let measure = match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(m) => m,
             Err(sqlx::Error::RowNotFound) => {
@@ -312,7 +300,7 @@ impl ProtectiveMeasureService {
         }
     }
 
-    // Helper methods for authorization (same as VictimService)
+    // Helper methods
     fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
         req.extensions()
             .get::<ClaimsToUserToken>()

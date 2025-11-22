@@ -39,7 +39,6 @@ impl UserService {
             "Error adding user: ",
         )?;
 
-        // Validate city_id requirement based on profile
         if user.profile == "CITY_ADMIN" || user.profile == "CITY_USER" {
             if user.city_id.is_none() {
                 error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
@@ -49,7 +48,6 @@ impl UserService {
             }
         }
 
-        // Check if CITY_ADMIN already exists for this city
         if user.profile == "CITY_ADMIN" {
             if let Some(city_id) = user.city_id {
                 let admin_exists = self.user_repository
@@ -138,7 +136,6 @@ impl UserService {
             "Error updating user: "
         )?;
 
-        // Validate city_id requirement based on profile
         if data.profile == "CITY_ADMIN" || data.profile == "CITY_USER" {
             if data.city_id.is_none() {
                 error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
@@ -148,7 +145,6 @@ impl UserService {
             }
         }
 
-        // Check if CITY_ADMIN already exists for this city (excluding current user)
         if data.profile == "CITY_ADMIN" {
             if let Some(city_id) = data.city_id {
                 let admin_exists = self.user_repository
@@ -265,7 +261,6 @@ impl UserService {
     pub async fn update_user_password_by_id(&self, id: Uuid, data: UpdateUserPassword) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting password update for user with id: {}", id);
 
-        // Validate required fields
         if data.current_password.is_empty() {
             return Err(AppError::BadRequest("Error updating password: current_password is required".to_string()));
         }
@@ -328,7 +323,7 @@ impl UserService {
         }
     }
 
-    // Private validation helper function
+    // Helpers methods
     fn validate_user_fields(&self,
         rank: &str,
         registration: &str,
