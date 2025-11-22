@@ -11,6 +11,7 @@ pub trait TokenGeneratorPort: Send + Sync {
         full_name: String,
         profile: String,
         email: String,
+        city_id: Option<String>,
         secret: &str
     ) -> Result<String, JwtError>;
 }
@@ -38,6 +39,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         full_name: String,
         profile: String,
         email: String,
+        city_id: Option<String>,
         secret: &str
     ) -> Result<String, JwtError> {
         let expiration: usize = SystemTime::now()
@@ -53,6 +55,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
             full_name,
             profile,
             email,
+            city_id,
         };
 
         encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
