@@ -11,6 +11,7 @@ pub struct CreateUser {
     pub profile: String,
     pub email: String,
     pub password: String,
+    pub city_id: Option<Uuid>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,6 +21,7 @@ pub struct UpdateUser {
     pub full_name: String,
     pub profile: String,
     pub email: String,
+    pub city_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -36,6 +38,8 @@ pub struct UserDataCreatedWithoutPassword {
     pub full_name: String,
     pub profile: String,
     pub email: String,
+    pub city_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub is_deleted: bool,
 }

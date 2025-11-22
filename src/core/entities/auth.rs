@@ -19,8 +19,10 @@ pub struct CompleteUserData {
     pub profile: String,
     pub email: String,
     pub password: String,
+    pub city_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub is_deleted: bool,
 }
 
 
@@ -32,7 +34,7 @@ pub struct LoginResponse {
     pub email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaimsToUserToken {
     pub id: String,
     pub exp: usize,
@@ -41,4 +43,5 @@ pub struct ClaimsToUserToken {
     pub full_name: String,
     pub profile: String,
     pub email: String,
+    pub city_id: Option<String>,
 }
