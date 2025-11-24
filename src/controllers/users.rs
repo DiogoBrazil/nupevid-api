@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use log::info;
 use uuid::Uuid;
 
@@ -9,12 +9,13 @@ use crate::utils::errors::AppError;
 pub async fn create_user(
     user: web::Json<CreateUser>,
     service: web::Data<UserService>,
+    req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!(
         "[Controller] Received request to create user with email: {}",
         user.email
     );
-    service.create_user(user.into_inner()).await
+    service.create_user(user.into_inner(), req).await
 }
 
 pub async fn update_user_by_id(
