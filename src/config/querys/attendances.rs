@@ -46,13 +46,13 @@ pub struct AttendanceAddressesQueries;
 
 impl AttendanceAddressesQueries {
     pub const CREATE_ATTENDANCE_ADDRESS: &'static str = r#"
-        INSERT INTO attendance_addresses (id, attendance_id, street, number, district, city_name, state, zip_code, complement)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+        INSERT INTO attendance_addresses (id, attendance_id, street, number, district, city_id, zip_code, complement)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, attendance_id, street, number, district, city_id, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
     pub const GET_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
-        SELECT id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+        SELECT id, attendance_id, street, number, district, city_id, zip_code, complement, created_at, updated_at, is_deleted
         FROM attendance_addresses
         WHERE attendance_id = $1 AND is_deleted = false
         ORDER BY created_at DESC
@@ -61,16 +61,16 @@ impl AttendanceAddressesQueries {
 
     pub const UPDATE_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
         UPDATE attendance_addresses
-        SET street = $2, number = $3, district = $4, city_name = $5, state = $6, zip_code = $7, complement = $8
+        SET street = $2, number = $3, district = $4, city_id = $5, zip_code = $6, complement = $7
         WHERE attendance_id = $1 AND is_deleted = false
-        RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+        RETURNING id, attendance_id, street, number, district, city_id, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
     pub const DELETE_ATTENDANCE_ADDRESS_BY_ATTENDANCE_ID: &'static str = r#"
         UPDATE attendance_addresses
         SET is_deleted = true
         WHERE attendance_id = $1 AND is_deleted = false
-        RETURNING id, attendance_id, street, number, district, city_name, state, zip_code, complement, created_at, updated_at, is_deleted
+        RETURNING id, attendance_id, street, number, district, city_id, zip_code, complement, created_at, updated_at, is_deleted
     "#;
 
     pub const CHECK_ADDRESS_EXISTS_FOR_ATTENDANCE: &'static str = r#"
