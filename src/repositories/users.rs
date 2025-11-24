@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use log::info;
+use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -33,6 +34,11 @@ impl UserRepository for PgUserRepository {
 
         info!("[Repository] Executing SQL query to create user with email: {} and ID: {}", user.email, id);
 
+        let permission_policies_json = match &user.permission_policies {
+            Some(policies) => json!(policies),
+            None => json!({}),
+        };
+
         let user_created: UserDataCreatedWithoutPassword = sqlx::query_as(UsersQueries::CREATE_USER)
             .bind(id)
             .bind(user.rank)
@@ -42,6 +48,7 @@ impl UserRepository for PgUserRepository {
             .bind(user.email)
             .bind(user.password)
             .bind(user.city_id)
+            .bind(permission_policies_json)
             .fetch_one(&self.pool)
             .await?;
 
@@ -53,6 +60,11 @@ impl UserRepository for PgUserRepository {
     async fn update_user_by_id(&self, data: UpdateUser, id: Uuid) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
         info!("[Repository] Executing SQL query to update user with ID: {}", id);
 
+        let permission_policies_json = match &data.permission_policies {
+            Some(policies) => json!(policies),
+            None => json!({}),
+        };
+
         let user_updated: UserDataCreatedWithoutPassword = sqlx::query_as(UsersQueries::UPDATE_USER_BY_ID)
             .bind(id)
             .bind(data.rank)
@@ -61,6 +73,7 @@ impl UserRepository for PgUserRepository {
             .bind(data.profile)
             .bind(data.email)
             .bind(data.city_id)
+            .bind(permission_policies_json)
             .fetch_one(&self.pool)
             .await?;
 
