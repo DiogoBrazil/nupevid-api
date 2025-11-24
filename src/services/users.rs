@@ -1,15 +1,22 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword};
+use crate::core::entities::auth::ClaimsToUserToken;
 use crate::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::repositories::users::PgUserRepository;
+use crate::core::entities::users::PermissionPolicies;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{is_valid_email, validate_required_fields}
+    validations::{
+        is_valid_email, is_valid_profile, is_valid_rank, is_valid_registration, validate_required_fields,
+        generate_default_policies, is_valid_policy,
+        PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER, VALID_PROFILES, VALID_RANKS,
+        REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH, VALID_POLICIES
+    }
 };
 
 
@@ -26,8 +33,17 @@ impl UserService {
         Self { user_repository, password_hasher }
     }
 
-    pub async fn create_user(&self, user: CreateUser) -> Result<HttpResponse, AppError> {
+    pub async fn create_user(&self, user: CreateUser, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting user creation for email: {}", user.email);
+
+        let claims = self.get_claims(&req)?;
+
+        self.validate_user_creation_permission(&claims, &user)?;
+
+        if let Some(ref policies) = user.permission_policies {
+            self.validate_policy_names(policies)?;
+            self.validate_policy_assignment_permission(&claims, &user.profile, policies, None)?;
+        }
 
         self.validate_user_fields(
             &user.rank,
@@ -39,8 +55,16 @@ impl UserService {
             "Error adding user: ",
         )?;
 
-        if user.profile == "CITY_ADMIN" || user.profile == "CITY_USER" {
-            if user.city_id.is_none() {
+        let mut user_with_city = user;
+
+        if user_with_city.profile == PROFILE_CITY_ADMIN || user_with_city.profile == PROFILE_CITY_USER {
+            if claims.profile == PROFILE_CITY_ADMIN {
+                let admin_city_id = self.get_user_city_id(&claims)?;
+
+                info!("[UserService] CITY_ADMIN creating user - using city_id from token: {}", admin_city_id);
+
+                user_with_city.city_id = Some(admin_city_id);
+            } else if user_with_city.city_id.is_none() {
                 error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
                 return Err(AppError::BadRequest(
                     "Error adding user: city_id is required for CITY_ADMIN and CITY_USER profiles".to_string()
@@ -48,8 +72,8 @@ impl UserService {
             }
         }
 
-        if user.profile == "CITY_ADMIN" {
-            if let Some(city_id) = user.city_id {
+        if user_with_city.profile == PROFILE_CITY_ADMIN {
+            if let Some(city_id) = user_with_city.city_id {
                 let admin_exists = self.user_repository
                     .check_city_admin_exists_for_city(city_id, Uuid::nil())
                     .await
@@ -67,39 +91,52 @@ impl UserService {
             }
         }
 
-        info!("[UserService] Checking if email already exists: {}", user.email);
+        info!("[UserService] Checking if email already exists: {}", user_with_city.email);
 
         let user_exists = self.user_repository
-            .check_user_exists_by_email(user.email.clone())
+            .check_user_exists_by_email(user_with_city.email.clone())
             .await
             .map_err(|e| {
-                error!("[UserService] Failed to check user existence for {}: {:?}", user.email, e);
+                error!("[UserService] Failed to check user existence for {}: {:?}", user_with_city.email, e);
                 AppError::InternalServerError
             })?;
 
         if user_exists {
-            error!("[UserService] Email already registered: {}", user.email);
+            error!("[UserService] Email already registered: {}", user_with_city.email);
             return Err(AppError::BadRequest(format!(
                 "Error adding user: email '{}' already exists",
-                user.email
+                user_with_city.email
             )));
         }
 
         info!("[UserService] Email not found. Proceeding with creation.");
         info!("[UserService] Hashing user password");
 
-        let mut user_with_password_hash = user;
-        user_with_password_hash.password = self.password_hasher
-            .hash_password(&user_with_password_hash.password)
+        user_with_city.password = self.password_hasher
+            .hash_password(&user_with_city.password)
             .map_err(|e| {
                 error!("[UserService] Failed to hash password: {:?}", e);
                 AppError::InternalServerError
             })?;
 
         info!("[UserService] Password hashed successfully");
+
+        if user_with_city.permission_policies.is_none() {
+            let default_policies = generate_default_policies(&user_with_city.profile, user_with_city.city_id);
+            if !default_policies.is_empty() {
+                info!("[UserService] Generated default policies for profile '{}': {:?}",
+                    user_with_city.profile, default_policies.keys().collect::<Vec<_>>());
+                user_with_city.permission_policies = Some(default_policies);
+            } else {
+                info!("[UserService] No default policies for profile '{}'", user_with_city.profile);
+            }
+        } else {
+            info!("[UserService] Using permission_policies provided in request");
+        }
+
         info!("[UserService] Saving user to database");
 
-        match self.user_repository.create_user(user_with_password_hash).await {
+        match self.user_repository.create_user(user_with_city).await {
             Ok(user) => {
                 info!("[UserService] User created successfully with ID: {}", user.id);
                 Ok(ApiResponse::created(user).into_response())
@@ -136,7 +173,7 @@ impl UserService {
             "Error updating user: "
         )?;
 
-        if data.profile == "CITY_ADMIN" || data.profile == "CITY_USER" {
+        if data.profile == PROFILE_CITY_ADMIN || data.profile == PROFILE_CITY_USER {
             if data.city_id.is_none() {
                 error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
                 return Err(AppError::BadRequest(
@@ -145,7 +182,7 @@ impl UserService {
             }
         }
 
-        if data.profile == "CITY_ADMIN" {
+        if data.profile == PROFILE_CITY_ADMIN {
             if let Some(city_id) = data.city_id {
                 let admin_exists = self.user_repository
                     .check_city_admin_exists_for_city(city_id, id)
@@ -350,6 +387,33 @@ impl UserService {
         validate_required_fields(&fields_to_validate, error_context)?;
         info!("[Service] Required fields validation passed");
 
+        info!("[Service] Validating rank: {}", rank);
+        if !is_valid_rank(rank) {
+            return Err(AppError::BadRequest(
+                format!("{}invalid rank '{}'. Valid ranks are: {:?}", error_context, rank, VALID_RANKS)
+            ));
+        }
+        info!("[Service] Rank validation passed");
+
+        info!("[Service] Validating registration: {}", registration);
+        if !is_valid_registration(registration) {
+            return Err(AppError::BadRequest(
+                format!(
+                    "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
+                    error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
+                )
+            ));
+        }
+        info!("[Service] Registration validation passed");
+
+        info!("[Service] Validating profile: {}", profile);
+        if !is_valid_profile(profile) {
+            return Err(AppError::BadRequest(
+                format!("{}invalid profile '{}'. Valid profiles are: {:?}", error_context, profile, VALID_PROFILES)
+            ));
+        }
+        info!("[Service] Profile validation passed");
+
         info!("[Service] Validating email format: {}", email);
         if !is_valid_email(email) {
             return Err(AppError::BadRequest(
@@ -359,6 +423,136 @@ impl UserService {
         info!("[Service] Email format validation passed");
 
         Ok(())
+    }
+
+    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
+        req.extensions()
+            .get::<ClaimsToUserToken>()
+            .cloned()
+            .ok_or_else(|| {
+                error!("[UserService] No claims found in request");
+                AppError::Unauthorized("Unauthorized".to_string())
+            })
+    }
+
+    fn get_user_city_id(&self, claims: &ClaimsToUserToken) -> Result<Uuid, AppError> {
+        claims
+            .city_id
+            .as_ref()
+            .and_then(|id| Uuid::parse_str(id).ok())
+            .ok_or_else(|| {
+                error!("[UserService] User has no city_id in claims");
+                AppError::Forbidden("User must be associated with a city".to_string())
+            })
+    }
+
+    fn validate_user_creation_permission(&self, claims: &ClaimsToUserToken, new_user: &CreateUser) -> Result<(), AppError> {
+        info!("[UserService] Validating user creation permission for profile: {}", claims.profile);
+
+        if claims.profile == PROFILE_ROOT {
+            info!("[UserService] ROOT user - allowed to create any profile");
+            return Ok(());
+        }
+
+        if claims.profile == PROFILE_CITY_USER {
+            error!("[UserService] CITY_USER cannot create users");
+            return Err(AppError::Forbidden(
+                "CITY_USER profile is not allowed to create users".to_string()
+            ));
+        }
+
+        if claims.profile == PROFILE_CITY_ADMIN {
+            if new_user.profile == PROFILE_ROOT {
+                error!("[UserService] CITY_ADMIN cannot create ROOT users");
+                return Err(AppError::Forbidden(
+                    "CITY_ADMIN is not allowed to create ROOT users".to_string()
+                ));
+            }
+
+            if new_user.profile == PROFILE_CITY_ADMIN {
+                error!("[UserService] CITY_ADMIN cannot create other CITY_ADMIN users");
+                return Err(AppError::Forbidden(
+                    "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string()
+                ));
+            }
+
+            info!("[UserService] CITY_ADMIN creating CITY_USER - allowed (city_id will be set from token)");
+            return Ok(());
+        }
+
+        error!("[UserService] Unknown profile '{}' attempted to create user", claims.profile);
+        Err(AppError::Forbidden("Permission denied".to_string()))
+    }
+
+    fn validate_policy_names(&self, policies: &PermissionPolicies) -> Result<(), AppError> {
+        for policy_name in policies.keys() {
+            if !is_valid_policy(policy_name) {
+                error!("[UserService] Invalid policy name: {}", policy_name);
+                return Err(AppError::BadRequest(
+                    format!("Invalid policy name '{}'. Valid policies are: {:?}", policy_name, VALID_POLICIES)
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_policy_assignment_permission(
+        &self,
+        claims: &ClaimsToUserToken,
+        target_profile: &str,
+        policies: &PermissionPolicies,
+        _claims_policies: Option<&PermissionPolicies>,
+    ) -> Result<(), AppError> {
+        info!("[UserService] Validating policy assignment permission");
+
+        if claims.profile == PROFILE_ROOT {
+            info!("[UserService] ROOT user - allowed to assign any policy");
+            return Ok(());
+        }
+
+        if claims.profile == PROFILE_CITY_USER {
+            if !policies.is_empty() {
+                error!("[UserService] CITY_USER cannot assign policies");
+                return Err(AppError::Forbidden(
+                    "CITY_USER profile is not allowed to assign permission policies".to_string()
+                ));
+            }
+            return Ok(());
+        }
+
+        if claims.profile == PROFILE_CITY_ADMIN {
+            if target_profile != PROFILE_CITY_USER {
+                if !policies.is_empty() {
+                    error!("[UserService] CITY_ADMIN can only assign policies to CITY_USER");
+                    return Err(AppError::Forbidden(
+                        "CITY_ADMIN can only assign permission policies to CITY_USER profiles".to_string()
+                    ));
+                }
+                return Ok(());
+            }
+
+            let admin_city_id = self.get_user_city_id(claims)?;
+
+            for (policy_name, city_ids) in policies.iter() {
+                for city_id in city_ids {
+                    if *city_id != admin_city_id {
+                        error!("[UserService] CITY_ADMIN cannot assign policies for other cities");
+                        return Err(AppError::Forbidden(
+                            format!(
+                                "CITY_ADMIN cannot assign policy '{}' for city '{}'. Only policies for your own city are allowed.",
+                                policy_name, city_id
+                            )
+                        ));
+                    }
+                }
+            }
+
+            info!("[UserService] CITY_ADMIN policy assignment validated");
+            return Ok(());
+        }
+
+        error!("[UserService] Unknown profile '{}' attempted to assign policies", claims.profile);
+        Err(AppError::Forbidden("Permission denied".to_string()))
     }
 
 }

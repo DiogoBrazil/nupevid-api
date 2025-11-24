@@ -8,7 +8,10 @@ use crate::repositories::cities::PgCityRepository;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::validate_required_fields
+    validations::{
+        validate_required_fields, is_valid_city_name, is_valid_battalion, is_valid_state,
+        VALID_CITIES, VALID_BATTALIONS, VALID_STATES
+    }
 };
 
 pub struct CityService {
@@ -29,10 +32,24 @@ impl CityService {
             ("battalion", city.battalion.is_empty()),
         ], "Error adding city: ")?;
 
-        if city.state.len() != 2 {
-            error!("[CityService] Invalid state format: {}", city.state);
+        if !is_valid_city_name(&city.name) {
+            error!("[CityService] Invalid city name: {}", city.name);
             return Err(AppError::BadRequest(
-                "Error adding city: state must be 2 characters".to_string()
+                format!("Error adding city: invalid city name '{}'. Valid cities: {:?}", city.name, VALID_CITIES)
+            ));
+        }
+
+        if !is_valid_state(&city.state) {
+            error!("[CityService] Invalid state: {}", city.state);
+            return Err(AppError::BadRequest(
+                format!("Error adding city: invalid state '{}'. Valid states: {:?}", city.state, VALID_STATES)
+            ));
+        }
+
+        if !is_valid_battalion(&city.battalion) {
+            error!("[CityService] Invalid battalion: {}", city.battalion);
+            return Err(AppError::BadRequest(
+                format!("Error adding city: invalid battalion '{}'. Valid battalions: {:?}", city.battalion, VALID_BATTALIONS)
             ));
         }
 
@@ -93,10 +110,24 @@ impl CityService {
             ("battalion", data.battalion.is_empty()),
         ], "Error updating city: ")?;
 
-        if data.state.len() != 2 {
-            error!("[CityService] Invalid state format: {}", data.state);
+        if !is_valid_city_name(&data.name) {
+            error!("[CityService] Invalid city name: {}", data.name);
             return Err(AppError::BadRequest(
-                "Error updating city: state must be 2 characters".to_string()
+                format!("Error updating city: invalid city name '{}'. Valid cities: {:?}", data.name, VALID_CITIES)
+            ));
+        }
+
+        if !is_valid_state(&data.state) {
+            error!("[CityService] Invalid state: {}", data.state);
+            return Err(AppError::BadRequest(
+                format!("Error updating city: invalid state '{}'. Valid states: {:?}", data.state, VALID_STATES)
+            ));
+        }
+
+        if !is_valid_battalion(&data.battalion) {
+            error!("[CityService] Invalid battalion: {}", data.battalion);
+            return Err(AppError::BadRequest(
+                format!("Error updating city: invalid battalion '{}'. Valid battalions: {:?}", data.battalion, VALID_BATTALIONS)
             ));
         }
 

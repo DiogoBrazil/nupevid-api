@@ -9,7 +9,7 @@ use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::victims::VictimWithAddress;
 use crate::repositories::attendances::PgAttendanceRepository;
 use crate::repositories::victims::PgVictimRepository;
-use crate::utils::{errors::AppError, responses::ApiResponse};
+use crate::utils::{errors::AppError, responses::ApiResponse, validations::PROFILE_ROOT};
 
 pub struct AttendanceService {
     attendance_repository: web::Data<PgAttendanceRepository>,
@@ -78,7 +78,7 @@ impl AttendanceService {
     pub async fn get_all_attendances(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         let claims = self.get_claims(&req)?;
 
-        let attendances = if claims.profile == "ROOT" {
+        let attendances = if claims.profile == PROFILE_ROOT {
             self.attendance_repository.get_all_attendances().await
         } else {
             match self.attendance_repository.get_all_attendances().await {
@@ -227,7 +227,7 @@ impl AttendanceService {
         claims: &ClaimsToUserToken,
         city_id: &Uuid,
     ) -> Result<(), AppError> {
-        if claims.profile == "ROOT" {
+        if claims.profile == PROFILE_ROOT {
             return Ok(());
         }
         let user_city_id = self.get_user_city_id(claims)?;

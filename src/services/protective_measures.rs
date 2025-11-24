@@ -14,7 +14,7 @@ use crate::repositories::victims::PgVictimRepository;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::validate_required_fields
+    validations::{validate_required_fields, PROFILE_ROOT}
 };
 
 pub struct ProtectiveMeasureService {
@@ -51,7 +51,6 @@ impl ProtectiveMeasureService {
         validate_required_fields(&[
             ("process_number", measure.process_number.is_empty()),
             ("judicial_authority", measure.judicial_authority.is_empty()),
-            ("court_district", measure.court_district.is_empty()),
         ], "Error adding protective measure: ")?;
 
         // Business rule: Check if active measure already exists for this victim
@@ -119,7 +118,7 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        let measures = if claims.profile == "ROOT" {
+        let measures = if claims.profile == PROFILE_ROOT {
             self.measure_repository.get_all_protective_measures().await
         } else {
             match self.measure_repository.get_all_protective_measures().await {
@@ -225,7 +224,6 @@ impl ProtectiveMeasureService {
         validate_required_fields(&[
             ("process_number", data.process_number.is_empty()),
             ("judicial_authority", data.judicial_authority.is_empty()),
-            ("court_district", data.court_district.is_empty()),
         ], "Error updating protective measure: ")?;
 
         // Business rule: Check if setting to active when another active measure exists
@@ -322,7 +320,7 @@ impl ProtectiveMeasureService {
     }
 
     fn validate_city_access(&self, claims: &ClaimsToUserToken, city_id: &Uuid) -> Result<(), AppError> {
-        if claims.profile == "ROOT" {
+        if claims.profile == PROFILE_ROOT {
             return Ok(());
         }
 

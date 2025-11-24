@@ -6,7 +6,7 @@ use crate::core::contracts::repository::victims::VictimRepository;
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::victims::{CreateVictim, UpdateVictim};
 use crate::repositories::victims::PgVictimRepository;
-use crate::utils::{errors::AppError, responses::ApiResponse, validations::validate_required_fields};
+use crate::utils::{errors::AppError, responses::ApiResponse, validations::{validate_required_fields, PROFILE_ROOT}};
 
 pub struct VictimService {
     victim_repository: web::Data<PgVictimRepository>,
@@ -91,7 +91,7 @@ impl VictimService {
 
         let claims = self.get_claims(&req)?;
 
-        let victims = if claims.profile == "ROOT" {
+        let victims = if claims.profile == PROFILE_ROOT {
             info!("[VictimService] ROOT user - fetching all victims");
             self.victim_repository.get_all_victims().await
         } else {
@@ -245,7 +245,7 @@ impl VictimService {
     }
 
     fn validate_city_access(&self, claims: &ClaimsToUserToken, city_id: &Uuid) -> Result<(), AppError> {
-        if claims.profile == "ROOT" {
+        if claims.profile == PROFILE_ROOT {
             return Ok(());
         }
 
