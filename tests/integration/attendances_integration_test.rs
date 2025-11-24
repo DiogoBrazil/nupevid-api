@@ -17,7 +17,7 @@ fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
     })
 }
 
-fn build_attendance_payload_with_address(victim_id: Uuid) -> serde_json::Value {
+fn build_attendance_payload_with_address(victim_id: Uuid, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
         "victim_id": victim_id,
         "was_victim_present": true,
@@ -30,8 +30,7 @@ fn build_attendance_payload_with_address(victim_id: Uuid) -> serde_json::Value {
             "street": "Rua Atendimento",
             "number": "100",
             "district": "Centro",
-            "city_name": "Cidade A",
-            "state": "SP",
+            "city_id": city_id,
             "zip_code": "22222-222",
             "complement": "Casa"
         }
@@ -272,7 +271,7 @@ async fn create_attendance_with_address_in_single_request() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance with address
-    let payload = build_attendance_payload_with_address(victim_id);
+    let payload = build_attendance_payload_with_address(victim_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendances")
@@ -306,7 +305,7 @@ async fn create_attendance_with_address_in_single_request() {
         body["data"]["address"]["district"].as_str().unwrap(),
         "Centro"
     );
-    assert_eq!(body["data"]["address"]["state"].as_str().unwrap(), "SP");
+    assert_eq!(body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
 }
 
 #[actix_rt::test]
@@ -324,7 +323,7 @@ async fn get_attendance_returns_address_when_exists() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance with address
-    let payload = build_attendance_payload_with_address(victim_id);
+    let payload = build_attendance_payload_with_address(victim_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendances")
@@ -402,8 +401,7 @@ async fn update_attendance_can_add_or_update_address() {
             "street": "Nova Rua",
             "number": "200",
             "district": "Bairro Novo",
-            "city_name": "Nova Cidade",
-            "state": "RJ",
+            "city_id": city,
             "zip_code": "20000-000",
             "complement": null
         }
@@ -433,8 +431,8 @@ async fn update_attendance_can_add_or_update_address() {
         "Nova Rua"
     );
     assert_eq!(
-        update_body["data"]["address"]["state"].as_str().unwrap(),
-        "RJ"
+        update_body["data"]["address"]["city_id"].as_str().unwrap(),
+        city.to_string()
     );
 }
 
@@ -454,7 +452,7 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to create attendance with address for victim in city B
-    let payload = build_attendance_payload_with_address(victim_b);
+    let payload = build_attendance_payload_with_address(victim_b, city_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendances")

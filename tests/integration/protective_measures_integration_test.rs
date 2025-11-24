@@ -4,12 +4,12 @@ use uuid::Uuid;
 
 use crate::common::{test_helpers, db_fixtures};
 
-fn build_measure_payload(victim_id: Uuid, is_active: bool) -> serde_json::Value {
+fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, is_active: bool) -> serde_json::Value {
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "judicial_authority": "Juiz A",
-        "court_district": "Comarca X",
+        "court_district_id": court_district_id,
         "is_active": is_active,
         "victim_id": victim_id,
     })
@@ -29,7 +29,7 @@ async fn create_protective_measure_success_for_victim_in_own_city() {
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_measure_payload(victim_id, true);
+    let payload = build_measure_payload(victim_id, city, true);
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
@@ -62,7 +62,7 @@ async fn cannot_create_second_active_measure_for_same_victim() {
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_measure_payload(victim_id, true);
+    let payload = build_measure_payload(victim_id, city, true);
 
     // First active measure
     let req1 = test_helpers::with_auth_headers(
@@ -108,7 +108,7 @@ async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
-    let payload = build_measure_payload(victim_in_b, true);
+    let payload = build_measure_payload(victim_in_b, city_b, true);
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
@@ -137,7 +137,7 @@ async fn list_measures_by_victim_success() {
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_measure_payload(victim_id, true);
+    let payload = build_measure_payload(victim_id, city, true);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -178,7 +178,7 @@ async fn create_protective_measure_with_nonexistent_victim_returns_404() {
 
     // Random victim id that does not exist
     let random_victim_id = Uuid::new_v4();
-    let payload = build_measure_payload(random_victim_id, true);
+    let payload = build_measure_payload(random_victim_id, city, true);
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
@@ -207,7 +207,7 @@ async fn delete_protective_measure_soft_delete() {
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_measure_payload(victim_id, true);
+    let payload = build_measure_payload(victim_id, city, true);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")

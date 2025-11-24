@@ -6,25 +6,37 @@ use crate::common::{fixtures, test_helpers};
 #[actix_rt::test]
 async fn test_update_user_success() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     // Create a user
     let user = fixtures::valid_create_user();
-    let create_req = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user)
-        .to_request();
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user),
+        &config,
+        &token,
+    )
+    .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = create_body["data"]["id"].as_str().unwrap();
 
     // Update user
     let update_data = fixtures::valid_update_user();
-    let update_req = test::TestRequest::put()
-        .uri(&format!("/users/{}", user_id))
-        .set_json(&update_data)
-        .to_request();
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", user_id))
+            .set_json(&update_data),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::OK);
@@ -38,15 +50,23 @@ async fn test_update_user_success() {
 #[actix_rt::test]
 async fn test_update_user_not_found() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let random_uuid = Uuid::new_v4();
     let update_data = fixtures::valid_update_user();
-    let req = test::TestRequest::put()
-        .uri(&format!("/users/{}", random_uuid))
-        .set_json(&update_data)
-        .to_request();
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", random_uuid))
+            .set_json(&update_data),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -59,35 +79,51 @@ async fn test_update_user_not_found() {
 #[actix_rt::test]
 async fn test_update_user_duplicate_email() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     // Create two users
     let user1 = fixtures::valid_create_user();
     let user2 = fixtures::valid_create_user_2();
-    
-    let create_req1 = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user1)
-        .to_request();
+
+    let create_req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user1),
+        &config,
+        &token,
+    )
+    .to_request();
     let create_resp1 = test::call_service(&app, create_req1).await;
     let create_body1: serde_json::Value = test::read_body_json(create_resp1).await;
     let user1_id = create_body1["data"]["id"].as_str().unwrap();
 
-    let create_req2 = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user2)
-        .to_request();
+    let create_req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user2),
+        &config,
+        &token,
+    )
+    .to_request();
     test::call_service(&app, create_req2).await;
 
     // Try to update user1 with user2's email
     let mut update_data = fixtures::valid_update_user();
     update_data.email = user2.email.clone();
-    
-    let update_req = test::TestRequest::put()
-        .uri(&format!("/users/{}", user1_id))
-        .set_json(&update_data)
-        .to_request();
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", user1_id))
+            .set_json(&update_data),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
@@ -100,35 +136,51 @@ async fn test_update_user_duplicate_email() {
 #[actix_rt::test]
 async fn test_update_user_duplicate_registration() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     // Create two users
     let user1 = fixtures::valid_create_user();
     let user2 = fixtures::valid_create_user_2();
-    
-    let create_req1 = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user1)
-        .to_request();
+
+    let create_req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user1),
+        &config,
+        &token,
+    )
+    .to_request();
     let create_resp1 = test::call_service(&app, create_req1).await;
     let create_body1: serde_json::Value = test::read_body_json(create_resp1).await;
     let user1_id = create_body1["data"]["id"].as_str().unwrap();
 
-    let create_req2 = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user2)
-        .to_request();
+    let create_req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user2),
+        &config,
+        &token,
+    )
+    .to_request();
     test::call_service(&app, create_req2).await;
 
     // Try to update user1 with user2's registration
     let mut update_data = fixtures::valid_update_user();
     update_data.registration = user2.registration.clone();
-    
-    let update_req = test::TestRequest::put()
-        .uri(&format!("/users/{}", user1_id))
-        .set_json(&update_data)
-        .to_request();
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", user1_id))
+            .set_json(&update_data),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
@@ -142,23 +194,34 @@ async fn test_update_user_duplicate_registration() {
 #[actix_rt::test]
 async fn test_delete_user_success() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     // Create a user
     let user = fixtures::valid_create_user();
-    let create_req = test::TestRequest::post()
-        .uri("/users")
-        .set_json(&user)
-        .to_request();
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user),
+        &config,
+        &token,
+    )
+    .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = create_body["data"]["id"].as_str().unwrap();
 
     // Delete user
-    let delete_req = test::TestRequest::delete()
-        .uri(&format!("/users/{}", user_id))
-        .to_request();
+    let delete_req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/users/{}", user_id)),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let delete_resp = test::call_service(&app, delete_req).await;
     assert_eq!(delete_resp.status(), StatusCode::OK);
@@ -168,9 +231,12 @@ async fn test_delete_user_success() {
     assert_eq!(delete_body["data"]["id"].as_str().unwrap(), user_id);
 
     // Verify user is deleted
-    let get_req = test::TestRequest::get()
-        .uri(&format!("/users/{}", user_id))
-        .to_request();
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", user_id)),
+        &config,
+        &token,
+    )
+    .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 }
@@ -178,13 +244,20 @@ async fn test_delete_user_success() {
 #[actix_rt::test]
 async fn test_delete_user_not_found() {
     let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_users_table(&pool).await;
-    let app = test_helpers::create_test_app(pool.clone()).await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let random_uuid = Uuid::new_v4();
-    let req = test::TestRequest::delete()
-        .uri(&format!("/users/{}", random_uuid))
-        .to_request();
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/users/{}", random_uuid)),
+        &config,
+        &token,
+    )
+    .to_request();
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);

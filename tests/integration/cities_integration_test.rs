@@ -5,8 +5,8 @@ use crate::common::test_helpers;
 fn new_city_payload(name: &str) -> serde_json::Value {
     serde_json::json!({
         "name": name,
-        "state": "SP",
-        "battalion": "1º BPM",
+        "state": "RO",
+        "battalion": "1ºBPM",
     })
 }
 
@@ -21,7 +21,7 @@ async fn create_city_success() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = new_city_payload("São Paulo");
+    let payload = new_city_payload("PORTO VELHO");
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
@@ -37,11 +37,11 @@ async fn create_city_success() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 201);
-    assert_eq!(body["data"]["name"].as_str().unwrap(), "São Paulo");
+    assert_eq!(body["data"]["name"].as_str().unwrap(), "PORTO VELHO");
 }
 
 #[actix_rt::test]
-async fn create_city_invalid_state_length_returns_bad_request() {
+async fn create_city_invalid_state_returns_bad_request() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -52,9 +52,9 @@ async fn create_city_invalid_state_length_returns_bad_request() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let payload = serde_json::json!({
-        "name": "Cidade X",
-        "state": "S", // invalid, must be 2 chars
-        "battalion": "1º BPM",
+        "name": "PORTO VELHO",
+        "state": "SP", // invalid state
+        "battalion": "1ºBPM",
     });
 
     let req = test_helpers::with_auth_headers(
@@ -71,7 +71,75 @@ async fn create_city_invalid_state_length_returns_bad_request() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("state must be 2 characters"));
+    assert!(body["message"].as_str().unwrap().contains("invalid state"));
+}
+
+#[actix_rt::test]
+async fn create_city_invalid_name_returns_bad_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let payload = serde_json::json!({
+        "name": "Cidade Inexistente",
+        "state": "RO",
+        "battalion": "1ºBPM",
+    });
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert!(body["message"].as_str().unwrap().contains("invalid city name"));
+}
+
+#[actix_rt::test]
+async fn create_city_invalid_battalion_returns_bad_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let payload = serde_json::json!({
+        "name": "PORTO VELHO",
+        "state": "RO",
+        "battalion": "99ºBPM", // invalid battalion
+    });
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert!(body["message"].as_str().unwrap().contains("invalid battalion"));
 }
 
 #[actix_rt::test]
@@ -146,7 +214,7 @@ async fn get_all_cities_with_data_returns_list() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     // create two cities
-    for name in ["Cidade A", "Cidade B"] {
+    for name in ["PORTO VELHO", "ARIQUEMES"] {
         let payload = new_city_payload(name);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
@@ -186,7 +254,7 @@ async fn get_city_by_id_success() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = new_city_payload("Campinas");
+    let payload = new_city_payload("CACOAL");
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
@@ -256,7 +324,7 @@ async fn update_city_success() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = new_city_payload("Sorocaba");
+    let payload = new_city_payload("VILHENA");
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
@@ -272,9 +340,9 @@ async fn update_city_success() {
     let city_id = create_body["data"]["id"].as_str().unwrap();
 
     let update_payload = serde_json::json!({
-        "name": "Sorocaba Updated",
-        "state": "SP",
-        "battalion": "2º BPM",
+        "name": "JI-PARANÁ",
+        "state": "RO",
+        "battalion": "2ºBPM",
     });
 
     let update_req = test_helpers::with_auth_headers(
@@ -291,7 +359,7 @@ async fn update_city_success() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status"].as_u64().unwrap(), 200);
-    assert_eq!(update_body["data"]["name"].as_str().unwrap(), "Sorocaba Updated");
+    assert_eq!(update_body["data"]["name"].as_str().unwrap(), "JI-PARANÁ");
 }
 
 #[actix_rt::test]
@@ -305,7 +373,7 @@ async fn update_city_invalid_state_returns_bad_request() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = new_city_payload("Cidade Y");
+    let payload = new_city_payload("JARU");
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
@@ -321,9 +389,9 @@ async fn update_city_invalid_state_returns_bad_request() {
     let city_id = create_body["data"]["id"].as_str().unwrap();
 
     let update_payload = serde_json::json!({
-        "name": "Cidade Y",
-        "state": "S",
-        "battalion": "1º BPM",
+        "name": "JARU",
+        "state": "SP", // invalid state
+        "battalion": "1ºBPM",
     });
 
     let update_req = test_helpers::with_auth_headers(
@@ -340,7 +408,7 @@ async fn update_city_invalid_state_returns_bad_request() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("state must be 2 characters"));
+    assert!(update_body["message"].as_str().unwrap().contains("invalid state"));
 }
 
 #[actix_rt::test]
@@ -354,7 +422,7 @@ async fn update_city_not_found_returns_404() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let update_payload = new_city_payload("Cidade Z");
+    let update_payload = new_city_payload("BURITIS");
 
     let random_id = uuid::Uuid::new_v4();
     let update_req = test_helpers::with_auth_headers(
@@ -385,7 +453,7 @@ async fn delete_city_success_performs_soft_delete() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = new_city_payload("Cidade Delete");
+    let payload = new_city_payload("CEREJEIRAS");
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")

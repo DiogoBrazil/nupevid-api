@@ -6,7 +6,7 @@ use crate::common::{db_fixtures, test_helpers};
 fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
         "full_name": full_name,
-        "document_id": serde_json::Value::Null,
+        "cpf": serde_json::Value::Null,
         "birth_date": serde_json::Value::Null,
         "phone": serde_json::Value::Null,
         "city_id": city_id,
@@ -17,7 +17,7 @@ fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
 fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
         "full_name": full_name,
-        "document_id": "123456789",
+        "cpf": "123456789",
         "birth_date": "1990-01-01",
         "phone": "11999999999",
         "city_id": city_id,
@@ -25,8 +25,7 @@ fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_js
             "street": "Rua Teste",
             "number": "100",
             "district": "Centro",
-            "city_name": "Cidade Teste",
-            "state": "SP",
+            "city_id": city_id,
             "zip_code": "01000-000",
             "complement": "Apt 10"
         }
@@ -280,14 +279,14 @@ async fn create_victim_with_address_in_single_request() {
 
     // Verify victim data
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Vitima Com Endereco");
-    assert_eq!(body["data"]["document_id"].as_str().unwrap(), "123456789");
+    assert_eq!(body["data"]["cpf"].as_str().unwrap(), "123456789");
 
     // Verify address data is included
     assert!(body["data"]["address"].is_object());
     assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Teste");
     assert_eq!(body["data"]["address"]["number"].as_str().unwrap(), "100");
     assert_eq!(body["data"]["address"]["district"].as_str().unwrap(), "Centro");
-    assert_eq!(body["data"]["address"]["state"].as_str().unwrap(), "SP");
+    assert_eq!(body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
 }
 
 #[actix_rt::test]
@@ -366,7 +365,7 @@ async fn update_victim_can_add_or_update_address() {
     // Update victim adding address
     let update_payload = serde_json::json!({
         "full_name": "Vitima Update Renamed",
-        "document_id": null,
+        "cpf": null,
         "birth_date": null,
         "phone": null,
         "city_id": city,
@@ -374,8 +373,7 @@ async fn update_victim_can_add_or_update_address() {
             "street": "Nova Rua",
             "number": "200",
             "district": "Bairro Novo",
-            "city_name": "Nova Cidade",
-            "state": "RJ",
+            "city_id": city,
             "zip_code": "20000-000",
             "complement": null
         }
@@ -397,7 +395,7 @@ async fn update_victim_can_add_or_update_address() {
     assert_eq!(update_body["data"]["full_name"].as_str().unwrap(), "Vitima Update Renamed");
     assert!(update_body["data"]["address"].is_object());
     assert_eq!(update_body["data"]["address"]["street"].as_str().unwrap(), "Nova Rua");
-    assert_eq!(update_body["data"]["address"]["state"].as_str().unwrap(), "RJ");
+    assert_eq!(update_body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
 }
 
 #[actix_rt::test]
