@@ -8,8 +8,7 @@ pub struct AddressData {
     pub street: Option<String>,
     pub number: Option<String>,
     pub district: Option<String>,
-    pub city_name: Option<String>,
-    pub state: Option<String>,
+    pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
 }
@@ -17,7 +16,7 @@ pub struct AddressData {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateVictim {
     pub full_name: String,
-    pub document_id: Option<String>,
+    pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub phone: Option<String>,
     pub city_id: Uuid,
@@ -27,7 +26,7 @@ pub struct CreateVictim {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateVictim {
     pub full_name: String,
-    pub document_id: Option<String>,
+    pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub phone: Option<String>,
     pub city_id: Uuid,
@@ -38,7 +37,7 @@ pub struct UpdateVictim {
 pub struct Victim {
     pub id: Uuid,
     pub full_name: String,
-    pub document_id: Option<String>,
+    pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub phone: Option<String>,
     pub city_id: Uuid,
@@ -53,8 +52,7 @@ pub struct VictimAddressResponse {
     pub street: Option<String>,
     pub number: Option<String>,
     pub district: Option<String>,
-    pub city_name: Option<String>,
-    pub state: Option<String>,
+    pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
 }
@@ -63,7 +61,7 @@ pub struct VictimAddressResponse {
 pub struct VictimWithAddress {
     pub id: Uuid,
     pub full_name: String,
-    pub document_id: Option<String>,
+    pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub phone: Option<String>,
     pub city_id: Uuid,
@@ -80,8 +78,7 @@ pub struct VictimAddress {
     pub street: Option<String>,
     pub number: Option<String>,
     pub district: Option<String>,
-    pub city_name: Option<String>,
-    pub state: Option<String>,
+    pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -96,8 +93,7 @@ impl VictimAddress {
             street: self.street.clone(),
             number: self.number.clone(),
             district: self.district.clone(),
-            city_name: self.city_name.clone(),
-            state: self.state.clone(),
+            city_id: self.city_id,
             zip_code: self.zip_code.clone(),
             complement: self.complement.clone(),
         }
@@ -109,7 +105,7 @@ impl Victim {
         VictimWithAddress {
             id: self.id,
             full_name: self.full_name,
-            document_id: self.document_id,
+            cpf: self.cpf,
             birth_date: self.birth_date,
             phone: self.phone,
             city_id: self.city_id,

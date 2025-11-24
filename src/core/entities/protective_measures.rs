@@ -7,8 +7,9 @@ use chrono::{DateTime, Utc, NaiveDate};
 pub struct CreateProtectiveMeasure {
     pub process_number: String,
     pub issued_at: NaiveDate,
+    pub valid_until: Option<NaiveDate>,
     pub judicial_authority: String,
-    pub court_district: String,
+    pub court_district_id: Uuid,
     pub is_active: bool,
     pub victim_id: Uuid,
 }
@@ -17,8 +18,9 @@ pub struct CreateProtectiveMeasure {
 pub struct UpdateProtectiveMeasure {
     pub process_number: String,
     pub issued_at: NaiveDate,
+    pub valid_until: Option<NaiveDate>,
     pub judicial_authority: String,
-    pub court_district: String,
+    pub court_district_id: Uuid,
     pub is_active: bool,
     pub victim_id: Uuid,
 }
@@ -28,8 +30,9 @@ pub struct ProtectiveMeasure {
     pub id: Uuid,
     pub process_number: String,
     pub issued_at: NaiveDate,
+    pub valid_until: Option<NaiveDate>,
     pub judicial_authority: String,
-    pub court_district: String,
+    pub court_district_id: Uuid,
     pub is_active: bool,
     pub victim_id: Uuid,
     pub created_at: DateTime<Utc>,
