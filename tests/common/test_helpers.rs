@@ -11,10 +11,7 @@ use nupevid_api::repositories::{
     protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
     victims::PgVictimRepository,
 };
-use nupevid_api::routes::{
-    config::base_routes::configure_routes as configure_base_routes,
-    users::configure_routes as configure_user_routes,
-};
+use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
     attendances::AttendanceService, auth::AuthService, cities::CityService,
     protective_measures::ProtectiveMeasureService, users::UserService, victims::VictimService,
@@ -62,14 +59,6 @@ pub fn build_test_config() -> Config {
     }
 }
 
-/// Clean all users from database (legacy helper for user-only tests)
-pub async fn clean_users_table(pool: &PgPool) {
-    sqlx::query("DELETE FROM users")
-        .execute(pool)
-        .await
-        .expect("Failed to clean users table");
-}
-
 /// Clean all domain tables from database in foreign-key safe order.
 pub async fn clean_database(pool: &PgPool) {
     // Child tables first, then parents
@@ -87,23 +76,6 @@ pub async fn clean_database(pool: &PgPool) {
             .await
             .expect("Failed to clean table");
     }
-}
-
-/// Create test app with only /users routes (existing user tests).
-pub async fn create_test_app(
-    pool: PgPool,
-) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
-    let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
-    let password_hasher = Box::new(Argon2PasswordHasher::new());
-    let user_service = web::Data::new(UserService::new(user_repository.clone(), password_hasher));
-
-    test::init_service(
-        App::new()
-            .app_data(user_repository)
-            .app_data(user_service)
-            .configure(configure_user_routes),
-    )
-    .await
 }
 
 /// Create a full test app mirroring main.rs, with AuthMiddleware and /api/v1 routes.
@@ -183,8 +155,8 @@ pub fn build_root_claims() -> ClaimsToUserToken {
     ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
-        rank: "ROOT".to_string(),
-        registration: "0000".to_string(),
+        rank: "CEL PM".to_string(),
+        registration: "100000001".to_string(),
         full_name: "Root User".to_string(),
         profile: "ROOT".to_string(),
         email: "root@test.com".to_string(),
@@ -196,8 +168,8 @@ pub fn build_city_admin_claims(city_id: Uuid) -> ClaimsToUserToken {
     ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
-        rank: "CITY_ADMIN".to_string(),
-        registration: "1000".to_string(),
+        rank: "CAP PM".to_string(),
+        registration: "100000002".to_string(),
         full_name: "City Admin".to_string(),
         profile: "CITY_ADMIN".to_string(),
         email: "city.admin@test.com".to_string(),

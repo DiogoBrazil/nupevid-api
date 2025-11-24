@@ -11,8 +11,8 @@ pub async fn insert_city(pool: &PgPool, name: &str) -> Uuid {
     )
     .bind(id)
     .bind(name)
-    .bind("SP")
-    .bind("1º BPM")
+    .bind("RO")
+    .bind("1ºBPM")
     .execute(pool)
     .await
     .expect("Failed to insert test city");
@@ -23,7 +23,7 @@ pub async fn insert_city(pool: &PgPool, name: &str) -> Uuid {
 pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO victims (id, full_name, document_id, birth_date, phone, city_id, is_deleted) \
+        "INSERT INTO victims (id, full_name, cpf, birth_date, phone, city_id, is_deleted) \
          VALUES ($1, $2, $3, $4, $5, $6, false)",
     )
     .bind(id)
