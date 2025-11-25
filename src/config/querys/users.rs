@@ -62,4 +62,15 @@ impl UsersQueries {
             AND id != $2
         ) as exists
     "#;
+
+    pub const GET_USER_POLICIES_BY_ID: &'static str = r#"
+        SELECT permission_policies FROM users WHERE id = $1 AND is_deleted = false
+    "#;
+
+    pub const UPDATE_USER_POLICIES_BY_ID: &'static str = r#"
+        UPDATE users
+        SET permission_policies = $2
+        WHERE id = $1 AND is_deleted = false
+        RETURNING id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
+    "#;
 }
