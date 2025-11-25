@@ -62,8 +62,16 @@ pub const VALID_POLICIES: [&str; 20] = [
     POLICY_DELETE_PROTECTIVE_MEASURES,
 ];
 
-// Default CRUD policies for CITY_ADMIN (all operations on their city)
-pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 16] = [
+// Policies that are inherent to ROOT and must not be assignable
+pub const NON_ASSIGNABLE_POLICIES: [&str; 3] = [
+    POLICY_CREATE_CITIES,
+    POLICY_UPDATE_CITIES,
+    POLICY_DELETE_CITIES,
+];
+
+// Default CRUD policies for CITY_ADMIN (all operations on their city, except city management)
+pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 17] = [
+    POLICY_READ_CITIES,
     POLICY_CREATE_USERS,
     POLICY_READ_USERS,
     POLICY_UPDATE_USERS,
@@ -83,7 +91,8 @@ pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 16] = [
 ];
 
 // Default read-only policies for CITY_USER
-pub const CITY_USER_DEFAULT_POLICIES: [&str; 4] = [
+pub const CITY_USER_DEFAULT_POLICIES: [&str; 5] = [
+    POLICY_READ_CITIES,
     POLICY_READ_VICTIMS,
     POLICY_READ_ATTENDANCES,
     POLICY_READ_PROTECTIVE_MEASURES,
@@ -244,6 +253,11 @@ pub fn validate_required_fields(validations: &[(&str, bool)], error_prefix: &str
 
 pub fn is_valid_policy(policy: &str) -> bool {
     VALID_POLICIES.contains(&policy)
+}
+
+// Returns whether a policy can be assigned via the policies endpoints
+pub fn is_assignable_policy(policy: &str) -> bool {
+    !NON_ASSIGNABLE_POLICIES.contains(&policy)
 }
 
 pub fn generate_default_policies(profile: &str, city_id: Option<uuid::Uuid>) -> std::collections::HashMap<String, Vec<uuid::Uuid>> {
