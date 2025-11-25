@@ -6,15 +6,23 @@ use crate::core::contracts::repository::victims::VictimRepository;
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::victims::{CreateVictim, UpdateVictim};
 use crate::repositories::victims::PgVictimRepository;
-use crate::utils::{errors::AppError, responses::ApiResponse, validations::{validate_required_fields, PROFILE_ROOT}};
+use crate::repositories::users::PgUserRepository;
+use crate::core::contracts::repository::users::UserRepository;
+use crate::utils::{
+    errors::AppError,
+    responses::ApiResponse,
+    validations::{validate_required_fields, PROFILE_ROOT, POLICY_CREATE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS, POLICY_DELETE_VICTIMS},
+};
+use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
 
 pub struct VictimService {
     victim_repository: web::Data<PgVictimRepository>,
+    user_repository: web::Data<PgUserRepository>,
 }
 
 impl VictimService {
-    pub fn new(victim_repository: web::Data<PgVictimRepository>) -> Self {
-        Self { victim_repository }
+    pub fn new(victim_repository: web::Data<PgVictimRepository>, user_repository: web::Data<PgUserRepository>) -> Self {
+        Self { victim_repository, user_repository }
     }
 
     pub async fn create_victim(
@@ -25,8 +33,9 @@ impl VictimService {
         info!("[VictimService] Starting victim creation: {}", victim.full_name);
 
         let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
 
-        self.validate_city_access(&claims, &victim.city_id)?;
+        check_policy(&claims, POLICY_CREATE_VICTIMS, victim.city_id, &policies)?;
 
         validate_required_fields(
             &[("full_name", victim.full_name.is_empty())],
@@ -64,7 +73,8 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
-                self.validate_city_access(&claims, &victim_with_address.city_id)?;
+                let policies = self.get_user_policies(&claims).await?;
+                check_policy(&claims, POLICY_READ_VICTIMS, victim_with_address.city_id, &policies)?;
 
                 info!("[VictimService] Victim with id {} found successfully", id);
                 Ok(ApiResponse::success(victim_with_address).into_response())
@@ -90,14 +100,18 @@ impl VictimService {
         info!("[VictimService] Starting process to get victims");
 
         let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
 
-        let victims = if claims.profile == PROFILE_ROOT {
-            info!("[VictimService] ROOT user - fetching all victims");
-            self.victim_repository.get_all_victims().await
+        let victims = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies) {
+            match self.victim_repository.get_all_victims().await {
+                Ok(all) => {
+                    let filtered: Vec<_> = all.into_iter().filter(|v| allowed_cities.contains(&v.city_id)).collect();
+                    Ok(filtered)
+                }
+                Err(e) => Err(e),
+            }
         } else {
-            let city_id = self.get_user_city_id(&claims)?;
-            info!("[VictimService] Fetching victims for city: {}", city_id);
-            self.victim_repository.get_victims_by_city(city_id).await
+            self.victim_repository.get_all_victims().await
         };
 
         match victims {
@@ -124,8 +138,8 @@ impl VictimService {
         info!("[VictimService] Starting victim update for id: {}", id);
 
         let claims = self.get_claims(&req)?;
-
-        self.validate_city_access(&claims, &data.city_id)?;
+        let policies = self.get_user_policies(&claims).await?;
+        check_policy(&claims, POLICY_UPDATE_VICTIMS, data.city_id, &policies)?;
 
         validate_required_fields(
             &[("full_name", data.full_name.is_empty())],
@@ -134,7 +148,7 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                self.validate_city_access(&claims, &existing_victim.city_id)?;
+                check_policy(&claims, POLICY_UPDATE_VICTIMS, existing_victim.city_id, &policies)?;
             }
             Err(sqlx::Error::RowNotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -189,7 +203,8 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim) => {
-                self.validate_city_access(&claims, &victim.city_id)?;
+                let policies = self.get_user_policies(&claims).await?;
+                check_policy(&claims, POLICY_DELETE_VICTIMS, victim.city_id, &policies)?;
             }
             Err(sqlx::Error::RowNotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -233,34 +248,27 @@ impl VictimService {
             })
     }
 
-    fn get_user_city_id(&self, claims: &ClaimsToUserToken) -> Result<Uuid, AppError> {
-        claims
-            .city_id
-            .as_ref()
-            .and_then(|id| Uuid::parse_str(id).ok())
-            .ok_or_else(|| {
-                error!("[VictimService] User has no city_id in claims");
-                AppError::Forbidden("User must be associated with a city".to_string())
-            })
-    }
-
-    fn validate_city_access(&self, claims: &ClaimsToUserToken, city_id: &Uuid) -> Result<(), AppError> {
+    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
         if claims.profile == PROFILE_ROOT {
-            return Ok(());
+            return Ok(serde_json::json!({}));
         }
 
-        let user_city_id = self.get_user_city_id(claims)?;
-
-        if &user_city_id != city_id {
-            error!(
-                "[VictimService] User city {} does not match requested city {}",
-                user_city_id, city_id
-            );
-            return Err(AppError::Forbidden(
-                "Access denied to this city's data".to_string(),
-            ));
+        if let Ok(user_id) = Uuid::parse_str(&claims.id) {
+            match self.user_repository.get_user_policies_json_by_id(user_id).await {
+                Ok(p) => return Ok(p),
+                Err(sqlx::Error::RowNotFound) => {
+                }
+                Err(_) => return Err(AppError::InternalServerError),
+            }
         }
 
-        Ok(())
+        if let Some(city_id_str) = &claims.city_id {
+            if let Ok(city_id) = Uuid::parse_str(city_id_str) {
+                let defaults = crate::utils::validations::generate_default_policies(&claims.profile, Some(city_id));
+                return Ok(serde_json::json!(defaults));
+            }
+        }
+
+        Ok(serde_json::json!({}))
     }
 }

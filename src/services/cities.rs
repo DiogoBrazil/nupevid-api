@@ -1,30 +1,42 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::entities::cities::{CreateCity, UpdateCity};
 use crate::core::contracts::repository::cities::CityRepository;
 use crate::repositories::cities::PgCityRepository;
+use crate::repositories::users::PgUserRepository;
+use crate::core::contracts::repository::users::UserRepository;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
     validations::{
         validate_required_fields, is_valid_city_name, is_valid_battalion, is_valid_state,
-        VALID_CITIES, VALID_BATTALIONS, VALID_STATES
+        VALID_CITIES, VALID_BATTALIONS, VALID_STATES, PROFILE_ROOT,
+        POLICY_READ_CITIES
     }
 };
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
 
 pub struct CityService {
     city_repository: web::Data<PgCityRepository>,
+    user_repository: web::Data<PgUserRepository>,
 }
 
 impl CityService {
-    pub fn new(city_repository: web::Data<PgCityRepository>) -> Self {
-        Self { city_repository }
+    pub fn new(city_repository: web::Data<PgCityRepository>, user_repository: web::Data<PgUserRepository>) -> Self {
+        Self { city_repository, user_repository }
     }
 
-    pub async fn create_city(&self, city: CreateCity) -> Result<HttpResponse, AppError> {
+    pub async fn create_city(&self, city: CreateCity, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city creation: {}", city.name);
+
+        let claims = self.get_claims(&req)?;
+        if claims.profile != PROFILE_ROOT {
+            error!("[CityService] Only ROOT can create cities");
+            return Err(AppError::Forbidden("Only ROOT can create cities".to_string()));
+        }
 
         validate_required_fields(&[
             ("name", city.name.is_empty()),
@@ -67,11 +79,17 @@ impl CityService {
         }
     }
 
-    pub async fn get_city_by_id(&self, id: Uuid) -> Result<HttpResponse, AppError> {
+    pub async fn get_city_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting find city by id process for id: {}", id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
 
         match self.city_repository.get_city_by_id(id).await {
             Ok(city) => {
+                if claims.profile != PROFILE_ROOT {
+                    check_policy(&claims, POLICY_READ_CITIES, city.id, &policies)?;
+                }
                 info!("[CityService] City with id {} found successfully", id);
                 Ok(ApiResponse::success(city).into_response())
             }
@@ -86,13 +104,27 @@ impl CityService {
         }
     }
 
-    pub async fn get_all_cities(&self) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_cities(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting process to get all cities");
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
 
         match self.city_repository.get_all_cities().await {
             Ok(cities) => {
-                info!("[CityService] Successfully retrieved {} cities", cities.len());
-                Ok(ApiResponse::success(cities).into_response())
+                if claims.profile == PROFILE_ROOT {
+                    info!("[CityService] Successfully retrieved {} cities (ROOT)", cities.len());
+                    return Ok(ApiResponse::success(cities).into_response());
+                }
+
+                let allowed = get_allowed_cities_for_policy(&claims, POLICY_READ_CITIES, &policies);
+                let filtered = if let Some(allowed_cities) = allowed {
+                    cities.into_iter().filter(|c| allowed_cities.contains(&c.id)).collect()
+                } else {
+                    cities
+                };
+                info!("[CityService] Successfully retrieved {} cities (filtered)", filtered.len());
+                Ok(ApiResponse::success(filtered).into_response())
             }
             Err(e) => {
                 error!("[CityService] Failed to retrieve cities: {:?}", e);
@@ -101,8 +133,14 @@ impl CityService {
         }
     }
 
-    pub async fn update_city_by_id(&self, data: UpdateCity, id: Uuid) -> Result<HttpResponse, AppError> {
+    pub async fn update_city_by_id(&self, data: UpdateCity, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city update for id: {}", id);
+
+        let claims = self.get_claims(&req)?;
+        if claims.profile != PROFILE_ROOT {
+            error!("[CityService] Only ROOT can update cities");
+            return Err(AppError::Forbidden("Only ROOT can update cities".to_string()));
+        }
 
         validate_required_fields(&[
             ("name", data.name.is_empty()),
@@ -151,8 +189,14 @@ impl CityService {
         }
     }
 
-    pub async fn delete_city_by_id(&self, id: Uuid) -> Result<HttpResponse, AppError> {
+    pub async fn delete_city_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting process to delete city with id: {}", id);
+
+        let claims = self.get_claims(&req)?;
+        if claims.profile != PROFILE_ROOT {
+            error!("[CityService] Only ROOT can delete cities");
+            return Err(AppError::Forbidden("Only ROOT can delete cities".to_string()));
+        }
 
         match self.city_repository.delete_city_by_id(id).await {
             Ok(deleted_city) => {
@@ -168,5 +212,38 @@ impl CityService {
                 Err(AppError::InternalServerError)
             }
         }
+    }
+}
+
+impl CityService {
+    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
+        req.extensions()
+            .get::<ClaimsToUserToken>()
+            .cloned()
+            .ok_or_else(|| {
+                error!("[CityService] No claims found in request");
+                AppError::Unauthorized("Unauthorized".to_string())
+            })
+    }
+
+    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
+        if claims.profile == PROFILE_ROOT {
+            return Ok(serde_json::json!({}));
+        }
+        if let Ok(uid) = Uuid::parse_str(&claims.id) {
+            match self.user_repository.get_user_policies_json_by_id(uid).await {
+                Ok(p) => return Ok(p),
+                Err(sqlx::Error::RowNotFound) => {}
+                Err(_) => return Err(AppError::InternalServerError),
+            }
+        }
+        if let Some(cid_str) = &claims.city_id {
+            if let Ok(cid) = Uuid::parse_str(cid_str) {
+                let mut defaults = std::collections::HashMap::new();
+                defaults.insert(POLICY_READ_CITIES.to_string(), vec![cid]);
+                return Ok(serde_json::json!(defaults));
+            }
+        }
+        Ok(serde_json::json!({}))
     }
 }

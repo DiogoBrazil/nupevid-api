@@ -11,23 +11,32 @@ use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRe
 use crate::core::contracts::repository::victims::VictimRepository;
 use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
+use crate::repositories::users::PgUserRepository;
+use crate::core::contracts::repository::users::UserRepository;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{validate_required_fields, PROFILE_ROOT}
+    validations::{
+        validate_required_fields, PROFILE_ROOT,
+        POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_READ_PROTECTIVE_MEASURES,
+        POLICY_UPDATE_PROTECTIVE_MEASURES, POLICY_DELETE_PROTECTIVE_MEASURES
+    }
 };
+use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
 
 pub struct ProtectiveMeasureService {
     measure_repository: web::Data<PgProtectiveMeasureRepository>,
     victim_repository: web::Data<PgVictimRepository>,
+    user_repository: web::Data<PgUserRepository>,
 }
 
 impl ProtectiveMeasureService {
     pub fn new(
         measure_repository: web::Data<PgProtectiveMeasureRepository>,
         victim_repository: web::Data<PgVictimRepository>,
+        user_repository: web::Data<PgUserRepository>,
     ) -> Self {
-        Self { measure_repository, victim_repository }
+        Self { measure_repository, victim_repository, user_repository }
     }
 
     pub async fn create_protective_measure(&self, measure: CreateProtectiveMeasure, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -46,14 +55,14 @@ impl ProtectiveMeasureService {
             }
         };
 
-        self.validate_city_access(&claims, &victim.city_id)?;
+        let policies = self.get_user_policies(&claims).await?;
+        check_policy(&claims, POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
         validate_required_fields(&[
             ("process_number", measure.process_number.is_empty()),
             ("judicial_authority", measure.judicial_authority.is_empty()),
         ], "Error adding protective measure: ")?;
 
-        // Business rule: Check if active measure already exists for this victim
         if measure.is_active {
             let active_exists = self.measure_repository
                 .check_active_measure_exists_for_victim(measure.victim_id, Uuid::nil())
@@ -98,7 +107,8 @@ impl ProtectiveMeasureService {
                         AppError::InternalServerError
                     })?;
 
-                self.validate_city_access(&claims, &victim.city_id)?;
+                let policies = self.get_user_policies(&claims).await?;
+                check_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
                 info!("[ProtectiveMeasureService] Protective measure found: {}", id);
                 Ok(ApiResponse::success(measure).into_response())
@@ -118,26 +128,24 @@ impl ProtectiveMeasureService {
 
         let claims = self.get_claims(&req)?;
 
-        let measures = if claims.profile == PROFILE_ROOT {
-            self.measure_repository.get_all_protective_measures().await
-        } else {
+        let policies = self.get_user_policies(&claims).await?;
+        let measures = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies) {
             match self.measure_repository.get_all_protective_measures().await {
                 Ok(all_measures) => {
-                    let city_id = self.get_user_city_id(&claims)?;
                     let mut filtered = Vec::new();
-
                     for measure in all_measures {
                         if let Ok(victim) = self.victim_repository.get_victim_by_id(measure.victim_id).await {
-                            if victim.city_id == city_id {
+                            if allowed_cities.contains(&victim.city_id) {
                                 filtered.push(measure);
                             }
                         }
                     }
-
                     Ok(filtered)
                 }
                 Err(e) => Err(e),
             }
+        } else {
+            self.measure_repository.get_all_protective_measures().await
         };
 
         match measures {
@@ -168,7 +176,8 @@ impl ProtectiveMeasureService {
             }
         };
 
-        self.validate_city_access(&claims, &victim.city_id)?;
+        let policies = self.get_user_policies(&claims).await?;
+        check_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
         match self.measure_repository.get_protective_measures_by_victim(victim_id).await {
             Ok(measures) => {
@@ -204,7 +213,8 @@ impl ProtectiveMeasureService {
                 AppError::InternalServerError
             })?;
 
-        self.validate_city_access(&claims, &existing_victim.city_id)?;
+        let policies = self.get_user_policies(&claims).await?;
+        check_policy(&claims, POLICY_UPDATE_PROTECTIVE_MEASURES, existing_victim.city_id, &policies)?;
 
         if data.victim_id != existing_measure.victim_id {
             let new_victim = match self.victim_repository.get_victim_by_id(data.victim_id).await {
@@ -218,7 +228,7 @@ impl ProtectiveMeasureService {
                 }
             };
 
-            self.validate_city_access(&claims, &new_victim.city_id)?;
+            check_policy(&claims, POLICY_UPDATE_PROTECTIVE_MEASURES, new_victim.city_id, &policies)?;
         }
 
         validate_required_fields(&[
@@ -226,7 +236,6 @@ impl ProtectiveMeasureService {
             ("judicial_authority", data.judicial_authority.is_empty()),
         ], "Error updating protective measure: ")?;
 
-        // Business rule: Check if setting to active when another active measure exists
         if data.is_active {
             let active_exists = self.measure_repository
                 .check_active_measure_exists_for_victim(data.victim_id, id)
@@ -281,7 +290,8 @@ impl ProtectiveMeasureService {
                 AppError::InternalServerError
             })?;
 
-        self.validate_city_access(&claims, &victim.city_id)?;
+        let policies = self.get_user_policies(&claims).await?;
+        check_policy(&claims, POLICY_DELETE_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
         match self.measure_repository.delete_protective_measure_by_id(id).await {
             Ok(deleted_measure) => {
@@ -309,28 +319,23 @@ impl ProtectiveMeasureService {
             })
     }
 
-    fn get_user_city_id(&self, claims: &ClaimsToUserToken) -> Result<Uuid, AppError> {
-        claims.city_id
-            .as_ref()
-            .and_then(|id| Uuid::parse_str(id).ok())
-            .ok_or_else(|| {
-                error!("[ProtectiveMeasureService] User has no city_id in claims");
-                AppError::Forbidden("User must be associated with a city".to_string())
-            })
-    }
-
-    fn validate_city_access(&self, claims: &ClaimsToUserToken, city_id: &Uuid) -> Result<(), AppError> {
+    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
         if claims.profile == PROFILE_ROOT {
-            return Ok(());
+            return Ok(serde_json::json!({}));
         }
-
-        let user_city_id = self.get_user_city_id(claims)?;
-
-        if &user_city_id != city_id {
-            error!("[ProtectiveMeasureService] User city {} does not match requested city {}", user_city_id, city_id);
-            return Err(AppError::Forbidden("Access denied to this city's data".to_string()));
+        if let Some(city_id_str) = &claims.city_id {
+            if let Ok(city_id) = Uuid::parse_str(city_id_str) {
+                if let Ok(uid) = Uuid::parse_str(&claims.id) {
+                    match self.user_repository.get_user_policies_json_by_id(uid).await {
+                        Ok(p) => return Ok(p),
+                        Err(sqlx::Error::RowNotFound) => {}
+                        Err(_) => return Err(AppError::InternalServerError),
+                    }
+                }
+                let defaults = crate::utils::validations::generate_default_policies(&claims.profile, Some(city_id));
+                return Ok(serde_json::json!(defaults));
+            }
         }
-
-        Ok(())
+        Ok(serde_json::json!({}))
     }
 }
