@@ -5,6 +5,7 @@ use crate::core::entities::users::{
     UpdateUser,
     UserDataCreatedWithoutPassword,
 };
+use serde_json::Value as JsonValue;
 
 
 #[async_trait]
@@ -19,4 +20,6 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, sqlx::Error>;
     async fn update_user_password_by_id(&self, id: Uuid, new_password: String) -> Result<UserDataCreatedWithoutPassword, sqlx::Error>;
     async fn check_city_admin_exists_for_city(&self, city_id: Uuid, exclude_user_id: Uuid) -> Result<bool, sqlx::Error>;
+    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, sqlx::Error>;
+    async fn update_user_policies_by_id(&self, id: Uuid, policies: JsonValue) -> Result<UserDataCreatedWithoutPassword, sqlx::Error>;
 }
