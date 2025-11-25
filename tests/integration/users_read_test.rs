@@ -2,6 +2,8 @@ use actix_web::{test, http::StatusCode};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
+use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[actix_rt::test]
 async fn test_get_all_users_success() {
@@ -68,6 +70,75 @@ async fn test_get_all_users_empty() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
+}
+
+#[actix_rt::test]
+async fn non_root_list_users_should_not_include_root() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    // Create a ROOT user in DB and a CITY_USER
+    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_user_payload = serde_json::json!({
+        "rank": "CEL PM",
+        "registration": "100000777",
+        "full_name": "Root DB User",
+        "profile": "ROOT",
+        "email": "root.db@test.com",
+        "password": "Secret123!"
+    });
+    let create_root_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&root_user_payload),
+        &config, &root_token).to_request();
+    let _ = test::call_service(&app, create_root_req).await;
+
+    // Create a city to bind CITY_USER
+    let city_payload = serde_json::json!({"name": "PORTO VELHO", "state": "RO", "battalion": "1ºBPM"});
+    let create_city_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_payload),
+        &config, &root_token).to_request();
+    let city_resp = test::call_service(&app, create_city_req).await;
+    let city_body: serde_json::Value = test::read_body_json(city_resp).await;
+    let city_id: Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // Create a CITY_USER
+    let city_user_payload = fixtures::valid_create_user();
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&serde_json::json!({
+            "rank": city_user_payload.rank,
+            "registration": city_user_payload.registration,
+            "full_name": city_user_payload.full_name,
+            "profile": "CITY_USER",
+            "email": city_user_payload.email,
+            "password": city_user_payload.password,
+            "city_id": city_id
+        })),
+        &config, &root_token).to_request();
+    let _ = test::call_service(&app, req).await;
+
+    // Non-root token (CITY_USER)
+    let claims_user = ClaimsToUserToken {
+        id: Uuid::new_v4().to_string(),
+        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        rank: "CB PM".to_string(),
+        registration: "100009991".to_string(),
+        full_name: "Any User".to_string(),
+        profile: "CITY_USER".to_string(),
+        email: "any.user@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    };
+    let non_root_token = test_helpers::generate_jwt(&claims_user, &config.jwt_secret);
+
+    // List users as non-root -> must not include ROOT
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/users"), &config, &non_root_token).to_request();
+    let list_resp = test::call_service(&app, list_req).await;
+    assert_eq!(list_resp.status(), StatusCode::OK);
+    let list_body: serde_json::Value = test::read_body_json(list_resp).await;
+    let arr = list_body["data"].as_array().unwrap();
+    assert!(arr.iter().all(|u| u["profile"].as_str().unwrap() != "ROOT"));
 }
 
 #[actix_rt::test]

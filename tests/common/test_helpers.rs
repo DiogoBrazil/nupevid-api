@@ -110,15 +110,17 @@ pub async fn create_full_test_app(
         password_hasher.clone(),
         token_generator.clone(),
     ));
-    let city_service = web::Data::new(CityService::new(city_repository.clone()));
-    let victim_service = web::Data::new(VictimService::new(victim_repository.clone()));
+    let city_service = web::Data::new(CityService::new(city_repository.clone(), user_repository.clone()));
+    let victim_service = web::Data::new(VictimService::new(victim_repository.clone(), user_repository.clone()));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
         victim_repository.clone(),
+        user_repository.clone(),
     ));
     let attendance_service = web::Data::new(AttendanceService::new(
         attendance_repository.clone(),
         victim_repository.clone(),
+        user_repository.clone(),
     ));
 
     test::init_service(

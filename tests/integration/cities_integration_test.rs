@@ -1,6 +1,9 @@
 use actix_web::{test, http::StatusCode};
 
 use crate::common::test_helpers;
+use uuid::Uuid;
+use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn new_city_payload(name: &str) -> serde_json::Value {
     serde_json::json!({
@@ -8,6 +11,158 @@ fn new_city_payload(name: &str) -> serde_json::Value {
         "state": "RO",
         "battalion": "1ºBPM",
     })
+}
+
+#[actix_rt::test]
+async fn non_root_cannot_create_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    // Criar uma cidade para obter um city_id e compor os tokens de não-ROOT
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+    let base_city_payload = new_city_payload("PORTO VELHO");
+    let base_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&base_city_payload),
+        &config, &root_token).to_request();
+    let base_resp = test::call_service(&app, base_req).await;
+    assert!(base_resp.status().is_success());
+    let base_body: serde_json::Value = test::read_body_json(base_resp).await;
+    let city_id: Uuid = base_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // CITY_ADMIN tenta criar cidade -> FORBIDDEN
+    let admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+    let admin_create_payload = new_city_payload("ARIQUEMES");
+    let admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&admin_create_payload),
+        &config, &admin_token).to_request();
+    let admin_resp = test::call_service(&app, admin_req).await;
+    assert_eq!(admin_resp.status(), StatusCode::FORBIDDEN);
+
+    // CITY_USER tenta criar cidade -> FORBIDDEN
+    let claims_user = ClaimsToUserToken {
+        id: Uuid::new_v4().to_string(),
+        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        rank: "CB PM".to_string(),
+        registration: "100009999".to_string(),
+        full_name: "Any User".to_string(),
+        profile: "CITY_USER".to_string(),
+        email: "any.user@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    };
+    let user_token = test_helpers::generate_jwt(&claims_user, &config.jwt_secret);
+    let user_create_payload = new_city_payload("JI-PARANÁ");
+    let user_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&user_create_payload),
+        &config, &user_token).to_request();
+    let user_resp = test::call_service(&app, user_req).await;
+    assert_eq!(user_resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_update_or_delete_cities() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    // Cria cidade como ROOT
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+    let city_payload = new_city_payload("PORTO VELHO");
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let create_resp = test::call_service(&app, create_req).await;
+    assert!(create_resp.status().is_success());
+    let created: serde_json::Value = test::read_body_json(create_resp).await;
+    let city_id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // CITY_ADMIN da própria cidade
+    let admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    // Tenta atualizar cidade - deve ser FORBIDDEN (apenas ROOT pode)
+    let update_payload = serde_json::json!({
+        "name": "PORTO VELHO",
+        "state": "RO",
+        "battalion": "2ºBPM",
+    });
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put().uri(&format!("/api/v1/cities/{}", city_id)).set_json(&update_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+
+    // Tenta deletar cidade - deve ser FORBIDDEN (apenas ROOT pode)
+    let delete_req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/cities/{}", city_id)),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let delete_resp = test::call_service(&app, delete_req).await;
+    assert_eq!(delete_resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_update_or_delete_any_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    // Cria duas cidades como ROOT
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+    let city_a_payload = new_city_payload("PORTO VELHO");
+    let city_b_payload = new_city_payload("ARIQUEMES");
+    let create_a = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_a_payload),
+        &config, &root_token).to_request();
+    let resp_a = test::call_service(&app, create_a).await;
+    let body_a: serde_json::Value = test::read_body_json(resp_a).await;
+    let city_a: Uuid = body_a["data"]["id"].as_str().unwrap().parse().unwrap();
+    let create_b = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_b_payload),
+        &config, &root_token).to_request();
+    let resp_b = test::call_service(&app, create_b).await;
+    let body_b: serde_json::Value = test::read_body_json(resp_b).await;
+    let city_b: Uuid = body_b["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // CITY_ADMIN de city_a tentando alterar/excluir city_b (deve falhar - apenas ROOT pode)
+    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
+
+    let update_payload = serde_json::json!({
+        "name": "ARIQUEMES",
+        "state": "RO",
+        "battalion": "2ºBPM",
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put().uri(&format!("/api/v1/cities/{}", city_b)).set_json(&update_payload),
+        &config, &admin_a_token).to_request();
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+
+    let delete_req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/cities/{}", city_b)),
+        &config, &admin_a_token).to_request();
+    let delete_resp = test::call_service(&app, delete_req).await;
+    assert_eq!(delete_resp.status(), StatusCode::FORBIDDEN);
 }
 
 #[actix_rt::test]
