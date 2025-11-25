@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use log::info;
-use serde_json::json;
+use serde_json::{json, Value as JsonValue};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -186,6 +186,30 @@ impl UserRepository for PgUserRepository {
         info!("[Repository] CITY_ADMIN exists for city {}: {}", city_id, result);
 
         Ok(result)
+    }
+
+    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, sqlx::Error> {
+        info!("[Repository] Executing SQL query to get permission_policies for user {}", id);
+
+        let policies: JsonValue = sqlx::query_scalar(UsersQueries::GET_USER_POLICIES_BY_ID)
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        info!("[Repository] Retrieved permission_policies for user {}", id);
+
+        Ok(policies)
+    }
+
+    async fn update_user_policies_by_id(&self, id: Uuid, policies: JsonValue) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+        info!("[Repository] Executing SQL query to update permission_policies for user {}", id);
+        let user: UserDataCreatedWithoutPassword = sqlx::query_as(UsersQueries::UPDATE_USER_POLICIES_BY_ID)
+            .bind(id)
+            .bind(policies)
+            .fetch_one(&self.pool)
+            .await?;
+        info!("[Repository] Updated permission_policies for user {}", id);
+        Ok(user)
     }
 
 }
