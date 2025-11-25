@@ -19,5 +19,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/{id}/password")
                     .route(web::patch().to(users::update_user_password_by_id))
             )
+            .service(
+                web::resource("/{id}/policies/{policy}/cities")
+                    .route(web::post().to(users::append_user_policy_cities))
+                    .route(web::delete().to(users::remove_user_policy_cities))
+            )
     );
 }
