@@ -36,7 +36,7 @@ async fn root_cannot_assign_city_management_policies() {
 
     let user_payload = json!({
         "rank": "CB PM",
-        "registration": "900000001",
+        "registration": "100000001",
         "full_name": "Target User",
         "profile": "CITY_USER",
         "email": "target.assign.cities@test.com",
@@ -47,7 +47,11 @@ async fn root_cannot_assign_city_management_policies() {
         test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
         &config, &root_token).to_request();
     let user_resp = test::call_service(&app, create_user).await;
+    let user_status = user_resp.status();
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
+    if !user_status.is_success() {
+        panic!("Failed to create user: status={}, body={:?}", user_status, user_body);
+    }
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Tenta conceder políticas de gestão de cidades (não atribuíveis)
@@ -76,7 +80,7 @@ async fn root_cannot_remove_city_management_policies() {
 
     let user_payload = json!({
         "rank": "CB PM",
-        "registration": "900000002",
+        "registration": "100000002",
         "full_name": "Target User 2",
         "profile": "CITY_USER",
         "email": "target.remove.cities@test.com",
@@ -511,6 +515,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
 
     // Tentativa de criação com policy inválida
     let invalid_create = json!({
@@ -520,7 +525,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
         "profile": "CITY_USER",
         "email": "invalid.policy@test.com",
         "password": "Secret123!",
-        "city_id": null,
+        "city_id": city,
         "permission_policies": {
             "invalid_policy": [Uuid::new_v4()]
         }
@@ -537,12 +542,15 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
         "profile": "CITY_USER",
         "email": "valid.user@test.com",
         "password": "Secret123!",
-        "city_id": null
+        "city_id": city
     });
     let valid_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&valid_user), &config, &root_token).to_request();
     let valid_resp = test::call_service(&app, valid_req).await;
-    assert!(valid_resp.status().is_success());
+    let valid_status = valid_resp.status();
     let valid_body: serde_json::Value = test::read_body_json(valid_resp).await;
+    if !valid_status.is_success() {
+        panic!("Failed to create valid user: status={}, body={:?}", valid_status, valid_body);
+    }
     let user_id: Uuid = valid_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Tentativa de update com policy inválida
@@ -552,7 +560,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
         "full_name": "Valid User",
         "profile": "CITY_USER",
         "email": "valid.user@test.com",
-        "city_id": null,
+        "city_id": city,
         "permission_policies": { "invalid_policy": [Uuid::new_v4()] }
     });
     let update_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", user_id)).set_json(&invalid_update), &config, &root_token).to_request();
@@ -948,4 +956,189 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
     let get_user_body2: serde_json::Value = test::read_body_json(get_user_resp2).await;
     let user_policies2 = get_user_body2["data"]["permission_policies"]["read_victims"].as_array().unwrap();
     assert!(!user_policies2.iter().any(|v| v.as_str().unwrap() == city_b.to_string()));
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
+    let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
+    let city_c = db_fixtures::insert_city(&pool, "JARU").await;
+    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    // Cria CITY_ADMIN A (city_a) com permissão extra para city_b
+    let admin_payload = json!({
+        "rank": "CAP PM",
+        "registration": "100001401",
+        "full_name": "Admin H",
+        "profile": "CITY_ADMIN",
+        "email": "admin.h@test.com",
+        "password": "Secret123!",
+        "city_id": city_a,
+    });
+    let create_admin = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
+        &config, &root_token).to_request();
+    let admin_resp = test::call_service(&app, create_admin).await;
+    let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
+    let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // ROOT adiciona read_victims em city_b para o ADMIN (mas NÃO em city_c)
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config, &root_token).to_request();
+    let get_admin_resp = test::call_service(&app, get_admin_req).await;
+    let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
+    let mut policies = get_admin_body["data"]["permission_policies"].clone();
+    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
+        arr.push(json!(city_b.to_string()));
+    }
+    policies["read_victims"] = json!(arr);
+    let update_admin_payload = json!({
+        "rank": "CAP PM",
+        "registration": "100001401",
+        "full_name": "Admin H",
+        "profile": "CITY_ADMIN",
+        "email": "admin.h@test.com",
+        "city_id": city_a,
+        "permission_policies": policies,
+    });
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
+        &config, &root_token).to_request();
+    let update_admin_resp = test::call_service(&app, update_admin_req).await;
+    assert_eq!(update_admin_resp.status(), StatusCode::OK);
+
+    // Cria CITY_USER na city_c (onde ADMIN não tem permissão)
+    let user_payload = json!({
+        "rank": "CB PM",
+        "registration": "100001402",
+        "full_name": "User F",
+        "profile": "CITY_USER",
+        "email": "user.f@test.com",
+        "password": "Secret123!",
+        "city_id": city_c,
+    });
+    let create_user = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
+        &config, &root_token).to_request();
+    let user_resp = test::call_service(&app, create_user).await;
+    let user_body: serde_json::Value = test::read_body_json(user_resp).await;
+    let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // Token do CITY_ADMIN
+    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.h@test.com", "Admin H", "100001401", "CAP PM", Some(city_a), &config.jwt_secret);
+
+    // CITY_ADMIN tenta adicionar read_victims em city_b para usuário de city_c
+    // Ele TEM a permissão read_victims para city_b, MAS o usuário está em city_c (não autorizado)
+    // Isso deve ser FORBIDDEN
+    let append_payload = json!({
+        "city_ids": [city_b]
+    });
+    let append_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+            .set_json(&append_payload),
+        &config, &admin_token).to_request();
+    let append_resp = test::call_service(&app, append_req).await;
+    assert_eq!(append_resp.status(), StatusCode::FORBIDDEN,
+        "CITY_ADMIN should not be able to assign policies to users from cities they don't manage");
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
+    let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
+    let city_c = db_fixtures::insert_city(&pool, "JARU").await;
+    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    // Cria CITY_ADMIN A (city_a) com permissão extra para city_b
+    let admin_payload = json!({
+        "rank": "CAP PM",
+        "registration": "100001501",
+        "full_name": "Admin I",
+        "profile": "CITY_ADMIN",
+        "email": "admin.i@test.com",
+        "password": "Secret123!",
+        "city_id": city_a,
+    });
+    let create_admin = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
+        &config, &root_token).to_request();
+    let admin_resp = test::call_service(&app, create_admin).await;
+    let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
+    let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // ROOT adiciona read_victims em city_b para o ADMIN
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config, &root_token).to_request();
+    let get_admin_resp = test::call_service(&app, get_admin_req).await;
+    let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
+    let mut policies = get_admin_body["data"]["permission_policies"].clone();
+    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
+        arr.push(json!(city_b.to_string()));
+    }
+    policies["read_victims"] = json!(arr);
+    let update_admin_payload = json!({
+        "rank": "CAP PM",
+        "registration": "100001501",
+        "full_name": "Admin I",
+        "profile": "CITY_ADMIN",
+        "email": "admin.i@test.com",
+        "city_id": city_a,
+        "permission_policies": policies,
+    });
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
+        &config, &root_token).to_request();
+    let update_admin_resp = test::call_service(&app, update_admin_req).await;
+    assert_eq!(update_admin_resp.status(), StatusCode::OK);
+
+    // Cria CITY_USER na city_c com alguma policy
+    let user_payload = json!({
+        "rank": "CB PM",
+        "registration": "100001502",
+        "full_name": "User G",
+        "profile": "CITY_USER",
+        "email": "user.g@test.com",
+        "password": "Secret123!",
+        "city_id": city_c,
+        "permission_policies": {
+            "read_victims": [city_b]
+        }
+    });
+    let create_user = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
+        &config, &root_token).to_request();
+    let user_resp = test::call_service(&app, create_user).await;
+    let user_body: serde_json::Value = test::read_body_json(user_resp).await;
+    let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    // Token do CITY_ADMIN
+    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.i@test.com", "Admin I", "100001501", "CAP PM", Some(city_a), &config.jwt_secret);
+
+    // CITY_ADMIN tenta remover read_victims city_b de usuário da city_c
+    // Ele TEM a permissão read_victims para city_b, MAS o usuário está em city_c (não autorizado)
+    // Isso deve ser FORBIDDEN
+    let remove_payload = json!({
+        "city_ids": [city_b]
+    });
+    let remove_req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+            .set_json(&remove_payload),
+        &config, &admin_token).to_request();
+    let remove_resp = test::call_service(&app, remove_req).await;
+    assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN,
+        "CITY_ADMIN should not be able to remove policies from users of cities they don't manage");
 }

@@ -1,0 +1,152 @@
+use actix_web::{http::StatusCode, test};
+use chrono::{NaiveDate, NaiveTime};
+use uuid::Uuid;
+
+use crate::common::{test_helpers, db_fixtures};
+
+#[actix_rt::test]
+async fn create_attendance_with_nonexistent_victim_returns_404() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let random_victim_id = Uuid::new_v4();
+
+    let payload = serde_json::json!({
+        "victim_id": random_victim_id,
+        "was_victim_present": true,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
+        "description": "Test",
+        "latitude": null,
+        "longitude": null,
+        "address": null,
+    });
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn update_attendance_change_victim_requires_permission_on_both() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
+    let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
+    let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
+    let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create attendance for victim_a
+    let payload = serde_json::json!({
+        "victim_id": victim_a,
+        "was_victim_present": true,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
+        "description": "Atendimento A",
+        "latitude": null,
+        "longitude": null,
+        "address": null,
+    });
+
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendances")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let body: serde_json::Value = test::read_body_json(create_resp).await;
+    let attendance_id = body["data"]["id"].as_str().unwrap();
+
+    // CITY_ADMIN for city_a tries to change victim to city_b
+    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
+
+    let update_payload = serde_json::json!({
+        "victim_id": victim_b,
+        "was_victim_present": false,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(14, 0, 0).unwrap(),
+        "description": "Atendimento Updated",
+        "latitude": null,
+        "longitude": null,
+        "address": null,
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/attendances/{}", attendance_id))
+            .set_json(&update_payload),
+        &config,
+        &admin_a_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
+async fn update_nonexistent_attendance_returns_404() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Test City").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let random_id = Uuid::new_v4();
+
+    let update_payload = serde_json::json!({
+        "victim_id": victim_id,
+        "was_victim_present": true,
+        "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
+        "description": "Updated",
+        "latitude": null,
+        "longitude": null,
+        "address": null,
+    });
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/attendances/{}", random_id))
+            .set_json(&update_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}

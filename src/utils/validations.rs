@@ -236,6 +236,7 @@ pub fn is_valid_registration(registration: &str) -> bool {
 pub fn is_public_route(path: &str) -> bool {
     let public_routes = [
         "/api/v1/auth/login",
+        "/api/swagger",
     ];
     public_routes.iter().any(|route | path.starts_with(route))
 }

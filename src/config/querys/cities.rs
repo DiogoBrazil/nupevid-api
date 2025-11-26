@@ -33,4 +33,10 @@ impl CitiesQueries {
         WHERE id = $1 AND is_deleted = false
         RETURNING id, name, state, battalion, created_at, updated_at, is_deleted
     "#;
+
+    pub const GET_CITY_BY_NAME_AND_BATTALION: &'static str = r#"
+        SELECT id, name, state, battalion, created_at, updated_at, is_deleted
+        FROM cities
+        WHERE LOWER(name) = LOWER($1) AND LOWER(battalion) = LOWER($2) AND is_deleted = false
+    "#;
 }

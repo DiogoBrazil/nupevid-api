@@ -93,4 +93,22 @@ impl CityRepository for PgCityRepository {
 
         Ok(deleted_city)
     }
+
+    async fn get_city_by_name_and_battalion(&self, name: &str, battalion: &str) -> Result<Option<City>, sqlx::Error> {
+        info!("[Repository] Executing SQL query to check if city exists with name: {} and battalion: {}", name, battalion);
+
+        let city: Option<City> = sqlx::query_as(CitiesQueries::GET_CITY_BY_NAME_AND_BATTALION)
+            .bind(name)
+            .bind(battalion)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if city.is_some() {
+            info!("[Repository] City already exists with name: {} and battalion: {}", name, battalion);
+        } else {
+            info!("[Repository] No city found with name: {} and battalion: {}", name, battalion);
+        }
+
+        Ok(city)
+    }
 }

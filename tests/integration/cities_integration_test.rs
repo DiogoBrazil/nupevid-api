@@ -676,3 +676,160 @@ async fn delete_city_not_found_returns_404() {
     assert_eq!(delete_body["status_code"].as_u64().unwrap(), 404);
     assert!(delete_body["message"].as_str().unwrap().contains("not found"));
 }
+
+#[actix_rt::test]
+async fn create_duplicate_city_returns_bad_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    // Create first city
+    let payload = new_city_payload("PORTO VELHO");
+    let req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp1 = test::call_service(&app, req1).await;
+    assert_eq!(resp1.status(), StatusCode::CREATED);
+
+    // Try to create the same city again (same name and battalion)
+    let req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp2).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert!(body["message"].as_str().unwrap().contains("already exists"));
+    assert!(body["message"].as_str().unwrap().contains("PORTO VELHO"));
+    assert!(body["message"].as_str().unwrap().contains("1ºBPM"));
+}
+
+#[actix_rt::test]
+async fn update_city_to_duplicate_name_and_battalion_returns_bad_request() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    // Create first city
+    let payload1 = new_city_payload("PORTO VELHO");
+    let req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload1),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp1 = test::call_service(&app, req1).await;
+    assert_eq!(resp1.status(), StatusCode::CREATED);
+
+    // Create second city with different name but same battalion
+    let payload2 = serde_json::json!({
+        "name": "ARIQUEMES",
+        "state": "RO",
+        "battalion": "1ºBPM",
+    });
+    let req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload2),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::CREATED);
+    let body2: serde_json::Value = test::read_body_json(resp2).await;
+    let city2_id = body2["data"]["id"].as_str().unwrap();
+
+    // Try to update second city to have the same name and battalion as first city
+    let update_payload = new_city_payload("PORTO VELHO");
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/cities/{}", city2_id))
+            .set_json(&update_payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+
+    let update_body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
+    assert!(update_body["message"].as_str().unwrap().contains("already exists"));
+    assert!(update_body["message"].as_str().unwrap().contains("PORTO VELHO"));
+    assert!(update_body["message"].as_str().unwrap().contains("1ºBPM"));
+}
+
+#[actix_rt::test]
+async fn update_city_to_same_name_and_battalion_succeeds() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    // Create a city
+    let payload = new_city_payload("PORTO VELHO");
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let city_id = body["data"]["id"].as_str().unwrap();
+
+    // Update the city with the same name and battalion (should succeed)
+    let update_payload = new_city_payload("PORTO VELHO");
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/cities/{}", city_id))
+            .set_json(&update_payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::OK);
+
+    let update_body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(update_body["status"].as_u64().unwrap(), 200);
+    assert_eq!(update_body["data"]["name"].as_str().unwrap(), "PORTO VELHO");
+}

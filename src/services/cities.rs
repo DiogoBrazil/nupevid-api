@@ -65,6 +65,23 @@ impl CityService {
             ));
         }
 
+        // Check if city already exists with the same name and battalion
+        match self.city_repository.get_city_by_name_and_battalion(&city.name, &city.battalion).await {
+            Ok(Some(_existing_city)) => {
+                error!("[CityService] City already exists with name '{}' and battalion '{}'", city.name, city.battalion);
+                return Err(AppError::BadRequest(
+                    format!("Error adding city: a city with name '{}' and battalion '{}' already exists", city.name, city.battalion)
+                ));
+            }
+            Ok(None) => {
+                info!("[CityService] No duplicate city found, proceeding with creation");
+            }
+            Err(e) => {
+                error!("[CityService] Error checking for duplicate city: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        }
+
         info!("[CityService] Saving city to database");
 
         match self.city_repository.create_city(city).await {
@@ -167,6 +184,26 @@ impl CityService {
             return Err(AppError::BadRequest(
                 format!("Error updating city: invalid battalion '{}'. Valid battalions: {:?}", data.battalion, VALID_BATTALIONS)
             ));
+        }
+
+        // Check if another city already exists with the same name and battalion
+        match self.city_repository.get_city_by_name_and_battalion(&data.name, &data.battalion).await {
+            Ok(Some(existing_city)) => {
+                // Only error if it's a different city (not the one being updated)
+                if existing_city.id != id {
+                    error!("[CityService] Another city already exists with name '{}' and battalion '{}'", data.name, data.battalion);
+                    return Err(AppError::BadRequest(
+                        format!("Error updating city: a city with name '{}' and battalion '{}' already exists", data.name, data.battalion)
+                    ));
+                }
+            }
+            Ok(None) => {
+                info!("[CityService] No duplicate city found, proceeding with update");
+            }
+            Err(e) => {
+                error!("[CityService] Error checking for duplicate city: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
         }
 
         info!("[CityService] Updating city in database");
