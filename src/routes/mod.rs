@@ -1,8 +1,9 @@
+pub mod attendances;
 pub mod auth;
 pub mod cities;
 pub mod config;
+pub mod offenders;
 pub mod protective_measures;
+pub mod swagger;
 pub mod users;
 pub mod victims;
-pub mod attendances;
-pub mod swagger;
