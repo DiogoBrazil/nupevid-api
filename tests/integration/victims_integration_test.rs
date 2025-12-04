@@ -8,9 +8,21 @@ fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
         "full_name": full_name,
         "cpf": serde_json::Value::Null,
         "birth_date": serde_json::Value::Null,
-        "phone": serde_json::Value::Null,
         "city_id": city_id,
-        "address": serde_json::Value::Null,
+        "phones": serde_json::Value::Null,
+        "addresses": serde_json::Value::Null,
+        "education_level": serde_json::Value::Null,
+        "occupation": serde_json::Value::Null,
+        "workplace": serde_json::Value::Null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": serde_json::Value::Null,
+        "has_special_needs": false,
+        "special_needs_type": serde_json::Value::Null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": serde_json::Value::Null,
     })
 }
 
@@ -19,16 +31,31 @@ fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_js
         "full_name": full_name,
         "cpf": "123456789",
         "birth_date": "1990-01-01",
-        "phone": "11999999999",
         "city_id": city_id,
-        "address": {
+        "phones": [{
+            "phone": "11999999999",
+            "phone_type": "primary"
+        }],
+        "addresses": [{
             "street": "Rua Teste",
             "number": "100",
             "district": "Centro",
             "city_id": city_id,
             "zip_code": "01000-000",
             "complement": "Apt 10"
-        }
+        }],
+        "education_level": "Superior Completo",
+        "occupation": "Professora",
+        "workplace": "Escola Municipal",
+        "violence_type": "Physical",
+        "has_children": "Yes",
+        "children_count": 2,
+        "has_special_needs": false,
+        "special_needs_type": serde_json::Value::Null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": serde_json::Value::Null,
     })
 }
 
@@ -281,12 +308,14 @@ async fn create_victim_with_address_in_single_request() {
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Vitima Com Endereco");
     assert_eq!(body["data"]["cpf"].as_str().unwrap(), "123456789");
 
-    // Verify address data is included
-    assert!(body["data"]["address"].is_object());
-    assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Teste");
-    assert_eq!(body["data"]["address"]["number"].as_str().unwrap(), "100");
-    assert_eq!(body["data"]["address"]["district"].as_str().unwrap(), "Centro");
-    assert_eq!(body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
+    // Verify address data is included (now as array)
+    assert!(body["data"]["addresses"].is_array());
+    assert_eq!(body["data"]["addresses"].as_array().unwrap().len(), 1);
+    let address = &body["data"]["addresses"][0];
+    assert_eq!(address["street"].as_str().unwrap(), "Rua Teste");
+    assert_eq!(address["number"].as_str().unwrap(), "100");
+    assert_eq!(address["district"].as_str().unwrap(), "Centro");
+    assert_eq!(address["city_id"].as_str().unwrap(), city.to_string());
 }
 
 #[actix_rt::test]
@@ -328,8 +357,9 @@ async fn get_victim_returns_address_when_exists() {
     assert_eq!(get_resp.status(), StatusCode::OK);
 
     let body: serde_json::Value = test::read_body_json(get_resp).await;
-    assert!(body["data"]["address"].is_object());
-    assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Teste");
+    assert!(body["data"]["addresses"].is_array());
+    assert_eq!(body["data"]["addresses"].as_array().unwrap().len(), 1);
+    assert_eq!(body["data"]["addresses"][0]["street"].as_str().unwrap(), "Rua Teste");
 }
 
 #[actix_rt::test]
@@ -359,24 +389,37 @@ async fn update_victim_can_add_or_update_address() {
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
     let victim_id = create_body["data"]["id"].as_str().unwrap();
 
-    // Verify no address initially
-    assert!(create_body["data"]["address"].is_null());
+    // Verify no address initially (now empty array)
+    assert!(create_body["data"]["addresses"].is_array());
+    assert_eq!(create_body["data"]["addresses"].as_array().unwrap().len(), 0);
 
     // Update victim adding address
     let update_payload = serde_json::json!({
         "full_name": "Vitima Update Renamed",
         "cpf": null,
         "birth_date": null,
-        "phone": null,
         "city_id": city,
-        "address": {
+        "phones": null,
+        "addresses": [{
             "street": "Nova Rua",
             "number": "200",
             "district": "Bairro Novo",
             "city_id": city,
             "zip_code": "20000-000",
             "complement": null
-        }
+        }],
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
     });
 
     let update_req = test_helpers::with_auth_headers(
@@ -393,9 +436,10 @@ async fn update_victim_can_add_or_update_address() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["data"]["full_name"].as_str().unwrap(), "Vitima Update Renamed");
-    assert!(update_body["data"]["address"].is_object());
-    assert_eq!(update_body["data"]["address"]["street"].as_str().unwrap(), "Nova Rua");
-    assert_eq!(update_body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
+    assert!(update_body["data"]["addresses"].is_array());
+    assert_eq!(update_body["data"]["addresses"].as_array().unwrap().len(), 1);
+    assert_eq!(update_body["data"]["addresses"][0]["street"].as_str().unwrap(), "Nova Rua");
+    assert_eq!(update_body["data"]["addresses"][0]["city_id"].as_str().unwrap(), city.to_string());
 }
 
 #[actix_rt::test]

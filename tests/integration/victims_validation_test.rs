@@ -20,9 +20,21 @@ async fn create_victim_with_empty_full_name_fails() {
         "full_name": "",
         "cpf": null,
         "birth_date": null,
-        "phone": null,
         "city_id": city,
-        "address": null,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
     });
 
     let req = test_helpers::with_auth_headers(
@@ -38,6 +50,89 @@ async fn create_victim_with_empty_full_name_fails() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert!(body["message"].as_str().unwrap().contains("full_name"));
+}
+
+#[actix_rt::test]
+async fn create_victim_with_duplicate_cpf_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Test City").await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let payload1 = serde_json::json!({
+        "full_name": "Victim One",
+        "cpf": "11122233344",
+        "birth_date": null,
+        "city_id": city,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
+    });
+
+    let req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload1),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp1 = test::call_service(&app, req1).await;
+    assert_eq!(resp1.status(), StatusCode::CREATED);
+
+    // Attempt to create another victim with the same CPF
+    let payload2 = serde_json::json!({
+        "full_name": "Victim Two",
+        "cpf": "11122233344",
+        "birth_date": null,
+        "city_id": city,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
+    });
+
+    let req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload2),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::CONFLICT);
+    let body: serde_json::Value = test::read_body_json(resp2).await;
+    assert!(body["message"].as_str().unwrap().contains("CPF already exists"));
 }
 
 #[actix_rt::test]
@@ -58,9 +153,21 @@ async fn update_victim_with_empty_full_name_fails() {
         "full_name": "",
         "cpf": null,
         "birth_date": null,
-        "phone": null,
         "city_id": city,
-        "address": null,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
     });
 
     let req = test_helpers::with_auth_headers(
@@ -99,9 +206,21 @@ async fn update_victim_change_city_requires_permission_on_both_cities() {
         "full_name": "Vitima Updated",
         "cpf": null,
         "birth_date": null,
-        "phone": null,
         "city_id": city_b,
-        "address": null,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
     });
 
     let req = test_helpers::with_auth_headers(
@@ -136,9 +255,21 @@ async fn update_nonexistent_victim_returns_404() {
         "full_name": "Updated Name",
         "cpf": null,
         "birth_date": null,
-        "phone": null,
         "city_id": city,
-        "address": null,
+        "phones": null,
+        "addresses": null,
+        "education_level": null,
+        "occupation": null,
+        "workplace": null,
+        "violence_type": "Physical",
+        "has_children": "No",
+        "children_count": null,
+        "has_special_needs": false,
+        "special_needs_type": null,
+        "uses_alcohol": false,
+        "uses_drugs": false,
+        "has_psychiatric_issues": false,
+        "psychiatric_issues_type": null,
     });
 
     let req = test_helpers::with_auth_headers(

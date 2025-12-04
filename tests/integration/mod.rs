@@ -11,6 +11,7 @@ mod cities_integration_test;
 mod users_multicity_test;
 mod victims_integration_test;
 mod victims_validation_test;
+mod victims_phones_addresses_test;
 mod protective_measures_integration_test;
 mod protective_measures_update_test;
 mod attendances_integration_test;
