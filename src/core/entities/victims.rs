@@ -21,10 +21,24 @@ pub enum HasChildren {
     Pregnant,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[sqlx(type_name = "phone_type_enum")]
+pub enum PhoneType {
+    #[serde(rename = "Mobile")]
+    #[sqlx(rename = "Mobile")]
+    Mobile,
+    #[serde(rename = "Residential")]
+    #[sqlx(rename = "Residential")]
+    Residential,
+    #[serde(rename = "Work")]
+    #[sqlx(rename = "Work")]
+    Work,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PhoneData {
     pub phone: String,
-    pub phone_type: Option<String>,
+    pub phone_type: Option<PhoneType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -32,7 +46,7 @@ pub struct VictimPhone {
     pub id: Uuid,
     pub victim_id: Uuid,
     pub phone: String,
-    pub phone_type: Option<String>,
+    pub phone_type: Option<PhoneType>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
@@ -42,7 +56,7 @@ pub struct VictimPhone {
 pub struct VictimPhoneResponse {
     pub id: Uuid,
     pub phone: String,
-    pub phone_type: Option<String>,
+    pub phone_type: Option<PhoneType>,
 }
 
 impl VictimPhone {
@@ -60,7 +74,7 @@ pub struct AddressData {
     pub street: Option<String>,
     pub number: Option<String>,
     pub district: Option<String>,
-    pub city_id: Option<Uuid>,
+    pub city_id: Uuid,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
 }
