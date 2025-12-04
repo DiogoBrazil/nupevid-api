@@ -19,6 +19,8 @@ tags:
     description: "Gerenciamento de cidades"
   - name: "Victims"
     description: "Gerenciamento de vítimas"
+  - name: "Offenders"
+    description: "Gerenciamento de agressores"
   - name: "Protective Measures"
     description: "Gerenciamento de medidas protetivas"
   - name: "Attendances"
@@ -281,7 +283,89 @@ components:
         battalion:
           type: string
 
+    # --- Enums ---
+    PhoneType:
+      type: string
+      enum:
+        - "Mobile"
+        - "Residential"
+        - "Work"
+      description: "Tipo de telefone"
+
+    ViolenceType:
+      type: string
+      enum:
+        - "Physical"
+        - "Sexual"
+        - "Psychological"
+        - "Moral"
+      description: "Tipo de violência sofrida pela vítima"
+
+    HasChildren:
+      type: string
+      enum:
+        - "Yes"
+        - "No"
+        - "Pregnant"
+      description: "Status de filhos da vítima"
+
+    SecurityForce:
+      type: string
+      enum:
+        - "Military Police"
+        - "Civil Police"
+        - "Penal Police"
+        - "Fire Department"
+        - "Federal Highway Police"
+        - "Federal Police"
+        - "Municipal Guard"
+      description: "Força de segurança do agressor (quando aplicável)"
+
+    RelationshipToVictim:
+      type: string
+      enum:
+        - "Spouse"
+        - "Ex-Spouse"
+        - "Mother"
+        - "Father"
+        - "Stepfather"
+        - "Stepmother"
+        - "Son/Daughter"
+        - "Sibling"
+        - "Cousin"
+        - "Grandfather"
+        - "Grandmother"
+        - "Brother/Sister-in-law"
+        - "Father/Mother-in-law"
+        - "Son-in-law"
+        - "Daughter-in-law"
+        - "Uncle/Aunt"
+      description: "Relacionamento do agressor com a vítima"
+
     # --- Victim Schemas ---
+    VictimPhone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
+    PhoneData:
+      type: object
+      required:
+        - phone
+      properties:
+        phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
     Victim:
       type: object
       properties:
@@ -297,15 +381,51 @@ components:
           type: string
           format: date
           nullable: true
-        phone:
-          type: string
-          nullable: true
         city_id:
           type: string
           format: uuid
-        address:
-          $ref: "#/components/schemas/VictimAddress"
+        education_level:
+          type: string
           nullable: true
+          example: "Superior Completo"
+        occupation:
+          type: string
+          nullable: true
+          example: "Professora"
+        workplace:
+          type: string
+          nullable: true
+          example: "Escola Municipal"
+        violence_type:
+          $ref: "#/components/schemas/ViolenceType"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+          example: 2
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimAddress"
         created_at:
           type: string
           format: date-time
@@ -317,30 +437,53 @@ components:
 
     VictimAddress:
       type: object
+      required:
+        - city_id
       properties:
+        id:
+          type: string
+          format: uuid
         street:
           type: string
+          nullable: true
         number:
           type: string
           nullable: true
-        complement:
+        district:
           type: string
           nullable: true
-        neighborhood:
-          type: string
         city_id:
           type: string
           format: uuid
         zip_code:
           type: string
           nullable: true
-        latitude:
-          type: number
-          format: double
+        complement:
+          type: string
           nullable: true
-        longitude:
-          type: number
-          format: double
+
+    AddressData:
+      type: object
+      required:
+        - city_id
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
           nullable: true
 
     CreateVictimRequest:
@@ -348,6 +491,12 @@ components:
       required:
         - full_name
         - city_id
+        - violence_type
+        - has_children
+        - has_special_needs
+        - uses_alcohol
+        - uses_drugs
+        - has_psychiatric_issues
       properties:
         full_name:
           type: string
@@ -358,14 +507,48 @@ components:
           type: string
           format: date
           nullable: true
-        phone:
-          type: string
-          nullable: true
         city_id:
           type: string
           format: uuid
-        address:
-          $ref: "#/components/schemas/VictimAddress"
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        education_level:
+          type: string
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+        violence_type:
+          $ref: "#/components/schemas/ViolenceType"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
           nullable: true
 
     UpdateVictimRequest:
@@ -373,6 +556,12 @@ components:
       required:
         - full_name
         - city_id
+        - violence_type
+        - has_children
+        - has_special_needs
+        - uses_alcohol
+        - uses_drugs
+        - has_psychiatric_issues
       properties:
         full_name:
           type: string
@@ -383,14 +572,359 @@ components:
           type: string
           format: date
           nullable: true
+        city_id:
+          type: string
+          format: uuid
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        education_level:
+          type: string
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+        violence_type:
+          $ref: "#/components/schemas/ViolenceType"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
+          nullable: true
+
+    # --- Offender Schemas ---
+    OffenderPhone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
         phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
+    OffenderAddress:
+      type: object
+      required:
+        - city_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
           type: string
           nullable: true
         city_id:
           type: string
           format: uuid
-        address:
-          $ref: "#/components/schemas/VictimAddress"
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+
+    OffenderWorkAddress:
+      type: object
+      required:
+        - city_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+
+    WorkAddressData:
+      type: object
+      required:
+        - city_id
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+
+    Offender:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        victim_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          $ref: "#/components/schemas/SecurityForce"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
+          nullable: true
+        was_drunk_during_assault:
+          type: boolean
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderAddress"
+        work_addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderWorkAddress"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateOffenderRequest:
+      type: object
+      required:
+        - full_name
+        - city_id
+        - victim_id
+        - imprisoned
+        - is_public_security_agent
+        - relationship_to_victim
+        - uses_alcohol
+        - uses_drugs
+        - has_psychiatric_issues
+        - was_drunk_during_assault
+      properties:
+        full_name:
+          type: string
+          example: "João da Silva Santos"
+        cpf:
+          type: string
+          nullable: true
+          example: "123.456.789-00"
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        victim_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+          example: "Mecânico"
+        workplace:
+          type: string
+          nullable: true
+          example: "Oficina Silva Auto Peças"
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          $ref: "#/components/schemas/SecurityForce"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
+          nullable: true
+        was_drunk_during_assault:
+          type: boolean
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        work_addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkAddressData"
+          nullable: true
+
+    UpdateOffenderRequest:
+      type: object
+      required:
+        - full_name
+        - city_id
+        - victim_id
+        - imprisoned
+        - is_public_security_agent
+        - relationship_to_victim
+        - uses_alcohol
+        - uses_drugs
+        - has_psychiatric_issues
+        - was_drunk_during_assault
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        victim_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          $ref: "#/components/schemas/SecurityForce"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: string
+          nullable: true
+        was_drunk_during_assault:
+          type: boolean
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        work_addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkAddressData"
           nullable: true
 
     # --- Protective Measure Schemas ---
@@ -520,17 +1054,21 @@ components:
 
     AttendanceAddress:
       type: object
+      required:
+        - city_id
       properties:
         street:
           type: string
+          nullable: true
         number:
           type: string
           nullable: true
         complement:
           type: string
           nullable: true
-        neighborhood:
+        district:
           type: string
+          nullable: true
         city_id:
           type: string
           format: uuid
@@ -1276,6 +1814,675 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/Victim"
+
+  /victims/{id}/phones:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Adicionar telefone à vítima"
+      description: "Adiciona um novo telefone para a vítima"
+      operationId: "addPhoneToVictim"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "201":
+          description: "Telefone adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/VictimPhone"
+
+  /victims/{id}/phones/{phone_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+      - name: "phone_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do telefone"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar telefone da vítima"
+      description: "Atualiza informações de um telefone existente"
+      operationId: "updateVictimPhone"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "200":
+          description: "Telefone atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/VictimPhone"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar telefone da vítima (soft delete)"
+      description: "Remove um telefone da vítima"
+      operationId: "deleteVictimPhone"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Telefone deletado com sucesso"
+
+  /victims/{id}/addresses:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Adicionar endereço à vítima"
+      description: "Adiciona um novo endereço para a vítima"
+      operationId: "addAddressToVictim"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "201":
+          description: "Endereço adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/VictimAddress"
+
+  /victims/{id}/addresses/{address_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+      - name: "address_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do endereço"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar endereço da vítima"
+      description: "Atualiza informações de um endereço existente"
+      operationId: "updateVictimAddress"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "200":
+          description: "Endereço atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/VictimAddress"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar endereço da vítima (soft delete)"
+      description: "Remove um endereço da vítima"
+      operationId: "deleteVictimAddress"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Endereço deletado com sucesso"
+
+  # === OFFENDER ENDPOINTS ===
+  /offenders:
+    get:
+      tags:
+        - "Offenders"
+      summary: "Listar todos os agressores"
+      description: "Retorna lista de agressores com filtros baseados nas permissões do usuário"
+      operationId: "getAllOffenders"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de agressores retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Criar novo agressor"
+      description: "Cria um novo agressor no sistema"
+      operationId: "createOffender"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOffenderRequest"
+      responses:
+        "201":
+          description: "Agressor criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar agressor nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /offenders/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    get:
+      tags:
+        - "Offenders"
+      summary: "Obter agressor por ID"
+      description: "Retorna detalhes de um agressor específico"
+      operationId: "getOffenderById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Agressor encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar agressor"
+      description: "Atualiza informações de um agressor existente"
+      operationId: "updateOffender"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOffenderRequest"
+      responses:
+        "200":
+          description: "Agressor atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar agressor (soft delete)"
+      description: "Realiza soft delete de um agressor"
+      operationId: "deleteOffender"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Agressor deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+
+  /offenders/victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Offenders"
+      summary: "Listar agressores de uma vítima"
+      description: "Retorna todos os agressores associados a uma vítima específica"
+      operationId: "getOffendersByVictim"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de agressores da vítima"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+
+  /offenders/{id}/phones:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Adicionar telefone ao agressor"
+      description: "Adiciona um novo telefone para o agressor"
+      operationId: "addPhoneToOffender"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "201":
+          description: "Telefone adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/OffenderPhone"
+
+  /offenders/{id}/phones/{phone_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+      - name: "phone_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do telefone"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar telefone do agressor"
+      description: "Atualiza informações de um telefone existente"
+      operationId: "updateOffenderPhone"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "200":
+          description: "Telefone atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/OffenderPhone"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar telefone do agressor (soft delete)"
+      description: "Remove um telefone do agressor"
+      operationId: "deleteOffenderPhone"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Telefone deletado com sucesso"
+
+  /offenders/{id}/addresses:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Adicionar endereço ao agressor"
+      description: "Adiciona um novo endereço para o agressor"
+      operationId: "addAddressToOffender"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "201":
+          description: "Endereço adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/OffenderAddress"
+
+  /offenders/{id}/addresses/{address_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+      - name: "address_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do endereço"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar endereço do agressor"
+      description: "Atualiza informações de um endereço existente"
+      operationId: "updateOffenderAddress"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "200":
+          description: "Endereço atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/OffenderAddress"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar endereço do agressor (soft delete)"
+      description: "Remove um endereço do agressor"
+      operationId: "deleteOffenderAddress"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Endereço deletado com sucesso"
+
+  /offenders/{id}/work-addresses:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Adicionar endereço de trabalho ao agressor"
+      description: "Adiciona um novo endereço de trabalho para o agressor"
+      operationId: "addWorkAddressToOffender"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkAddressData"
+      responses:
+        "201":
+          description: "Endereço de trabalho adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/OffenderWorkAddress"
+
+  /offenders/{id}/work-addresses/{work_address_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+      - name: "work_address_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do endereço de trabalho"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar endereço de trabalho do agressor"
+      description: "Atualiza informações de um endereço de trabalho existente"
+      operationId: "updateOffenderWorkAddress"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkAddressData"
+      responses:
+        "200":
+          description: "Endereço de trabalho atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/OffenderWorkAddress"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar endereço de trabalho do agressor (soft delete)"
+      description: "Remove um endereço de trabalho do agressor"
+      operationId: "deleteOffenderWorkAddress"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Endereço de trabalho deletado com sucesso"
 
   # === PROTECTIVE MEASURE ENDPOINTS ===
   /protective-measures:
