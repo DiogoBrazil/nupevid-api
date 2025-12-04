@@ -34,7 +34,7 @@ fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_js
         "city_id": city_id,
         "phones": [{
             "phone": "11999999999",
-            "phone_type": "primary"
+            "phone_type": "Mobile"
         }],
         "addresses": [{
             "street": "Rua Teste",

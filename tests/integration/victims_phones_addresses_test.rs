@@ -6,7 +6,7 @@ use crate::common::{db_fixtures, test_helpers};
 fn build_phone_payload() -> serde_json::Value {
     serde_json::json!({
         "phone": "11987654321",
-        "phone_type": "whatsapp"
+        "phone_type": "Mobile"
     })
 }
 
@@ -54,7 +54,7 @@ async fn can_add_update_delete_phone_for_victim() {
     // 2. Update phone
     let update_payload = serde_json::json!({
         "phone": "11123456789",
-        "phone_type": "other"
+        "phone_type": "Work"
     });
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
@@ -68,7 +68,7 @@ async fn can_add_update_delete_phone_for_victim() {
     assert_eq!(update_resp.status(), StatusCode::OK);
     let updated_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(updated_body["data"]["phone"].as_str().unwrap(), "11123456789");
-    assert_eq!(updated_body["data"]["phone_type"].as_str().unwrap(), "other");
+    assert_eq!(updated_body["data"]["phone_type"].as_str().unwrap(), "Work");
 
     // 3. Delete phone
     let delete_req = test_helpers::with_auth_headers(

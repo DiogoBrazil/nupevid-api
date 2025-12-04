@@ -57,3 +57,42 @@ pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uui
     .expect("Failed to insert test victim");
     id
 }
+
+/// Insert a test offender associated with the given city and victim, return its id.
+pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid, victim_id: Uuid) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO offenders (
+            id, full_name, cpf, birth_date, city_id, victim_id,
+            imprisoned, occupation, workplace,
+            is_public_security_agent, relationship_to_victim,
+            uses_alcohol, uses_drugs,
+            has_psychiatric_issues, psychiatric_issues_type,
+            was_drunk_during_assault, observation,
+            is_deleted
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::relationship_to_victim_enum, $12, $13, $14, $15, $16, $17, false
+        )",
+    )
+    .bind(id)
+    .bind(full_name)
+    .bind(Option::<String>::None) // cpf
+    .bind(Option::<NaiveDate>::None) // birth_date
+    .bind(city_id)
+    .bind(victim_id)
+    .bind(false) // imprisoned
+    .bind(Option::<String>::None) // occupation
+    .bind(Option::<String>::None) // workplace
+    .bind(false) // is_public_security_agent
+    .bind("Spouse") // relationship_to_victim
+    .bind(false) // uses_alcohol
+    .bind(false) // uses_drugs
+    .bind(false) // has_psychiatric_issues
+    .bind(Option::<String>::None) // psychiatric_issues_type
+    .bind(false) // was_drunk_during_assault
+    .bind(Option::<String>::None) // observation
+    .execute(pool)
+    .await
+    .expect("Failed to insert test offender");
+    id
+}
