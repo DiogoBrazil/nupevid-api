@@ -23,15 +23,35 @@ pub async fn insert_city(pool: &PgPool, name: &str) -> Uuid {
 pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO victims (id, full_name, cpf, birth_date, phone, city_id, is_deleted) \
-         VALUES ($1, $2, $3, $4, $5, $6, false)",
+        "INSERT INTO victims (
+            id, full_name, cpf, birth_date, city_id,
+            education_level, occupation, workplace,
+            violence_type, has_children, children_count,
+            has_special_needs, special_needs_type,
+            uses_alcohol, uses_drugs,
+            has_psychiatric_issues, psychiatric_issues_type,
+            is_deleted
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9::violence_type_enum, $10::has_children_enum, $11, $12, $13, $14, $15, $16, $17, false
+        )",
     )
     .bind(id)
     .bind(full_name)
-    .bind(Option::<String>::None)
-    .bind(Option::<NaiveDate>::None)
-    .bind(Option::<String>::None)
+    .bind(Option::<String>::None) // cpf
+    .bind(Option::<NaiveDate>::None) // birth_date
     .bind(city_id)
+    .bind(Option::<String>::None) // education_level
+    .bind(Option::<String>::None) // occupation
+    .bind(Option::<String>::None) // workplace
+    .bind("Physical") // violence_type
+    .bind("No") // has_children
+    .bind(Option::<i32>::None) // children_count
+    .bind(false) // has_special_needs
+    .bind(Option::<String>::None) // special_needs_type
+    .bind(false) // uses_alcohol
+    .bind(false) // uses_drugs
+    .bind(false) // has_psychiatric_issues
+    .bind(Option::<String>::None) // psychiatric_issues_type
     .execute(pool)
     .await
     .expect("Failed to insert test victim");
