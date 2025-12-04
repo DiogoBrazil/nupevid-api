@@ -1,0 +1,1602 @@
+openapi: 3.0.3
+info:
+  title: "NUPEVID API"
+  description: "API do sistema NUPEVID para gerenciamento de vítimas, atendimentos e medidas protetivas"
+  version: "1.0.0"
+  contact:
+    name: "Equipe NUPEVID"
+
+servers:
+  - url: "/api/v1"
+    description: "Servidor Principal"
+
+tags:
+  - name: "Auth"
+    description: "Autenticação e autorização"
+  - name: "Users"
+    description: "Gerenciamento de usuários"
+  - name: "Cities"
+    description: "Gerenciamento de cidades"
+  - name: "Victims"
+    description: "Gerenciamento de vítimas"
+  - name: "Protective Measures"
+    description: "Gerenciamento de medidas protetivas"
+  - name: "Attendances"
+    description: "Gerenciamento de atendimentos"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Autenticação via Token JWT obtido no endpoint /auth/login"
+    api_key:
+      type: api_key
+      in: header
+      name: api_key
+      description: "Chave de API configurada nas variáveis de ambiente"
+
+  schemas:
+    # --- Error Responses ---
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: "Tipo de erro"
+        message:
+          type: string
+          description: "Mensagem de erro descritiva"
+        status_code:
+          type: integer
+          format: int32
+          description: "Código de status HTTP"
+
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+          description: "Código de status da resposta"
+        data:
+          type: object
+          description: "Dados da resposta"
+
+    # --- Auth Schemas ---
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@nupevid.com"
+        password:
+          type: string
+          format: password
+          example: "SecurePassword123!"
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: "Token JWT para autenticação"
+            user:
+              $ref: "#/components/schemas/User"
+
+    # --- User Schemas ---
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rank:
+          type: string
+          example: "CAP PM"
+        registration:
+          type: string
+          example: "100000001"
+        full_name:
+          type: string
+          example: "João Silva"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão do usuário"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateUserRequest:
+      type: object
+      required:
+        - rank
+        - registration
+        - full_name
+        - profile
+        - email
+        - password
+      properties:
+        rank:
+          type: string
+          example: "CB PM"
+        registration:
+          type: string
+          pattern: "^1000[0-9]{5}$"
+          example: "100000001"
+        full_name:
+          type: string
+          example: "Maria Santos"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão opcionais"
+
+    UpdateUserRequest:
+      type: object
+      required:
+        - rank
+        - registration
+        - full_name
+        - profile
+        - email
+      properties:
+        rank:
+          type: string
+        registration:
+          type: string
+        full_name:
+          type: string
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    AppendPolicyCitiesRequest:
+      type: object
+      required:
+        - city_ids
+      properties:
+        city_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # --- City Schemas ---
+    City:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "PORTO VELHO"
+        state:
+          type: string
+          example: "RO"
+        battalion:
+          type: string
+          example: "1ºBPM"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateCityRequest:
+      type: object
+      required:
+        - name
+        - state
+        - battalion
+      properties:
+        name:
+          type: string
+          example: "ARIQUEMES"
+        state:
+          type: string
+          enum: ["RO"]
+        battalion:
+          type: string
+          example: "2ºBPM"
+
+    UpdateCityRequest:
+      type: object
+      required:
+        - name
+        - state
+        - battalion
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+          enum: ["RO"]
+        battalion:
+          type: string
+
+    # --- Victim Schemas ---
+    Victim:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        address:
+          $ref: "#/components/schemas/VictimAddress"
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    VictimAddress:
+      type: object
+      properties:
+        street:
+          type: string
+        number:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        neighborhood:
+          type: string
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+
+    CreateVictimRequest:
+      type: object
+      required:
+        - full_name
+        - city_id
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        address:
+          $ref: "#/components/schemas/VictimAddress"
+          nullable: true
+
+    UpdateVictimRequest:
+      type: object
+      required:
+        - full_name
+        - city_id
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        address:
+          $ref: "#/components/schemas/VictimAddress"
+          nullable: true
+
+    # --- Protective Measure Schemas ---
+    ProtectiveMeasure:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        process_number:
+          type: string
+        issued_at:
+          type: string
+          format: date
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateProtectiveMeasureRequest:
+      type: object
+      required:
+        - process_number
+        - issued_at
+        - judicial_authority
+        - court_district_id
+        - is_active
+        - victim_id
+      properties:
+        process_number:
+          type: string
+          example: "12345-67.2025.8.26.0000"
+        issued_at:
+          type: string
+          format: date
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+
+    UpdateProtectiveMeasureRequest:
+      type: object
+      required:
+        - process_number
+        - issued_at
+        - judicial_authority
+        - court_district_id
+        - is_active
+        - victim_id
+      properties:
+        process_number:
+          type: string
+        issued_at:
+          type: string
+          format: date
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+
+    # --- Attendance Schemas ---
+    Attendance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceAddress"
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    AttendanceAddress:
+      type: object
+      properties:
+        street:
+          type: string
+        number:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        neighborhood:
+          type: string
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+
+    CreateAttendanceRequest:
+      type: object
+      required:
+        - victim_id
+        - was_victim_present
+        - attendance_date
+        - attendance_time
+      properties:
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceAddress"
+          nullable: true
+
+    UpdateAttendanceRequest:
+      type: object
+      required:
+        - victim_id
+        - was_victim_present
+        - attendance_date
+        - attendance_time
+      properties:
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceAddress"
+          nullable: true
+
+paths:
+  # === AUTH ENDPOINTS ===
+  /auth/login:
+    post:
+      tags:
+        - "Auth"
+      summary: "Realizar login no sistema"
+      description: "Autentica um usuário e retorna um token JWT válido por tempo configurado"
+      operationId: "authLogin"
+      security:
+        - api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: "Login realizado com sucesso"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: "Credenciais inválidas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === USER ENDPOINTS ===
+  /users:
+    get:
+      tags:
+        - "Users"
+      summary: "Listar todos os usuários"
+      description: "Retorna lista de usuários com filtros baseados nas permissões do usuário autenticado"
+      operationId: "getAllUsers"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de usuários retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+
+    post:
+      tags:
+        - "Users"
+      summary: "Criar novo usuário"
+      description: "Cria um novo usuário no sistema. Apenas ROOT e CITY_ADMIN podem criar usuários"
+      operationId: "createUser"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: "Usuário criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar usuários"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+
+    get:
+      tags:
+        - "Users"
+      summary: "Obter usuário por ID"
+      description: "Retorna detalhes de um usuário específico"
+      operationId: "getUserById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Usuário encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Users"
+      summary: "Atualizar usuário"
+      description: "Atualiza informações de um usuário existente"
+      operationId: "updateUser"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: "Usuário atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Users"
+      summary: "Deletar usuário (soft delete)"
+      description: "Realiza soft delete de um usuário"
+      operationId: "deleteUser"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Usuário deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/password:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+
+    patch:
+      tags:
+        - "Users"
+      summary: "Atualizar senha do usuário"
+      description: "Atualiza a senha de um usuário. Usuários podem atualizar sua própria senha ou ROOT pode atualizar qualquer senha"
+      operationId: "updateUserPassword"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasswordRequest"
+      responses:
+        "200":
+          description: "Senha atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Senha atual incorreta ou dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/policies/{policy}/cities:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+      - name: "policy"
+        in: "path"
+        required: true
+        schema:
+          type: string
+        description: "Nome da política (ex: read_victims, create_victims, etc)"
+
+    post:
+      tags:
+        - "Users"
+      summary: "Adicionar cidades a uma política de usuário"
+      description: "Adiciona permissões de cidades específicas a uma política de um usuário"
+      operationId: "appendUserPolicyCities"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendPolicyCitiesRequest"
+      responses:
+        "200":
+          description: "Políticas atualizadas com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Política inválida"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para modificar políticas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Users"
+      summary: "Remover cidades de uma política de usuário"
+      description: "Remove permissões de cidades específicas de uma política de um usuário"
+      operationId: "removeUserPolicyCities"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendPolicyCitiesRequest"
+      responses:
+        "200":
+          description: "Políticas atualizadas com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+
+  # === CITY ENDPOINTS ===
+  /cities:
+    get:
+      tags:
+        - "Cities"
+      summary: "Listar todas as cidades"
+      description: "Retorna lista de cidades com filtros baseados nas permissões do usuário"
+      operationId: "getAllCities"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de cidades retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/City"
+
+    post:
+      tags:
+        - "Cities"
+      summary: "Criar nova cidade"
+      description: "Cria uma nova cidade no sistema. Apenas ROOT pode criar cidades"
+      operationId: "createCity"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCityRequest"
+      responses:
+        "201":
+          description: "Cidade criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/City"
+        "400":
+          description: "Dados inválidos ou cidade duplicada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas ROOT pode criar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cities/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da cidade"
+
+    get:
+      tags:
+        - "Cities"
+      summary: "Obter cidade por ID"
+      description: "Retorna detalhes de uma cidade específica"
+      operationId: "getCityById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Cidade encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "404":
+          description: "Cidade não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Cities"
+      summary: "Atualizar cidade"
+      description: "Atualiza informações de uma cidade. Apenas ROOT pode atualizar cidades"
+      operationId: "updateCity"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCityRequest"
+      responses:
+        "200":
+          description: "Cidade atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas ROOT pode atualizar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Cities"
+      summary: "Deletar cidade (soft delete)"
+      description: "Realiza soft delete de uma cidade. Apenas ROOT pode deletar cidades"
+      operationId: "deleteCity"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Cidade deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "403":
+          description: "Apenas ROOT pode deletar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === VICTIM ENDPOINTS ===
+  /victims:
+    get:
+      tags:
+        - "Victims"
+      summary: "Listar todas as vítimas"
+      description: "Retorna lista de vítimas com filtros baseados nas permissões do usuário"
+      operationId: "getAllVictims"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de vítimas retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Victim"
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Criar nova vítima"
+      description: "Cria uma nova vítima no sistema"
+      operationId: "createVictim"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVictimRequest"
+      responses:
+        "201":
+          description: "Vítima criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar vítima nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /victims/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Victims"
+      summary: "Obter vítima por ID"
+      description: "Retorna detalhes de uma vítima específica"
+      operationId: "getVictimById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Vítima encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar vítima"
+      description: "Atualiza informações de uma vítima existente"
+      operationId: "updateVictim"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVictimRequest"
+      responses:
+        "200":
+          description: "Vítima atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar vítima (soft delete)"
+      description: "Realiza soft delete de uma vítima"
+      operationId: "deleteVictim"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Vítima deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+
+  # === PROTECTIVE MEASURE ENDPOINTS ===
+  /protective-measures:
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Listar todas as medidas protetivas"
+      description: "Retorna lista de medidas protetivas com filtros baseados nas permissões"
+      operationId: "getAllProtectiveMeasures"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de medidas protetivas retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProtectiveMeasure"
+
+    post:
+      tags:
+        - "Protective Measures"
+      summary: "Criar nova medida protetiva"
+      description: "Cria uma nova medida protetiva. Apenas uma medida ativa por vítima é permitida"
+      operationId: "createProtectiveMeasure"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProtectiveMeasureRequest"
+      responses:
+        "201":
+          description: "Medida protetiva criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+        "400":
+          description: "Dados inválidos ou vítima já possui medida ativa"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /protective-measures/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Obter medida protetiva por ID"
+      description: "Retorna detalhes de uma medida protetiva específica"
+      operationId: "getProtectiveMeasureById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Medida protetiva encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+
+    put:
+      tags:
+        - "Protective Measures"
+      summary: "Atualizar medida protetiva"
+      description: "Atualiza informações de uma medida protetiva existente"
+      operationId: "updateProtectiveMeasure"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProtectiveMeasureRequest"
+      responses:
+        "200":
+          description: "Medida protetiva atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+
+    delete:
+      tags:
+        - "Protective Measures"
+      summary: "Deletar medida protetiva (soft delete)"
+      description: "Realiza soft delete de uma medida protetiva"
+      operationId: "deleteProtectiveMeasure"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Medida protetiva deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+
+  /protective-measures/victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Listar medidas protetivas de uma vítima"
+      description: "Retorna todas as medidas protetivas associadas a uma vítima específica"
+      operationId: "getProtectiveMeasuresByVictim"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de medidas protetivas da vítima"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProtectiveMeasure"
+
+  # === ATTENDANCE ENDPOINTS ===
+  /attendances:
+    get:
+      tags:
+        - "Attendances"
+      summary: "Listar todos os atendimentos"
+      description: "Retorna lista de atendimentos com filtros baseados nas permissões"
+      operationId: "getAllAttendances"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Attendance"
+
+    post:
+      tags:
+        - "Attendances"
+      summary: "Criar novo atendimento"
+      description: "Cria um novo registro de atendimento a uma vítima"
+      operationId: "createAttendance"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttendanceRequest"
+      responses:
+        "201":
+          description: "Atendimento criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/Attendance"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendances/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendances"
+      summary: "Obter atendimento por ID"
+      description: "Retorna detalhes de um atendimento específico"
+      operationId: "getAttendanceById"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Atendimento encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Attendance"
+
+    put:
+      tags:
+        - "Attendances"
+      summary: "Atualizar atendimento"
+      description: "Atualiza informações de um atendimento existente"
+      operationId: "updateAttendance"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttendanceRequest"
+      responses:
+        "200":
+          description: "Atendimento atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Attendance"
+
+    delete:
+      tags:
+        - "Attendances"
+      summary: "Deletar atendimento (soft delete)"
+      description: "Realiza soft delete de um atendimento"
+      operationId: "deleteAttendance"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "Atendimento deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Attendance"
