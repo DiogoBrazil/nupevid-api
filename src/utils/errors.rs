@@ -20,6 +20,9 @@ pub enum AppError {
     #[error("Not Found: {0}")]
     NotFound(String),
 
+    #[error("Conflict: {0}")]
+    Conflict(String),
+
     #[error("Database Error: {0}")]
     DatabaseError(String),
 
@@ -41,6 +44,8 @@ impl ResponseError for AppError {
                 (StatusCode::FORBIDDEN, "Forbidden"),
             AppError::NotFound(_) =>
                 (StatusCode::NOT_FOUND, "Not Found"),
+            AppError::Conflict(_) =>
+                (StatusCode::CONFLICT, "Conflict"),
             AppError::DatabaseError(_) =>
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
             AppError::InvalidMethodError(_) =>
@@ -62,6 +67,7 @@ impl ResponseError for AppError {
             AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             AppError::Forbidden(_) => StatusCode::FORBIDDEN,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::InvalidMethodError(_) => StatusCode::METHOD_NOT_ALLOWED,
         }
