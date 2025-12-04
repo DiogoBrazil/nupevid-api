@@ -5,3 +5,4 @@ pub mod protective_measures;
 pub mod users;
 pub mod victims;
 pub mod attendances;
+pub mod swagger;
