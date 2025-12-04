@@ -26,6 +26,12 @@ pub const POLICY_READ_VICTIMS: &str = "read_victims";
 pub const POLICY_UPDATE_VICTIMS: &str = "update_victims";
 pub const POLICY_DELETE_VICTIMS: &str = "delete_victims";
 
+// Offenders policies
+pub const POLICY_CREATE_OFFENDERS: &str = "create_offenders";
+pub const POLICY_READ_OFFENDERS: &str = "read_offenders";
+pub const POLICY_UPDATE_OFFENDERS: &str = "update_offenders";
+pub const POLICY_DELETE_OFFENDERS: &str = "delete_offenders";
+
 // Attendances policies
 pub const POLICY_CREATE_ATTENDANCES: &str = "create_attendances";
 pub const POLICY_READ_ATTENDANCES: &str = "read_attendances";
@@ -39,7 +45,7 @@ pub const POLICY_UPDATE_PROTECTIVE_MEASURES: &str = "update_protective_measures"
 pub const POLICY_DELETE_PROTECTIVE_MEASURES: &str = "delete_protective_measures";
 
 // All valid policies array
-pub const VALID_POLICIES: [&str; 20] = [
+pub const VALID_POLICIES: [&str; 24] = [
     POLICY_CREATE_CITIES,
     POLICY_READ_CITIES,
     POLICY_UPDATE_CITIES,
@@ -52,6 +58,10 @@ pub const VALID_POLICIES: [&str; 20] = [
     POLICY_READ_VICTIMS,
     POLICY_UPDATE_VICTIMS,
     POLICY_DELETE_VICTIMS,
+    POLICY_CREATE_OFFENDERS,
+    POLICY_READ_OFFENDERS,
+    POLICY_UPDATE_OFFENDERS,
+    POLICY_DELETE_OFFENDERS,
     POLICY_CREATE_ATTENDANCES,
     POLICY_READ_ATTENDANCES,
     POLICY_UPDATE_ATTENDANCES,
@@ -70,7 +80,7 @@ pub const NON_ASSIGNABLE_POLICIES: [&str; 3] = [
 ];
 
 // Default CRUD policies for CITY_ADMIN (all operations on their city, except city management)
-pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 17] = [
+pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 21] = [
     POLICY_READ_CITIES,
     POLICY_CREATE_USERS,
     POLICY_READ_USERS,
@@ -80,6 +90,10 @@ pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 17] = [
     POLICY_READ_VICTIMS,
     POLICY_UPDATE_VICTIMS,
     POLICY_DELETE_VICTIMS,
+    POLICY_CREATE_OFFENDERS,
+    POLICY_READ_OFFENDERS,
+    POLICY_UPDATE_OFFENDERS,
+    POLICY_DELETE_OFFENDERS,
     POLICY_CREATE_ATTENDANCES,
     POLICY_READ_ATTENDANCES,
     POLICY_UPDATE_ATTENDANCES,
@@ -91,9 +105,10 @@ pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 17] = [
 ];
 
 // Default read-only policies for CITY_USER
-pub const CITY_USER_DEFAULT_POLICIES: [&str; 5] = [
+pub const CITY_USER_DEFAULT_POLICIES: [&str; 6] = [
     POLICY_READ_CITIES,
     POLICY_READ_VICTIMS,
+    POLICY_READ_OFFENDERS,
     POLICY_READ_ATTENDANCES,
     POLICY_READ_PROTECTIVE_MEASURES,
     POLICY_READ_USERS,
