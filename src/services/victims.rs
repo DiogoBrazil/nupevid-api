@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::core::contracts::repository::victims::VictimRepository;
 use crate::core::entities::auth::ClaimsToUserToken;
-use crate::core::entities::victims::{CreateVictim, UpdateVictim};
+use crate::core::entities::victims::{AddressData, CreateVictim, PhoneData, UpdateVictim};
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
 use crate::core::contracts::repository::users::UserRepository;
@@ -53,6 +53,12 @@ impl VictimService {
                 Ok(ApiResponse::created(victim_with_address).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() && db_err.constraint() == Some("idx_victims_cpf_unique") {
+                        error!("[VictimService] Attempt to create victim with duplicate CPF");
+                        return Err(AppError::Conflict("A victim with this CPF already exists.".to_string()));
+                    }
+                }
                 error!("[VictimService] Failed to save victim: {:?}", e);
                 Err(AppError::InternalServerError)
             }
@@ -234,6 +240,196 @@ impl VictimService {
                 error!("[VictimService] Failed to delete victim: {:?}", e);
                 Err(AppError::InternalServerError)
             }
+        }
+    }
+
+    pub async fn create_phone(
+        &self,
+        victim_id: Uuid,
+        phone_data: PhoneData,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Adding phone to victim: {}", victim_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_victim_by_id(victim_id).await {
+            Ok(victim) => {
+                check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Victim with id '{}' not found",
+                    victim_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.create_phone(victim_id, phone_data).await {
+            Ok(phone) => Ok(ApiResponse::created(phone).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn update_phone(
+        &self,
+        phone_id: Uuid,
+        phone_data: PhoneData,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Updating phone: {}", phone_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_phone_by_id(phone_id).await {
+            Ok(phone) => {
+                match self.victim_repository.get_victim_by_id(phone.victim_id).await {
+                    Ok(victim) => {
+                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                    }
+                    Err(_) => return Err(AppError::InternalServerError),
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Phone with id '{}' not found",
+                    phone_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.update_phone_by_id(phone_id, phone_data).await {
+            Ok(phone) => Ok(ApiResponse::success(phone).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn delete_phone(&self, phone_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Deleting phone: {}", phone_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_phone_by_id(phone_id).await {
+            Ok(phone) => {
+                match self.victim_repository.get_victim_by_id(phone.victim_id).await {
+                    Ok(victim) => {
+                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                    }
+                    Err(_) => return Err(AppError::InternalServerError),
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Phone with id '{}' not found",
+                    phone_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.delete_phone_by_id(phone_id).await {
+            Ok(phone) => Ok(ApiResponse::success(phone).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn create_address(
+        &self,
+        victim_id: Uuid,
+        address_data: AddressData,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Adding address to victim: {}", victim_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_victim_by_id(victim_id).await {
+            Ok(victim) => {
+                check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Victim with id '{}' not found",
+                    victim_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.create_address(victim_id, address_data).await {
+            Ok(address) => Ok(ApiResponse::created(address).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn update_address(
+        &self,
+        address_id: Uuid,
+        address_data: AddressData,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Updating address: {}", address_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_address_by_id(address_id).await {
+            Ok(address) => {
+                match self.victim_repository.get_victim_by_id(address.victim_id).await {
+                    Ok(victim) => {
+                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                    }
+                    Err(_) => return Err(AppError::InternalServerError),
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Address with id '{}' not found",
+                    address_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.update_address_by_id(address_id, address_data).await {
+            Ok(address) => Ok(ApiResponse::success(address).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn delete_address(&self, address_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Deleting address: {}", address_id);
+
+        let claims = self.get_claims(&req)?;
+        let policies = self.get_user_policies(&claims).await?;
+
+        match self.victim_repository.get_address_by_id(address_id).await {
+            Ok(address) => {
+                match self.victim_repository.get_victim_by_id(address.victim_id).await {
+                    Ok(victim) => {
+                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                    }
+                    Err(_) => return Err(AppError::InternalServerError),
+                }
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Address with id '{}' not found",
+                    address_id
+                )));
+            }
+            Err(_) => return Err(AppError::InternalServerError),
+        }
+
+        match self.victim_repository.delete_address_by_id(address_id).await {
+            Ok(address) => Ok(ApiResponse::success(address).into_response()),
+            Err(_) => Err(AppError::InternalServerError),
         }
     }
 

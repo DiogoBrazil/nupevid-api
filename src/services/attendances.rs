@@ -6,7 +6,7 @@ use crate::core::contracts::repository::attendances::AttendanceRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
 use crate::core::entities::attendances::{CreateAttendance, UpdateAttendance};
 use crate::core::entities::auth::ClaimsToUserToken;
-use crate::core::entities::victims::VictimWithAddress;
+use crate::core::entities::victims::VictimWithDetails;
 use crate::repositories::attendances::PgAttendanceRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
@@ -251,7 +251,7 @@ impl AttendanceService {
         &self,
         _claims: &ClaimsToUserToken,
         victim_id: Uuid,
-    ) -> Result<VictimWithAddress, AppError> {
+    ) -> Result<VictimWithDetails, AppError> {
         self.victim_repository
             .get_victim_by_id(victim_id)
             .await
