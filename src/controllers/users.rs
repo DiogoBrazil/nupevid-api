@@ -93,7 +93,7 @@ pub async fn append_user_policy_cities(
     let (user_id, policy) = path.into_inner();
     info!("[Controller] Append cities to user policy '{}' for user: {}", policy, user_id);
     service
-        .append_user_policy_cities(user_id, &policy, body.city_ids.clone(), req)
+        .append_user_policy_cities(user_id, &policy, &body.city_ids, req)
         .await
 }
 
@@ -106,6 +106,6 @@ pub async fn remove_user_policy_cities(
     let (user_id, policy) = path.into_inner();
     info!("[Controller] Remove cities from user policy '{}' for user: {}", policy, user_id);
     service
-        .remove_user_policy_cities(user_id, &policy, body.city_ids.clone(), req)
+        .remove_user_policy_cities(user_id, &policy, &body.city_ids, req)
         .await
 }
