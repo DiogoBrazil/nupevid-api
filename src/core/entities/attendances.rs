@@ -95,15 +95,15 @@ pub struct AttendanceAddress {
 }
 
 impl AttendanceAddress {
-    pub fn to_response(&self) -> AttendanceAddressResponse {
+    pub fn to_response(self) -> AttendanceAddressResponse {
         AttendanceAddressResponse {
             id: self.id,
-            street: self.street.clone(),
-            number: self.number.clone(),
-            district: self.district.clone(),
+            street: self.street,
+            number: self.number,
+            district: self.district,
             city_id: self.city_id,
-            zip_code: self.zip_code.clone(),
-            complement: self.complement.clone(),
+            zip_code: self.zip_code,
+            complement: self.complement,
         }
     }
 }
