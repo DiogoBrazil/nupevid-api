@@ -60,11 +60,11 @@ pub struct VictimPhoneResponse {
 }
 
 impl VictimPhone {
-    pub fn to_response(&self) -> VictimPhoneResponse {
+    pub fn to_response(self) -> VictimPhoneResponse {
         VictimPhoneResponse {
             id: self.id,
-            phone: self.phone.clone(),
-            phone_type: self.phone_type.clone(),
+            phone: self.phone,
+            phone_type: self.phone_type,
         }
     }
 }
@@ -106,15 +106,15 @@ pub struct VictimAddress {
 }
 
 impl VictimAddress {
-    pub fn to_response(&self) -> VictimAddressResponse {
+    pub fn to_response(self) -> VictimAddressResponse {
         VictimAddressResponse {
             id: self.id,
-            street: self.street.clone(),
-            number: self.number.clone(),
-            district: self.district.clone(),
+            street: self.street,
+            number: self.number,
+            district: self.district,
             city_id: self.city_id,
-            zip_code: self.zip_code.clone(),
-            complement: self.complement.clone(),
+            zip_code: self.zip_code,
+            complement: self.complement,
         }
     }
 }

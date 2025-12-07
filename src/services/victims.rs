@@ -1,19 +1,23 @@
-use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::contracts::repository::victims::VictimRepository;
-use crate::core::entities::auth::ClaimsToUserToken;
+
 use crate::core::entities::victims::{AddressData, CreateVictim, PhoneData, UpdateVictim};
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::core::contracts::repository::users::UserRepository;
+
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{validate_required_fields, PROFILE_ROOT, POLICY_CREATE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS, POLICY_DELETE_VICTIMS},
+    authorization::{check_policy, get_allowed_cities_for_policy},
+    service_helpers::{extract_claims, get_user_policies_with_defaults}
 };
-use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
+use crate::validators::{
+    common::{POLICY_CREATE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS, POLICY_DELETE_VICTIMS},
+    victim_validator::VictimValidator
+};
 
 pub struct VictimService {
     victim_repository: web::Data<PgVictimRepository>,
@@ -32,15 +36,12 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Starting victim creation: {}", victim.full_name);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         check_policy(&claims, POLICY_CREATE_VICTIMS, victim.city_id, &policies)?;
 
-        validate_required_fields(
-            &[("full_name", victim.full_name.is_empty())],
-            "Error adding victim: ",
-        )?;
+        VictimValidator::validate_required_fields(&victim.full_name, "Error adding victim")?;
 
         info!("[VictimService] Saving victim to database");
 
@@ -75,11 +76,11 @@ impl VictimService {
             id
         );
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
-                let policies = self.get_user_policies(&claims).await?;
+                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_READ_VICTIMS, victim_with_address.city_id, &policies)?;
 
                 info!("[VictimService] Victim with id {} found successfully", id);
@@ -105,8 +106,8 @@ impl VictimService {
     pub async fn get_all_victims(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Starting process to get victims");
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         let victims = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies) {
             match self.victim_repository.get_all_victims().await {
@@ -143,14 +144,11 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Starting victim update for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_UPDATE_VICTIMS, data.city_id, &policies)?;
 
-        validate_required_fields(
-            &[("full_name", data.full_name.is_empty())],
-            "Error updating victim: ",
-        )?;
+        VictimValidator::validate_required_fields(&data.full_name, "Error updating victim")?;
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
@@ -205,11 +203,11 @@ impl VictimService {
             id
         );
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim) => {
-                let policies = self.get_user_policies(&claims).await?;
+                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_DELETE_VICTIMS, victim.city_id, &policies)?;
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -251,8 +249,8 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Adding phone to victim: {}", victim_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_victim_by_id(victim_id).await {
             Ok(victim) => {
@@ -281,8 +279,8 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Updating phone: {}", phone_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
@@ -311,8 +309,8 @@ impl VictimService {
     pub async fn delete_phone(&self, phone_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Deleting phone: {}", phone_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
@@ -346,8 +344,8 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Adding address to victim: {}", victim_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_victim_by_id(victim_id).await {
             Ok(victim) => {
@@ -376,8 +374,8 @@ impl VictimService {
     ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Updating address: {}", address_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_address_by_id(address_id).await {
             Ok(address) => {
@@ -406,8 +404,8 @@ impl VictimService {
     pub async fn delete_address(&self, address_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Deleting address: {}", address_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.victim_repository.get_address_by_id(address_id).await {
             Ok(address) => {
@@ -433,38 +431,4 @@ impl VictimService {
         }
     }
 
-    // Helper methods
-    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
-        req.extensions()
-            .get::<ClaimsToUserToken>()
-            .cloned()
-            .ok_or_else(|| {
-                error!("[VictimService] No claims found in request");
-                AppError::Unauthorized("Unauthorized".to_string())
-            })
-    }
-
-    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
-        if claims.profile == PROFILE_ROOT {
-            return Ok(serde_json::json!({}));
-        }
-
-        if let Ok(user_id) = Uuid::parse_str(&claims.id) {
-            match self.user_repository.get_user_policies_json_by_id(user_id).await {
-                Ok(p) => return Ok(p),
-                Err(sqlx::Error::RowNotFound) => {
-                }
-                Err(_) => return Err(AppError::InternalServerError),
-            }
-        }
-
-        if let Some(city_id_str) = &claims.city_id {
-            if let Ok(city_id) = Uuid::parse_str(city_id_str) {
-                let defaults = crate::utils::validations::generate_default_policies(&claims.profile, Some(city_id));
-                return Ok(serde_json::json!(defaults));
-            }
-        }
-
-        Ok(serde_json::json!({}))
-    }
 }
