@@ -26,6 +26,10 @@ tags:
   - name: "Attendances"
     description: "Gerenciamento de atendimentos"
 
+security:
+  - bearerAuth: []
+  - api_key: []
+
 components:
   securitySchemes:
     bearerAuth:
@@ -34,7 +38,7 @@ components:
       bearerFormat: JWT
       description: "Autenticação via Token JWT obtido no endpoint /auth/login"
     api_key:
-      type: api_key
+      type: apiKey
       in: header
       name: api_key
       description: "Chave de API configurada nas variáveis de ambiente"
@@ -94,8 +98,17 @@ components:
             token:
               type: string
               description: "Token JWT para autenticação"
-            user:
-              $ref: "#/components/schemas/User"
+            id:
+              type: string
+              format: uuid
+              description: "ID do usuário"
+            full_name:
+              type: string
+              description: "Nome completo do usuário"
+            email:
+              type: string
+              format: email
+              description: "Email do usuário"
 
     # --- User Schemas ---
     User:
@@ -739,7 +752,9 @@ components:
         is_public_security_agent:
           type: boolean
         security_force:
-          $ref: "#/components/schemas/SecurityForce"
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
         relationship_to_victim:
           $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
@@ -821,7 +836,9 @@ components:
         is_public_security_agent:
           type: boolean
         security_force:
-          $ref: "#/components/schemas/SecurityForce"
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
         relationship_to_victim:
           $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
@@ -894,7 +911,9 @@ components:
         is_public_security_agent:
           type: boolean
         security_force:
-          $ref: "#/components/schemas/SecurityForce"
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
         relationship_to_victim:
           $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
@@ -1054,16 +1073,15 @@ components:
 
     AttendanceAddress:
       type: object
-      required:
-        - city_id
       properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do endereço do atendimento"
         street:
           type: string
           nullable: true
         number:
-          type: string
-          nullable: true
-        complement:
           type: string
           nullable: true
         district:
@@ -1072,16 +1090,36 @@ components:
         city_id:
           type: string
           format: uuid
+          nullable: true
         zip_code:
           type: string
           nullable: true
-        latitude:
-          type: number
-          format: double
+        complement:
+          type: string
           nullable: true
-        longitude:
-          type: number
-          format: double
+
+    AttendanceAddressData:
+      type: object
+      description: "Dados de endereço para criar/atualizar attendance"
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
           nullable: true
 
     CreateAttendanceRequest:
@@ -1115,7 +1153,7 @@ components:
           format: double
           nullable: true
         address:
-          $ref: "#/components/schemas/AttendanceAddress"
+          $ref: "#/components/schemas/AttendanceAddressData"
           nullable: true
 
     UpdateAttendanceRequest:
@@ -1149,7 +1187,7 @@ components:
           format: double
           nullable: true
         address:
-          $ref: "#/components/schemas/AttendanceAddress"
+          $ref: "#/components/schemas/AttendanceAddressData"
           nullable: true
 
 paths:
@@ -1193,6 +1231,7 @@ paths:
       operationId: "getAllUsers"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de usuários retornada com sucesso"
@@ -1217,6 +1256,7 @@ paths:
       operationId: "createUser"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1267,6 +1307,7 @@ paths:
       operationId: "getUserById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Usuário encontrado"
@@ -1295,6 +1336,7 @@ paths:
       operationId: "updateUser"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1335,6 +1377,7 @@ paths:
       operationId: "deleteUser"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Usuário deletado com sucesso"
@@ -1373,6 +1416,7 @@ paths:
       operationId: "updateUserPassword"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1423,6 +1467,7 @@ paths:
       operationId: "appendUserPolicyCities"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1463,6 +1508,7 @@ paths:
       operationId: "removeUserPolicyCities"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1493,6 +1539,7 @@ paths:
       operationId: "getAllCities"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de cidades retornada com sucesso"
@@ -1517,6 +1564,7 @@ paths:
       operationId: "createCity"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1567,6 +1615,7 @@ paths:
       operationId: "getCityById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Cidade encontrada"
@@ -1595,6 +1644,7 @@ paths:
       operationId: "updateCity"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1635,6 +1685,7 @@ paths:
       operationId: "deleteCity"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Cidade deletada com sucesso"
@@ -1665,6 +1716,7 @@ paths:
       operationId: "getAllVictims"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de vítimas retornada com sucesso"
@@ -1689,6 +1741,7 @@ paths:
       operationId: "createVictim"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1739,6 +1792,7 @@ paths:
       operationId: "getVictimById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Vítima encontrada"
@@ -1767,6 +1821,7 @@ paths:
       operationId: "updateVictim"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1801,6 +1856,7 @@ paths:
       operationId: "deleteVictim"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Vítima deletada com sucesso"
@@ -1833,6 +1889,7 @@ paths:
       operationId: "addPhoneToVictim"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1878,6 +1935,7 @@ paths:
       operationId: "updateVictimPhone"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1906,6 +1964,7 @@ paths:
       operationId: "deleteVictimPhone"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Telefone deletado com sucesso"
@@ -1928,6 +1987,7 @@ paths:
       operationId: "addAddressToVictim"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -1973,6 +2033,7 @@ paths:
       operationId: "updateVictimAddress"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2001,6 +2062,7 @@ paths:
       operationId: "deleteVictimAddress"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Endereço deletado com sucesso"
@@ -2015,6 +2077,7 @@ paths:
       operationId: "getAllOffenders"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de agressores retornada com sucesso"
@@ -2039,6 +2102,7 @@ paths:
       operationId: "createOffender"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2089,6 +2153,7 @@ paths:
       operationId: "getOffenderById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Agressor encontrado"
@@ -2117,6 +2182,7 @@ paths:
       operationId: "updateOffender"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2151,6 +2217,7 @@ paths:
       operationId: "deleteOffender"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Agressor deletado com sucesso"
@@ -2183,6 +2250,7 @@ paths:
       operationId: "getOffendersByVictim"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de agressores da vítima"
@@ -2217,6 +2285,7 @@ paths:
       operationId: "addPhoneToOffender"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2262,6 +2331,7 @@ paths:
       operationId: "updateOffenderPhone"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2290,6 +2360,7 @@ paths:
       operationId: "deleteOffenderPhone"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Telefone deletado com sucesso"
@@ -2312,6 +2383,7 @@ paths:
       operationId: "addAddressToOffender"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2357,6 +2429,7 @@ paths:
       operationId: "updateOffenderAddress"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2385,6 +2458,7 @@ paths:
       operationId: "deleteOffenderAddress"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Endereço deletado com sucesso"
@@ -2407,6 +2481,7 @@ paths:
       operationId: "addWorkAddressToOffender"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2452,6 +2527,7 @@ paths:
       operationId: "updateOffenderWorkAddress"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2480,6 +2556,7 @@ paths:
       operationId: "deleteOffenderWorkAddress"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Endereço de trabalho deletado com sucesso"
@@ -2494,6 +2571,7 @@ paths:
       operationId: "getAllProtectiveMeasures"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de medidas protetivas retornada com sucesso"
@@ -2518,6 +2596,7 @@ paths:
       operationId: "createProtectiveMeasure"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2562,6 +2641,7 @@ paths:
       operationId: "getProtectiveMeasureById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Medida protetiva encontrada"
@@ -2584,6 +2664,7 @@ paths:
       operationId: "updateProtectiveMeasure"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2612,6 +2693,7 @@ paths:
       operationId: "deleteProtectiveMeasure"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Medida protetiva deletada com sucesso"
@@ -2644,6 +2726,7 @@ paths:
       operationId: "getProtectiveMeasuresByVictim"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de medidas protetivas da vítima"
@@ -2670,6 +2753,7 @@ paths:
       operationId: "getAllAttendances"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -2694,6 +2778,7 @@ paths:
       operationId: "createAttendance"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2744,6 +2829,7 @@ paths:
       operationId: "getAttendanceById"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Atendimento encontrado"
@@ -2766,6 +2852,7 @@ paths:
       operationId: "updateAttendance"
       security:
         - bearerAuth: []
+          api_key: []
       requestBody:
         required: true
         content:
@@ -2794,6 +2881,7 @@ paths:
       operationId: "deleteAttendance"
       security:
         - bearerAuth: []
+          api_key: []
       responses:
         "200":
           description: "Atendimento deletado com sucesso"
