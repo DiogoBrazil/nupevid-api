@@ -22,7 +22,7 @@ impl PgAuthRepository {
 #[async_trait]
 impl AuthRepository for PgAuthRepository  {
 
-    async fn get_complete_user_data_by_email(&self, email: String) -> Result<CompleteUserData, sqlx::Error> {
+    async fn get_complete_user_data_by_email(&self, email: &str) -> Result<CompleteUserData, sqlx::Error> {
         info!("[Repository] Executing SQL query to get user password with email: {}", email);
 
         let complete_user_data: CompleteUserData = sqlx::query_as(AuthQueries::GET_COMPLETE_USER_DATA_BY_EMAIL)
