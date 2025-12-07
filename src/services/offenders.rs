@@ -1,24 +1,25 @@
-use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::contracts::repository::offenders::OffenderRepository;
-use crate::core::entities::auth::ClaimsToUserToken;
+
 use crate::core::entities::offenders::{
     AddressData, CreateOffender, PhoneData, UpdateOffender, WorkAddressData,
 };
 use crate::repositories::offenders::PgOffenderRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::core::contracts::repository::users::UserRepository;
+
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{
-        validate_required_fields, PROFILE_ROOT, POLICY_CREATE_OFFENDERS, POLICY_READ_OFFENDERS,
-        POLICY_UPDATE_OFFENDERS, POLICY_DELETE_OFFENDERS,
-    },
+    authorization::{check_policy, get_allowed_cities_for_policy},
+    service_helpers::{extract_claims, get_user_policies_with_defaults}
 };
-use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
+use crate::validators::{
+    common::{POLICY_CREATE_OFFENDERS, POLICY_READ_OFFENDERS, POLICY_UPDATE_OFFENDERS, POLICY_DELETE_OFFENDERS},
+    offender_validator::OffenderValidator
+};
 
 pub struct OffenderService {
     offender_repository: web::Data<PgOffenderRepository>,
@@ -46,8 +47,8 @@ impl OffenderService {
             offender.full_name
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         check_policy(
             &claims,
@@ -56,10 +57,7 @@ impl OffenderService {
             &policies,
         )?;
 
-        validate_required_fields(
-            &[("full_name", offender.full_name.is_empty())],
-            "Error adding offender: ",
-        )?;
+        OffenderValidator::validate_required_fields(&offender.full_name, "Error adding offender")?;
 
         info!("[OffenderService] Saving offender to database");
 
@@ -88,11 +86,11 @@ impl OffenderService {
             id
         );
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.offender_repository.get_offender_by_id(id).await {
             Ok(offender_with_details) => {
-                let policies = self.get_user_policies(&claims).await?;
+                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(
                     &claims,
                     POLICY_READ_OFFENDERS,
@@ -126,8 +124,8 @@ impl OffenderService {
     pub async fn get_all_offenders(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Starting process to get offenders");
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         let offenders = if let Some(allowed_cities) =
             get_allowed_cities_for_policy(&claims, POLICY_READ_OFFENDERS, &policies)
@@ -171,8 +169,8 @@ impl OffenderService {
             victim_id
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         let offenders = if let Some(allowed_cities) =
             get_allowed_cities_for_policy(&claims, POLICY_READ_OFFENDERS, &policies)
@@ -224,14 +222,11 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Starting offender update for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_UPDATE_OFFENDERS, data.city_id, &policies)?;
 
-        validate_required_fields(
-            &[("full_name", data.full_name.is_empty())],
-            "Error updating offender: ",
-        )?;
+        OffenderValidator::validate_required_fields(&data.full_name, "Error updating offender")?;
 
         match self.offender_repository.get_offender_by_id(id).await {
             Ok(existing_offender) => {
@@ -298,11 +293,11 @@ impl OffenderService {
             id
         );
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.offender_repository.get_offender_by_id(id).await {
             Ok(offender) => {
-                let policies = self.get_user_policies(&claims).await?;
+                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(
                     &claims,
                     POLICY_DELETE_OFFENDERS,
@@ -355,8 +350,8 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Adding phone to offender: {}", offender_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_offender_by_id(offender_id).await {
             Ok(offender) => {
@@ -394,8 +389,8 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Updating phone: {}", phone_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
@@ -441,8 +436,8 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Deleting phone: {}", phone_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
@@ -488,8 +483,8 @@ impl OffenderService {
             offender_id
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_offender_by_id(offender_id).await {
             Ok(offender) => {
@@ -527,8 +522,8 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Updating address: {}", address_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_address_by_id(address_id).await {
             Ok(address) => {
@@ -574,8 +569,8 @@ impl OffenderService {
     ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Deleting address: {}", address_id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_address_by_id(address_id).await {
             Ok(address) => {
@@ -625,8 +620,8 @@ impl OffenderService {
             offender_id
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.offender_repository.get_offender_by_id(offender_id).await {
             Ok(offender) => {
@@ -667,8 +662,8 @@ impl OffenderService {
             work_address_id
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self
             .offender_repository
@@ -721,8 +716,8 @@ impl OffenderService {
             work_address_id
         );
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self
             .offender_repository
@@ -765,47 +760,4 @@ impl OffenderService {
         }
     }
 
-    // Helper methods
-    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
-        req.extensions()
-            .get::<ClaimsToUserToken>()
-            .cloned()
-            .ok_or_else(|| {
-                error!("[OffenderService] No claims found in request");
-                AppError::Unauthorized("Unauthorized".to_string())
-            })
-    }
-
-    async fn get_user_policies(
-        &self,
-        claims: &ClaimsToUserToken,
-    ) -> Result<serde_json::Value, AppError> {
-        if claims.profile == PROFILE_ROOT {
-            return Ok(serde_json::json!({}));
-        }
-
-        if let Ok(user_id) = Uuid::parse_str(&claims.id) {
-            match self
-                .user_repository
-                .get_user_policies_json_by_id(user_id)
-                .await
-            {
-                Ok(p) => return Ok(p),
-                Err(sqlx::Error::RowNotFound) => {}
-                Err(_) => return Err(AppError::InternalServerError),
-            }
-        }
-
-        if let Some(city_id_str) = &claims.city_id {
-            if let Ok(city_id) = Uuid::parse_str(city_id_str) {
-                let defaults = crate::utils::validations::generate_default_policies(
-                    &claims.profile,
-                    Some(city_id),
-                );
-                return Ok(serde_json::json!(defaults));
-            }
-        }
-
-        Ok(serde_json::json!({}))
-    }
 }

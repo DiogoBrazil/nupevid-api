@@ -121,11 +121,11 @@ pub struct OffenderPhoneResponse {
 }
 
 impl OffenderPhone {
-    pub fn to_response(&self) -> OffenderPhoneResponse {
+    pub fn to_response(self) -> OffenderPhoneResponse {
         OffenderPhoneResponse {
             id: self.id,
-            phone: self.phone.clone(),
-            phone_type: self.phone_type.clone(),
+            phone: self.phone,
+            phone_type: self.phone_type,
         }
     }
 }
@@ -167,15 +167,15 @@ pub struct OffenderAddress {
 }
 
 impl OffenderAddress {
-    pub fn to_response(&self) -> OffenderAddressResponse {
+    pub fn to_response(self) -> OffenderAddressResponse {
         OffenderAddressResponse {
             id: self.id,
-            street: self.street.clone(),
-            number: self.number.clone(),
-            district: self.district.clone(),
+            street: self.street,
+            number: self.number,
+            district: self.district,
             city_id: self.city_id,
-            zip_code: self.zip_code.clone(),
-            complement: self.complement.clone(),
+            zip_code: self.zip_code,
+            complement: self.complement,
         }
     }
 }
@@ -217,15 +217,15 @@ pub struct OffenderWorkAddress {
 }
 
 impl OffenderWorkAddress {
-    pub fn to_response(&self) -> OffenderWorkAddressResponse {
+    pub fn to_response(self) -> OffenderWorkAddressResponse {
         OffenderWorkAddressResponse {
             id: self.id,
-            street: self.street.clone(),
-            number: self.number.clone(),
-            district: self.district.clone(),
+            street: self.street,
+            number: self.number,
+            district: self.district,
             city_id: self.city_id,
-            zip_code: self.zip_code.clone(),
-            complement: self.complement.clone(),
+            zip_code: self.zip_code,
+            complement: self.complement,
         }
     }
 }
