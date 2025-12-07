@@ -30,7 +30,7 @@ impl AuthService {
         info!("[Service] Starting login process with email: {}", data.email);
 
         info!("[Service] Checking if user exists with email: {}", data.email);
-        let user = match self.auth_repository.get_complete_user_data_by_email(data.email.clone()).await {
+        let user = match self.auth_repository.get_complete_user_data_by_email(&data.email).await {
             Ok(user) => {
                 info!("[Service] User found with email: {}", data.email);
                 user
@@ -54,15 +54,18 @@ impl AuthService {
         info!("[Service] Password verified successfully for user with email: {}", data.email);
 
         info!("[Service] Generating token for user with email: {}", data.email);
+        let user_id_str = user.id.to_string();
+        let email_str = user.email.to_string();
+        let city_id_str = user.city_id.map(|id| id.to_string());
         let token = self.token_generator
             .generate_token(
-                user.id.to_string(),
-                user.rank.clone(),
-                user.registration.clone(),
-                user.full_name.clone(),
-                user.profile,
-                user.email.to_string(),
-                user.city_id.map(|id| id.to_string()),
+                &user_id_str,
+                &user.rank,
+                &user.registration,
+                &user.full_name,
+                &user.profile,
+                &email_str,
+                city_id_str.as_deref(),
                 &self.config.jwt_secret,
             )
             .map_err(|_| AppError::InternalServerError)?;
