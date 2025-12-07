@@ -3,13 +3,13 @@ use jsonwebtoken::errors::Error as JwtError;
 pub trait TokenGeneratorPort: Send + Sync {
     fn generate_token(
         &self,
-        id: String,
-        rank: String,
-        registration: String,
-        full_name: String,
-        profile: String,
-        email: String,
-        city_id: Option<String>,
+        id: &str,
+        rank: &str,
+        registration: &str,
+        full_name: &str,
+        profile: &str,
+        email: &str,
+        city_id: Option<&str>,
         secret: &str,
     ) -> Result<String, JwtError>;
 }

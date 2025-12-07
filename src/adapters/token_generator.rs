@@ -22,13 +22,13 @@ impl JwtTokenGenerator {
 
 impl TokenGeneratorPort for JwtTokenGenerator {
     fn generate_token(&self,
-        id: String,
-        rank: String,
-        registration: String,
-        full_name: String,
-        profile: String,
-        email: String,
-        city_id: Option<String>,
+        id: &str,
+        rank: &str,
+        registration: &str,
+        full_name: &str,
+        profile: &str,
+        email: &str,
+        city_id: Option<&str>,
         secret: &str
     ) -> Result<String, JwtError> {
         let expiration: usize = SystemTime::now()
@@ -37,14 +37,14 @@ impl TokenGeneratorPort for JwtTokenGenerator {
             .as_secs() as usize + 24 * 3600;
 
         let claims = ClaimsToUserToken {
-            id,
+            id: id.to_string(),
             exp: expiration,
-            rank,
-            registration,
-            full_name,
-            profile,
-            email,
-            city_id,
+            rank: rank.to_string(),
+            registration: registration.to_string(),
+            full_name: full_name.to_string(),
+            profile: profile.to_string(),
+            email: email.to_string(),
+            city_id: city_id.map(|s| s.to_string()),
         };
 
         encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
