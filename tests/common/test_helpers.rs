@@ -8,14 +8,16 @@ use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
     attendances::PgAttendanceRepository, auth::PgAuthRepository, cities::PgCityRepository,
-    offenders::PgOffenderRepository, protective_measures::PgProtectiveMeasureRepository,
-    users::PgUserRepository, victims::PgVictimRepository,
+    extensions::PgExtensionRepository, offenders::PgOffenderRepository,
+    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    victims::PgVictimRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
     attendances::AttendanceService, auth::AuthService, cities::CityService,
-    offenders::OffenderService, protective_measures::ProtectiveMeasureService,
-    users::UserService, victims::VictimService,
+    extensions::ExtensionService, offenders::OffenderService,
+    protective_measures::ProtectiveMeasureService, users::UserService,
+    victims::VictimService,
 };
 use sqlx::PgPool;
 use std::env;
@@ -66,6 +68,7 @@ pub async fn clean_database(pool: &PgPool) {
     for sql in [
         "DELETE FROM attendance_addresses",
         "DELETE FROM attendances",
+        "DELETE FROM protective_measure_extensions",
         "DELETE FROM protective_measures",
         "DELETE FROM offender_phones",
         "DELETE FROM offender_addresses",
@@ -100,6 +103,7 @@ pub async fn create_full_test_app(
     let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
     let protective_measure_repository =
         web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
     let attendance_repository = web::Data::new(PgAttendanceRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
 
@@ -123,6 +127,13 @@ pub async fn create_full_test_app(
         protective_measure_repository.clone(),
         victim_repository.clone(),
         user_repository.clone(),
+        extension_repository.clone(),
+    ));
+    let extension_service = web::Data::new(ExtensionService::new(
+        extension_repository.clone(),
+        protective_measure_repository.clone(),
+        victim_repository.clone(),
+        user_repository.clone(),
     ));
     let attendance_service = web::Data::new(AttendanceService::new(
         attendance_repository.clone(),
@@ -142,6 +153,7 @@ pub async fn create_full_test_app(
             .app_data(city_repository.clone())
             .app_data(victim_repository.clone())
             .app_data(protective_measure_repository.clone())
+            .app_data(extension_repository.clone())
             .app_data(attendance_repository.clone())
             .app_data(offender_repository.clone())
             .app_data(user_service.clone())
@@ -149,6 +161,7 @@ pub async fn create_full_test_app(
             .app_data(city_service.clone())
             .app_data(victim_service.clone())
             .app_data(protective_measure_service.clone())
+            .app_data(extension_service.clone())
             .app_data(attendance_service.clone())
             .app_data(offender_service.clone())
             .app_data(config_data.clone())
@@ -188,6 +201,19 @@ pub fn build_city_admin_claims(city_id: Uuid) -> ClaimsToUserToken {
         full_name: "City Admin".to_string(),
         profile: "CITY_ADMIN".to_string(),
         email: "city.admin@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    }
+}
+
+pub fn build_city_user_claims(city_id: Uuid) -> ClaimsToUserToken {
+    ClaimsToUserToken {
+        id: Uuid::new_v4().to_string(),
+        exp: default_exp(),
+        rank: "SD PM".to_string(),
+        registration: "100000003".to_string(),
+        full_name: "City User".to_string(),
+        profile: "CITY_USER".to_string(),
+        email: "city.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     }
 }
