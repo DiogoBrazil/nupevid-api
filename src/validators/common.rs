@@ -2,6 +2,7 @@ use crate::utils::errors::AppError;
 use regex::Regex;
 use lazy_static::lazy_static;
 
+// Profile constants
 pub const PROFILE_ROOT: &str = "ROOT";
 pub const PROFILE_CITY_ADMIN: &str = "CITY_ADMIN";
 pub const PROFILE_CITY_USER: &str = "CITY_USER";
@@ -104,7 +105,6 @@ pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 21] = [
     POLICY_DELETE_PROTECTIVE_MEASURES,
 ];
 
-// Default read-only policies for CITY_USER
 pub const CITY_USER_DEFAULT_POLICIES: [&str; 6] = [
     POLICY_READ_CITIES,
     POLICY_READ_VICTIMS,
@@ -189,14 +189,12 @@ pub const VALID_BATTALIONS: [&str; 16] = [
     "CIPO/BURITIS",
 ];
 
-// Valid states
 pub const VALID_STATES: [&str; 1] = ["RO"];
 
 // Registration prefix and max length
 pub const REGISTRATION_PREFIX: &str = "1000";
 pub const REGISTRATION_MAX_LENGTH: usize = 9;
 
-// Valid ranks (Posto e Graduações)
 pub const VALID_RANKS: [&str; 14] = [
     "CEL PM",
     "TC PM",
@@ -271,7 +269,6 @@ pub fn is_valid_policy(policy: &str) -> bool {
     VALID_POLICIES.contains(&policy)
 }
 
-// Returns whether a policy can be assigned via the policies endpoints
 pub fn is_assignable_policy(policy: &str) -> bool {
     !NON_ASSIGNABLE_POLICIES.contains(&policy)
 }
@@ -283,6 +280,7 @@ pub fn generate_default_policies(profile: &str, city_id: Option<uuid::Uuid>) -> 
 
     match profile {
         PROFILE_ROOT => {
+            // ROOT has implicit access to all policies, no need to store them
         }
         PROFILE_CITY_ADMIN => {
             if let Some(cid) = city_id {
