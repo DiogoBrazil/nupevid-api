@@ -1,10 +1,10 @@
-use log::{info, warn};
+use log::{error, info, warn};
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::utils::errors::AppError;
-use crate::utils::validations::PROFILE_ROOT;
+use crate::validators::common::{PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER};
 
 pub fn check_policy(
     claims: &ClaimsToUserToken,
@@ -90,6 +90,47 @@ pub fn has_policy(
     }
 
     false
+}
+
+pub fn validate_user_creation_permission(
+    creator_profile: &str,
+    target_profile: &str,
+) -> Result<(), AppError> {
+    info!("[Authorization] Validating user creation permission: '{}' creating '{}'", creator_profile, target_profile);
+
+    if creator_profile == PROFILE_ROOT {
+        info!("[Authorization] ROOT user - allowed to create any profile");
+        return Ok(());
+    }
+
+    if creator_profile == PROFILE_CITY_USER {
+        error!("[Authorization] CITY_USER cannot create users");
+        return Err(AppError::Forbidden(
+            "CITY_USER profile is not allowed to create users".to_string()
+        ));
+    }
+
+    if creator_profile == PROFILE_CITY_ADMIN {
+        if target_profile == PROFILE_ROOT {
+            error!("[Authorization] CITY_ADMIN cannot create ROOT users");
+            return Err(AppError::Forbidden(
+                "CITY_ADMIN is not allowed to create ROOT users".to_string()
+            ));
+        }
+
+        if target_profile == PROFILE_CITY_ADMIN {
+            error!("[Authorization] CITY_ADMIN cannot create other CITY_ADMIN users");
+            return Err(AppError::Forbidden(
+                "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string()
+            ));
+        }
+
+        info!("[Authorization] CITY_ADMIN creating CITY_USER - allowed");
+        return Ok(());
+    }
+
+    error!("[Authorization] Unknown profile '{}' attempted to create user", creator_profile);
+    Err(AppError::Forbidden("Permission denied".to_string()))
 }
 
 #[cfg(test)]
