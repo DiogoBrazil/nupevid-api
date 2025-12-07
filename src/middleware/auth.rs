@@ -6,7 +6,7 @@ use futures::future::{err, ok, Ready, LocalBoxFuture};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::config::config_env::Config;
-use crate::utils::validations::is_public_route;
+use crate::validators::common::is_public_route;
 
 pub struct AuthMiddleware;
 
