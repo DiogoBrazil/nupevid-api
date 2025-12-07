@@ -4,14 +4,17 @@ use uuid::Uuid;
 
 use crate::core::entities::protective_measures::{
     CreateProtectiveMeasure,
-    UpdateProtectiveMeasure
+    UpdateProtectiveMeasure,
+    ProtectiveMeasureWithExtensions
 };
 
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
+use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
+use crate::repositories::extensions::PgExtensionRepository;
 
 use crate::utils::{
     errors::AppError,
@@ -31,6 +34,7 @@ pub struct ProtectiveMeasureService {
     measure_repository: web::Data<PgProtectiveMeasureRepository>,
     victim_repository: web::Data<PgVictimRepository>,
     user_repository: web::Data<PgUserRepository>,
+    extension_repository: web::Data<PgExtensionRepository>,
 }
 
 impl ProtectiveMeasureService {
@@ -38,8 +42,9 @@ impl ProtectiveMeasureService {
         measure_repository: web::Data<PgProtectiveMeasureRepository>,
         victim_repository: web::Data<PgVictimRepository>,
         user_repository: web::Data<PgUserRepository>,
+        extension_repository: web::Data<PgExtensionRepository>,
     ) -> Self {
-        Self { measure_repository, victim_repository, user_repository }
+        Self { measure_repository, victim_repository, user_repository, extension_repository }
     }
 
     pub async fn create_protective_measure(&self, measure: CreateProtectiveMeasure, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -114,8 +119,19 @@ impl ProtectiveMeasureService {
                 let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
+                let extensions = self.extension_repository.get_extensions_by_measure(id).await
+                    .map_err(|e| {
+                        error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
+                        AppError::InternalServerError
+                    })?;
+
+                let response = ProtectiveMeasureWithExtensions {
+                    measure,
+                    extensions,
+                };
+
                 info!("[ProtectiveMeasureService] Protective measure found: {}", id);
-                Ok(ApiResponse::success(measure).into_response())
+                Ok(ApiResponse::success(response).into_response())
             }
             Err(sqlx::Error::RowNotFound) => {
                 Err(AppError::NotFound(format!("Protective measure with id '{}' not found", id)))
@@ -133,7 +149,7 @@ impl ProtectiveMeasureService {
         let claims = extract_claims(&req)?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        let measures = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies) {
+        let measures_result = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies) {
             match self.measure_repository.get_all_protective_measures().await {
                 Ok(all_measures) => {
                     let mut filtered = Vec::new();
@@ -152,10 +168,24 @@ impl ProtectiveMeasureService {
             self.measure_repository.get_all_protective_measures().await
         };
 
-        match measures {
+        match measures_result {
             Ok(measures) => {
-                info!("[ProtectiveMeasureService] Successfully retrieved {} measures", measures.len());
-                Ok(ApiResponse::success(measures).into_response())
+                let mut measures_with_extensions = Vec::new();
+                for measure in measures {
+                    let extensions = self.extension_repository.get_extensions_by_measure(measure.id).await
+                        .map_err(|e| {
+                            error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
+                            AppError::InternalServerError
+                        })?;
+                    
+                    measures_with_extensions.push(ProtectiveMeasureWithExtensions {
+                        measure,
+                        extensions,
+                    });
+                }
+
+                info!("[ProtectiveMeasureService] Successfully retrieved {} measures", measures_with_extensions.len());
+                Ok(ApiResponse::success(measures_with_extensions).into_response())
             }
             Err(e) => {
                 error!("[ProtectiveMeasureService] Failed to retrieve measures: {:?}", e);
@@ -185,8 +215,22 @@ impl ProtectiveMeasureService {
 
         match self.measure_repository.get_protective_measures_by_victim(victim_id).await {
             Ok(measures) => {
-                info!("[ProtectiveMeasureService] Found {} measures for victim", measures.len());
-                Ok(ApiResponse::success(measures).into_response())
+                let mut measures_with_extensions = Vec::new();
+                for measure in measures {
+                    let extensions = self.extension_repository.get_extensions_by_measure(measure.id).await
+                        .map_err(|e| {
+                            error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
+                            AppError::InternalServerError
+                        })?;
+                    
+                    measures_with_extensions.push(ProtectiveMeasureWithExtensions {
+                        measure,
+                        extensions,
+                    });
+                }
+
+                info!("[ProtectiveMeasureService] Found {} measures for victim", measures_with_extensions.len());
+                Ok(ApiResponse::success(measures_with_extensions).into_response())
             }
             Err(e) => {
                 error!("[ProtectiveMeasureService] Failed to retrieve measures: {:?}", e);
