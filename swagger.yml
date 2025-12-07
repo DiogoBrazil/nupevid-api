@@ -955,14 +955,27 @@ components:
           format: uuid
         process_number:
           type: string
+        sei_process_number:
+          type: string
+          nullable: true
+          description: "Número do processo no sistema SEI"
         issued_at:
           type: string
           format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+          description: "Data de validade da medida protetiva"
         judicial_authority:
           type: string
         court_district_id:
           type: string
           format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
+          description: "Distância em metros que o agressor deve manter da vítima"
         is_active:
           type: boolean
         victim_id:
@@ -990,14 +1003,26 @@ components:
         process_number:
           type: string
           example: "12345-67.2025.8.26.0000"
+        sei_process_number:
+          type: string
+          nullable: true
+          example: "SEI-2025/001234"
         issued_at:
           type: string
           format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
         judicial_authority:
           type: string
         court_district_id:
           type: string
           format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
+          example: 500
         is_active:
           type: boolean
         victim_id:
@@ -1016,19 +1041,115 @@ components:
       properties:
         process_number:
           type: string
+        sei_process_number:
+          type: string
+          nullable: true
         issued_at:
           type: string
           format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
         judicial_authority:
           type: string
         court_district_id:
           type: string
           format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
         is_active:
           type: boolean
         victim_id:
           type: string
           format: uuid
+
+    # --- Extension Schemas ---
+    ProtectiveMeasureExtension:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        protective_measure_id:
+          type: string
+          format: uuid
+        extension_number:
+          type: integer
+          description: "Número da prorrogação (1ª, 2ª, 3ª, etc.)"
+          example: 1
+        extension_date:
+          type: string
+          format: date
+          description: "Data em que a prorrogação foi concedida"
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+          description: "Nova data de validade após a prorrogação"
+        notes:
+          type: string
+          nullable: true
+          description: "Observações sobre a prorrogação"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateExtensionRequest:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        extension_number:
+          type: integer
+          example: 1
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    UpdateExtensionRequest:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        extension_number:
+          type: integer
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ProtectiveMeasureWithExtensions:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/ProtectiveMeasure"
+        - type: object
+          properties:
+            extensions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProtectiveMeasureExtension"
 
     # --- Attendance Schemas ---
     Attendance:
@@ -2586,7 +2707,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ProtectiveMeasure"
+                      $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
 
     post:
       tags:
@@ -2654,7 +2775,7 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/ProtectiveMeasure"
+                    $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
 
     put:
       tags:
@@ -2741,7 +2862,172 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ProtectiveMeasure"
+                      $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+
+  # === EXTENSION ENDPOINTS ===
+  /protective-measures/{id}/extensions:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    post:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Criar prorrogação de medida protetiva"
+      description: "Adiciona uma nova prorrogação a uma medida protetiva existente"
+      operationId: "createExtension"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExtensionRequest"
+      responses:
+        "201":
+          description: "Prorrogação criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Medida protetiva não encontrada"
+
+    get:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Listar prorrogações de uma medida protetiva"
+      description: "Retorna todas as prorrogações de uma medida protetiva específica"
+      operationId: "getExtensionsByMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de prorrogações"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProtectiveMeasureExtension"
+
+  /protective-measures/{id}/extensions/{ext_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+      - name: "ext_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da prorrogação"
+
+    get:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Obter prorrogação específica"
+      description: "Retorna detalhes de uma prorrogação específica"
+      operationId: "getExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Prorrogação encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
+
+    put:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Atualizar prorrogação"
+      description: "Atualiza dados de uma prorrogação existente"
+      operationId: "updateExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExtensionRequest"
+      responses:
+        "200":
+          description: "Prorrogação atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
+
+    delete:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Deletar prorrogação"
+      description: "Remove uma prorrogação (soft delete)"
+      operationId: "deleteExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Prorrogação deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
 
   # === ATTENDANCE ENDPOINTS ===
   /attendances:
