@@ -96,11 +96,11 @@ impl UserRepository for PgUserRepository {
 
     }
 
-    async fn check_user_exists_by_email(&self, email: String) -> Result<bool, sqlx::Error> {
+    async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, sqlx::Error> {
         info!("[Repository] Executing SQL query to check if user with email {} exists", email);
 
         let user_exists: bool = sqlx::query_scalar(UsersQueries::CHECK_USER_EXISTS_BY_EMAIL)
-            .bind(email.clone())
+            .bind(email)
             .fetch_one(&self.pool)
             .await?;
 

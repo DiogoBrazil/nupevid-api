@@ -1,24 +1,26 @@
-use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
-use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword};
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword, UserDataCreatedWithoutPassword};
 use crate::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::core::entities::users::PermissionPolicies;
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{
-        is_valid_email, is_valid_profile, is_valid_rank, is_valid_registration, validate_required_fields,
+    authorization::{check_policy, validate_user_creation_permission},
+    service_helpers::{extract_claims, extract_city_id_from_claims, get_user_policies_strict}
+};
+use crate::validators::{
+    common::{
         generate_default_policies, is_valid_policy, is_assignable_policy,
-        PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER, VALID_PROFILES, VALID_RANKS,
-        REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH, VALID_POLICIES,
-        POLICY_READ_USERS, POLICY_UPDATE_USERS, POLICY_DELETE_USERS
+        PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER,
+        POLICY_READ_USERS, POLICY_UPDATE_USERS, POLICY_DELETE_USERS,
+        VALID_POLICIES
     },
-    authorization::check_policy
+    user_validator::UserValidator,
+    policy_validator::PolicyValidator,
 };
 
 
@@ -38,24 +40,17 @@ impl UserService {
     pub async fn create_user(&self, user: CreateUser, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting user creation for email: {}", user.email);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
-        self.validate_user_creation_permission(&claims, &user)?;
+        validate_user_creation_permission(&claims.profile, &user.profile)?;
 
-        if let Some(ref policies) = user.permission_policies {
-            self.validate_policy_names(policies)?;
-            let claims_policies_json = if claims.profile != PROFILE_ROOT {
-                let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-                match self.user_repository.get_user_policies_json_by_id(claims_user_id).await {
-                    Ok(p) => Some(p),
-                    Err(sqlx::Error::RowNotFound) => None,
-                    Err(_) => return Err(AppError::InternalServerError),
-                }
-            } else { None };
-            self.validate_policy_assignment_permission(&claims, &user.profile, policies, claims_policies_json.as_ref())?;
+        if let Some(policies) = user.permission_policies.as_ref() {
+            PolicyValidator::validate_policy_names(policies)?;
+            let claims_policies_json = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?;
+            PolicyValidator::validate_assignment_permission(&claims, &user.profile, policies, claims_policies_json.as_ref())?;
         }
 
-        self.validate_user_fields(
+        UserValidator::validate_fields(
             &user.rank,
             &user.registration,
             &user.full_name,
@@ -69,7 +64,7 @@ impl UserService {
 
         if user_with_city.profile == PROFILE_CITY_ADMIN || user_with_city.profile == PROFILE_CITY_USER {
             if claims.profile == PROFILE_CITY_ADMIN {
-                let admin_city_id = self.get_user_city_id(&claims)?;
+                let admin_city_id = extract_city_id_from_claims(&claims)?;
 
                 info!("[UserService] CITY_ADMIN creating user - using city_id from token: {}", admin_city_id);
 
@@ -104,7 +99,7 @@ impl UserService {
         info!("[UserService] Checking if email already exists: {}", user_with_city.email);
 
         let user_exists = self.user_repository
-            .check_user_exists_by_email(user_with_city.email.clone())
+            .check_user_exists_by_email(user_with_city.email.as_ref())
             .await
             .map_err(|e| {
                 error!("[UserService] Failed to check user existence for {}: {:?}", user_with_city.email, e);
@@ -173,7 +168,7 @@ impl UserService {
     pub async fn update_user_by_id(&self, data: UpdateUser, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting user updation for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         if data.profile == PROFILE_ROOT && claims.profile != PROFILE_ROOT {
             return Err(AppError::Forbidden("Only ROOT can assign ROOT profile".to_string()));
@@ -194,16 +189,13 @@ impl UserService {
             return Err(AppError::Forbidden("Only ROOT can modify ROOT users".to_string()));
         }
 
-        // Check city-based permissions for non-ROOT users
         if claims.profile != PROFILE_ROOT {
-            let policies = self.get_user_policies_json(&claims).await?;
+            let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?.unwrap_or(serde_json::json!({}));
 
-            // Must have permission for the existing user's city
             if let Some(existing_city_id) = existing.city_id {
                 check_policy(&claims, POLICY_UPDATE_USERS, existing_city_id, &policies)?;
             }
 
-            // If changing city, must also have permission for the new city
             if let Some(new_city_id) = data.city_id {
                 if Some(new_city_id) != existing.city_id {
                     check_policy(&claims, POLICY_UPDATE_USERS, new_city_id, &policies)?;
@@ -211,7 +203,7 @@ impl UserService {
             }
         }
 
-        self.validate_user_fields(
+        UserValidator::validate_fields(
             &data.rank,
             &data.registration,
             &data.full_name,
@@ -221,26 +213,12 @@ impl UserService {
             "Error updating user: "
         )?;
 
-        if data.profile == PROFILE_CITY_ADMIN || data.profile == PROFILE_CITY_USER {
-            if data.city_id.is_none() {
-                error!("[UserService] city_id is required for CITY_ADMIN and CITY_USER profiles");
-                return Err(AppError::BadRequest(
-                    "Error updating user: city_id is required for CITY_ADMIN and CITY_USER profiles".to_string()
-                ));
-            }
-        }
+        UserValidator::validate_city_requirement(&data.profile, &data.city_id, "Error updating user")?;
 
-        if let Some(ref policies) = data.permission_policies {
-            self.validate_policy_names(policies)?;
-            let claims_policies_json = if claims.profile != PROFILE_ROOT {
-                let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-                match self.user_repository.get_user_policies_json_by_id(claims_user_id).await {
-                    Ok(p) => Some(p),
-                    Err(sqlx::Error::RowNotFound) => None,
-                    Err(_) => return Err(AppError::InternalServerError),
-                }
-            } else { None };
-            self.validate_policy_assignment_permission(&claims, &data.profile, policies, claims_policies_json.as_ref())?;
+        if let Some(policies) = data.permission_policies.as_ref() {
+            PolicyValidator::validate_policy_names(policies)?;
+            let claims_policies_json = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?;
+            PolicyValidator::validate_assignment_permission(&claims, &data.profile, policies, claims_policies_json.as_ref())?;
         }
 
         if data.profile == PROFILE_CITY_ADMIN {
@@ -306,7 +284,7 @@ impl UserService {
     pub async fn get_user_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[Service] Starting find user by id process for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.user_repository.get_user_by_id(id).await {
             Ok(user) => {
@@ -314,10 +292,9 @@ impl UserService {
                     return Err(AppError::Forbidden("Only ROOT can access ROOT users".to_string()));
                 }
 
-                // Check city-based permissions for non-ROOT users
                 if claims.profile != PROFILE_ROOT {
                     if let Some(user_city_id) = user.city_id {
-                        let policies = self.get_user_policies_json(&claims).await?;
+                        let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?.unwrap_or(serde_json::json!({}));
                         check_policy(&claims, POLICY_READ_USERS, user_city_id, &policies)?;
                     }
                 }
@@ -339,26 +316,18 @@ impl UserService {
     pub async fn get_all_users(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting process to get all users");
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.user_repository.get_all_users().await {
             Ok(users) => {
                 let filtered = if claims.profile == PROFILE_ROOT {
                     users
                 } else if claims.profile == PROFILE_CITY_ADMIN {
-                    // CITY_ADMIN can only see users from cities they have 'read_users' permission for
-                    let claims_user_id = Uuid::parse_str(&claims.id)
-                        .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-
-                    let claims_policies = match self.user_repository.get_user_policies_json_by_id(claims_user_id).await {
-                        Ok(p) => p,
-                        Err(sqlx::Error::RowNotFound) => {
+                    let claims_policies = match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
+                        Some(p) => p,
+                        None => {
                             info!("[UserService] No policies found for CITY_ADMIN");
-                            return Ok(ApiResponse::success(Vec::<crate::core::entities::users::UserDataCreatedWithoutPassword>::new()).into_response());
-                        }
-                        Err(e) => {
-                            error!("[UserService] Failed to retrieve user policies: {:?}", e);
-                            return Err(AppError::InternalServerError);
+                            return Ok(ApiResponse::success(Vec::<UserDataCreatedWithoutPassword>::new()).into_response());
                         }
                     };
 
@@ -377,11 +346,9 @@ impl UserService {
 
                     users.into_iter()
                         .filter(|u| {
-                            // Filter out ROOT users
                             if u.profile == PROFILE_ROOT {
                                 return false;
                             }
-                            // Only return users from allowed cities
                             if let Some(user_city_id) = u.city_id {
                                 allowed_cities.contains(&user_city_id)
                             } else {
@@ -390,7 +357,6 @@ impl UserService {
                         })
                         .collect()
                 } else {
-                    // For other profiles (like CITY_USER), filter out ROOT users
                     users.into_iter().filter(|u| u.profile != PROFILE_ROOT).collect()
                 };
                 info!("[UserService] Successfully retrieved {} users", filtered.len());
@@ -406,7 +372,7 @@ impl UserService {
     pub async fn delete_user_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting process to delete user with id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         let existing = match self.user_repository.get_user_by_id(id).await {
             Ok(user) => user,
@@ -423,10 +389,9 @@ impl UserService {
             return Err(AppError::Forbidden("Only ROOT can modify ROOT users".to_string()));
         }
 
-        // Check city-based permissions for non-ROOT users
         if claims.profile != PROFILE_ROOT {
             if let Some(user_city_id) = existing.city_id {
-                let policies = self.get_user_policies_json(&claims).await?;
+                let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?.unwrap_or(serde_json::json!({}));
                 check_policy(&claims, POLICY_DELETE_USERS, user_city_id, &policies)?;
             }
         }
@@ -450,15 +415,11 @@ impl UserService {
     pub async fn update_user_password_by_id(&self, id: Uuid, data: UpdateUserPassword, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting password update for user with id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
-        // SECURITY FIX: Verify that the requester is changing their own password or is ROOT
         let requester_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        // Allow only:
-        // 1. The user changing their own password
-        // 2. ROOT can change any user's password
         if requester_id != id && claims.profile != PROFILE_ROOT {
             error!("[UserService] User {} attempted to change password of user {}", requester_id, id);
             return Err(AppError::Forbidden("You can only change your own password".to_string()));
@@ -536,10 +497,10 @@ impl UserService {
         &self,
         target_user_id: Uuid,
         policy: &str,
-        city_ids: Vec<Uuid>,
+        city_ids: &[Uuid],
         req: HttpRequest
     ) -> Result<HttpResponse, AppError> {
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
         if !is_valid_policy(policy) {
             return Err(AppError::BadRequest(format!("Invalid policy name '{}'. Valid policies are: {:?}", policy, VALID_POLICIES)));
         }
@@ -566,21 +527,15 @@ impl UserService {
         }
 
         if claims.profile != PROFILE_ROOT {
-            if target_user.profile != PROFILE_CITY_USER {
-                return Err(AppError::Forbidden("CITY_ADMIN can only assign policies to CITY_USER profiles".to_string()));
-            }
+            let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?
+                .ok_or_else(|| AppError::Forbidden("User has no policies".to_string()))?;
 
-            // CITY_ADMIN must have permission to manage users in the target user's city
             if let Some(target_city_id) = target_user.city_id {
-                let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-                let policies = self.user_repository.get_user_policies_json_by_id(claims_user_id).await.map_err(|_| AppError::InternalServerError)?;
                 check_policy(&claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
             }
 
-            let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-            let claims_policies = self.user_repository.get_user_policies_json_by_id(claims_user_id).await.map_err(|_| AppError::InternalServerError)?;
-            let arr = claims_policies.get(policy).and_then(|v| v.as_array()).cloned().unwrap_or_default();
-            for cid in &city_ids {
+            let arr = policies.get(policy).and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            for cid in city_ids {
                 let has = arr.iter().filter_map(|v| v.as_str()).any(|s| Uuid::parse_str(s).ok() == Some(*cid));
                 if !has {
                     return Err(AppError::Forbidden(format!("You cannot assign policy '{}' for city '{}' you do not possess", policy, cid)));
@@ -602,8 +557,8 @@ impl UserService {
         Ok(ApiResponse::success(updated).into_response())
     }
 
-    pub async fn remove_user_policy_cities(&self, target_user_id: Uuid, policy: &str, city_ids: Vec<Uuid>, req: HttpRequest) -> Result<HttpResponse, AppError> {
-        let claims = self.get_claims(&req)?;
+    pub async fn remove_user_policy_cities(&self, target_user_id: Uuid, policy: &str, city_ids: &[Uuid], req: HttpRequest) -> Result<HttpResponse, AppError> {
+        let claims = extract_claims(&req)?;
         if !is_valid_policy(policy) {
             return Err(AppError::BadRequest(format!("Invalid policy name '{}'. Valid policies are: {:?}", policy, VALID_POLICIES)));
         }
@@ -634,17 +589,15 @@ impl UserService {
                 return Err(AppError::Forbidden("CITY_ADMIN can only modify policies of CITY_USER profiles".to_string()));
             }
 
-            // CITY_ADMIN must have permission to manage users in the target user's city
+            let policies = get_user_policies_strict(&**self.user_repository, &claims).await?
+                .ok_or_else(|| AppError::Forbidden("User has no policies".to_string()))?;
+
             if let Some(target_city_id) = target_user.city_id {
-                let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-                let policies = self.user_repository.get_user_policies_json_by_id(claims_user_id).await.map_err(|_| AppError::InternalServerError)?;
                 check_policy(&claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
             }
 
-            let claims_user_id = Uuid::parse_str(&claims.id).map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-            let claims_policies = self.user_repository.get_user_policies_json_by_id(claims_user_id).await.map_err(|_| AppError::InternalServerError)?;
-            let arr = claims_policies.get(policy).and_then(|v| v.as_array()).cloned().unwrap_or_default();
-            for cid in &city_ids {
+            let arr = policies.get(policy).and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            for cid in city_ids {
                 let has = arr.iter().filter_map(|v| v.as_str()).any(|s| Uuid::parse_str(s).ok() == Some(*cid));
                 if !has {
                     return Err(AppError::Forbidden(format!("You cannot modify policy '{}' for city '{}' you do not possess", policy, cid)));
@@ -668,220 +621,6 @@ impl UserService {
 
         let updated = self.user_repository.update_user_policies_by_id(target_user_id, policies).await.map_err(|_| AppError::InternalServerError)?;
         Ok(ApiResponse::success(updated).into_response())
-    }
-
-    // Helpers methods
-    fn validate_user_fields(&self,
-        rank: &str,
-        registration: &str,
-        full_name: &str,
-        profile: &str,
-        email: &str,
-        password: Option<&str>,
-        error_context: &str
-    ) -> Result<(), AppError> {
-        info!("[Service] Validating required fields");
-
-        let mut fields_to_validate = vec![
-            ("rank", rank.is_empty()),
-            ("registration", registration.is_empty()),
-            ("full_name", full_name.is_empty()),
-            ("profile", profile.is_empty()),
-            ("email", email.is_empty()),
-        ];
-
-        if let Some(p) = password {
-            fields_to_validate.push(("password", p.is_empty()));
-        }
-
-        validate_required_fields(&fields_to_validate, error_context)?;
-        info!("[Service] Required fields validation passed");
-
-        info!("[Service] Validating rank: {}", rank);
-        if !is_valid_rank(rank) {
-            return Err(AppError::BadRequest(
-                format!("{}invalid rank '{}'. Valid ranks are: {:?}", error_context, rank, VALID_RANKS)
-            ));
-        }
-        info!("[Service] Rank validation passed");
-
-        info!("[Service] Validating registration: {}", registration);
-        if !is_valid_registration(registration) {
-            return Err(AppError::BadRequest(
-                format!(
-                    "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
-                    error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
-                )
-            ));
-        }
-        info!("[Service] Registration validation passed");
-
-        info!("[Service] Validating profile: {}", profile);
-        if !is_valid_profile(profile) {
-            return Err(AppError::BadRequest(
-                format!("{}invalid profile '{}'. Valid profiles are: {:?}", error_context, profile, VALID_PROFILES)
-            ));
-        }
-        info!("[Service] Profile validation passed");
-
-        info!("[Service] Validating email format: {}", email);
-        if !is_valid_email(email) {
-            return Err(AppError::BadRequest(
-                format!("{}'{}' is not a valid email", error_context, email)
-            ));
-        }
-        info!("[Service] Email format validation passed");
-
-        Ok(())
-    }
-
-    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
-        req.extensions()
-            .get::<ClaimsToUserToken>()
-            .cloned()
-            .ok_or_else(|| {
-                error!("[UserService] No claims found in request");
-                AppError::Unauthorized("Unauthorized".to_string())
-            })
-    }
-
-    async fn get_user_policies_json(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
-        if claims.profile == PROFILE_ROOT {
-            return Ok(serde_json::json!({}));
-        }
-
-        let claims_user_id = Uuid::parse_str(&claims.id)
-            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-
-        match self.user_repository.get_user_policies_json_by_id(claims_user_id).await {
-            Ok(policies) => Ok(policies),
-            Err(sqlx::Error::RowNotFound) => Ok(serde_json::json!({})),
-            Err(e) => {
-                error!("[UserService] Failed to retrieve user policies: {:?}", e);
-                Err(AppError::InternalServerError)
-            }
-        }
-    }
-
-    fn get_user_city_id(&self, claims: &ClaimsToUserToken) -> Result<Uuid, AppError> {
-        claims
-            .city_id
-            .as_ref()
-            .and_then(|id| Uuid::parse_str(id).ok())
-            .ok_or_else(|| {
-                error!("[UserService] User has no city_id in claims");
-                AppError::Forbidden("User must be associated with a city".to_string())
-            })
-    }
-
-    fn validate_user_creation_permission(&self, claims: &ClaimsToUserToken, new_user: &CreateUser) -> Result<(), AppError> {
-        info!("[UserService] Validating user creation permission for profile: {}", claims.profile);
-
-        if claims.profile == PROFILE_ROOT {
-            info!("[UserService] ROOT user - allowed to create any profile");
-            return Ok(());
-        }
-
-        if claims.profile == PROFILE_CITY_USER {
-            error!("[UserService] CITY_USER cannot create users");
-            return Err(AppError::Forbidden(
-                "CITY_USER profile is not allowed to create users".to_string()
-            ));
-        }
-
-        if claims.profile == PROFILE_CITY_ADMIN {
-            if new_user.profile == PROFILE_ROOT {
-                error!("[UserService] CITY_ADMIN cannot create ROOT users");
-                return Err(AppError::Forbidden(
-                    "CITY_ADMIN is not allowed to create ROOT users".to_string()
-                ));
-            }
-
-            if new_user.profile == PROFILE_CITY_ADMIN {
-                error!("[UserService] CITY_ADMIN cannot create other CITY_ADMIN users");
-                return Err(AppError::Forbidden(
-                    "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string()
-                ));
-            }
-
-            info!("[UserService] CITY_ADMIN creating CITY_USER - allowed (city_id will be set from token)");
-            return Ok(());
-        }
-
-        error!("[UserService] Unknown profile '{}' attempted to create user", claims.profile);
-        Err(AppError::Forbidden("Permission denied".to_string()))
-    }
-
-    fn validate_policy_names(&self, policies: &PermissionPolicies) -> Result<(), AppError> {
-        for policy_name in policies.keys() {
-            if !is_valid_policy(policy_name) {
-                error!("[UserService] Invalid policy name: {}", policy_name);
-                return Err(AppError::BadRequest(
-                    format!("Invalid policy name '{}'. Valid policies are: {:?}", policy_name, VALID_POLICIES)
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_policy_assignment_permission(
-        &self,
-        claims: &ClaimsToUserToken,
-        target_profile: &str,
-        policies: &PermissionPolicies,
-        claims_policies_json: Option<&serde_json::Value>,
-    ) -> Result<(), AppError> {
-        info!("[UserService] Validating policy assignment permission");
-
-        if claims.profile == PROFILE_ROOT {
-            info!("[UserService] ROOT user - allowed to assign any policy");
-            return Ok(());
-        }
-
-        if claims.profile == PROFILE_CITY_USER {
-            if !policies.is_empty() {
-                error!("[UserService] CITY_USER cannot assign policies");
-                return Err(AppError::Forbidden(
-                    "CITY_USER profile is not allowed to assign permission policies".to_string()
-                ));
-            }
-            return Ok(());
-        }
-
-        if claims.profile == PROFILE_CITY_ADMIN {
-            if target_profile != PROFILE_CITY_USER {
-                if !policies.is_empty() {
-                    error!("[UserService] CITY_ADMIN can only assign policies to CITY_USER");
-                    return Err(AppError::Forbidden(
-                        "CITY_ADMIN can only assign permission policies to CITY_USER profiles".to_string()
-                    ));
-                }
-                return Ok(());
-            }
-
-            let claims_policies = claims_policies_json;
-            for (policy_name, city_ids) in policies.iter() {
-                for city_id in city_ids {
-                    let mut has_policy = false;
-                    if let Some(pjson) = claims_policies {
-                        if let Some(arr) = pjson.get(policy_name).and_then(|v| v.as_array()) {
-                            has_policy = arr.iter().filter_map(|v| v.as_str()).any(|cid| Uuid::parse_str(cid).ok() == Some(*city_id));
-                        }
-                    }
-                    if !has_policy {
-                        error!("[UserService] CITY_ADMIN lacks '{}' for city '{}' to assign", policy_name, city_id);
-                        return Err(AppError::Forbidden(
-                            format!("CITY_ADMIN cannot assign policy '{}' for city '{}' that they do not possess", policy_name, city_id)
-                        ));
-                    }
-                }
-            }
-            info!("[UserService] CITY_ADMIN policy assignment validated");
-            return Ok(());
-        }
-
-        error!("[UserService] Unknown profile '{}' attempted to assign policies", claims.profile);
-        Err(AppError::Forbidden("Permission denied".to_string()))
     }
 
 }
