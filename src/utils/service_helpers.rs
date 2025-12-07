@@ -64,7 +64,6 @@ pub async fn get_user_policies_with_defaults<T: UserRepository>(
     match user_repository.get_user_policies_json_by_id(user_id).await {
         Ok(policies) => return Ok(policies),
         Err(sqlx::Error::RowNotFound) => {
-            // Fallback to default policies
         }
         Err(e) => {
             error!("[ServiceHelper] Failed to retrieve user policies: {:?}", e);
@@ -72,7 +71,6 @@ pub async fn get_user_policies_with_defaults<T: UserRepository>(
         }
     }
 
-    // Fallback: generate default policies based on profile
     let city_id = if let Some(city_id_str) = &claims.city_id {
         Uuid::parse_str(city_id_str).ok()
     } else {
