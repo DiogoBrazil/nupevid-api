@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
+use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 use uuid::Uuid;
 
@@ -6,23 +6,26 @@ use crate::core::entities::protective_measures::{
     CreateProtectiveMeasure,
     UpdateProtectiveMeasure
 };
-use crate::core::entities::auth::ClaimsToUserToken;
+
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
 use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::core::contracts::repository::users::UserRepository;
+
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{
-        validate_required_fields, PROFILE_ROOT,
+    authorization::{check_policy, get_allowed_cities_for_policy},
+    service_helpers::{extract_claims, get_user_policies_with_defaults}
+};
+use crate::validators::{
+    common::{
         POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_READ_PROTECTIVE_MEASURES,
         POLICY_UPDATE_PROTECTIVE_MEASURES, POLICY_DELETE_PROTECTIVE_MEASURES
-    }
+    },
+    protective_measure_validator::ProtectiveMeasureValidator
 };
-use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
 
 pub struct ProtectiveMeasureService {
     measure_repository: web::Data<PgProtectiveMeasureRepository>,
@@ -42,7 +45,7 @@ impl ProtectiveMeasureService {
     pub async fn create_protective_measure(&self, measure: CreateProtectiveMeasure, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Starting protective measure creation for victim: {}", measure.victim_id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         let victim = match self.victim_repository.get_victim_by_id(measure.victim_id).await {
             Ok(v) => v,
@@ -55,13 +58,14 @@ impl ProtectiveMeasureService {
             }
         };
 
-        let policies = self.get_user_policies(&claims).await?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
-        validate_required_fields(&[
-            ("process_number", measure.process_number.is_empty()),
-            ("judicial_authority", measure.judicial_authority.is_empty()),
-        ], "Error adding protective measure: ")?;
+        ProtectiveMeasureValidator::validate_required_fields(
+            &measure.process_number,
+            &measure.judicial_authority,
+            "Error adding protective measure"
+        )?;
 
         if measure.is_active {
             let active_exists = self.measure_repository
@@ -97,7 +101,7 @@ impl ProtectiveMeasureService {
     pub async fn get_protective_measure_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Getting protective measure by id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(measure) => {
@@ -107,7 +111,7 @@ impl ProtectiveMeasureService {
                         AppError::InternalServerError
                     })?;
 
-                let policies = self.get_user_policies(&claims).await?;
+                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
                 info!("[ProtectiveMeasureService] Protective measure found: {}", id);
@@ -126,9 +130,9 @@ impl ProtectiveMeasureService {
     pub async fn get_all_protective_measures(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Getting all protective measures");
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
-        let policies = self.get_user_policies(&claims).await?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let measures = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies) {
             match self.measure_repository.get_all_protective_measures().await {
                 Ok(all_measures) => {
@@ -163,7 +167,7 @@ impl ProtectiveMeasureService {
     pub async fn get_protective_measures_by_victim(&self, victim_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Getting measures for victim: {}", victim_id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         let victim = match self.victim_repository.get_victim_by_id(victim_id).await {
             Ok(v) => v,
@@ -176,7 +180,7 @@ impl ProtectiveMeasureService {
             }
         };
 
-        let policies = self.get_user_policies(&claims).await?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
         match self.measure_repository.get_protective_measures_by_victim(victim_id).await {
@@ -194,7 +198,7 @@ impl ProtectiveMeasureService {
     pub async fn update_protective_measure_by_id(&self, data: UpdateProtectiveMeasure, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Updating protective measure: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         let existing_measure = match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(m) => m,
@@ -213,7 +217,7 @@ impl ProtectiveMeasureService {
                 AppError::InternalServerError
             })?;
 
-        let policies = self.get_user_policies(&claims).await?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_UPDATE_PROTECTIVE_MEASURES, existing_victim.city_id, &policies)?;
 
         if data.victim_id != existing_measure.victim_id {
@@ -231,10 +235,11 @@ impl ProtectiveMeasureService {
             check_policy(&claims, POLICY_UPDATE_PROTECTIVE_MEASURES, new_victim.city_id, &policies)?;
         }
 
-        validate_required_fields(&[
-            ("process_number", data.process_number.is_empty()),
-            ("judicial_authority", data.judicial_authority.is_empty()),
-        ], "Error updating protective measure: ")?;
+        ProtectiveMeasureValidator::validate_required_fields(
+            &data.process_number,
+            &data.judicial_authority,
+            "Error updating protective measure"
+        )?;
 
         if data.is_active {
             let active_exists = self.measure_repository
@@ -271,7 +276,7 @@ impl ProtectiveMeasureService {
     pub async fn delete_protective_measure_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Deleting protective measure: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
 
         let measure = match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(m) => m,
@@ -290,7 +295,7 @@ impl ProtectiveMeasureService {
                 AppError::InternalServerError
             })?;
 
-        let policies = self.get_user_policies(&claims).await?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_DELETE_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
 
         match self.measure_repository.delete_protective_measure_by_id(id).await {
@@ -306,36 +311,5 @@ impl ProtectiveMeasureService {
                 Err(AppError::InternalServerError)
             }
         }
-    }
-
-    // Helper methods
-    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
-        req.extensions()
-            .get::<ClaimsToUserToken>()
-            .cloned()
-            .ok_or_else(|| {
-                error!("[ProtectiveMeasureService] No claims found in request");
-                AppError::Unauthorized("Unauthorized".to_string())
-            })
-    }
-
-    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
-        if claims.profile == PROFILE_ROOT {
-            return Ok(serde_json::json!({}));
-        }
-        if let Some(city_id_str) = &claims.city_id {
-            if let Ok(city_id) = Uuid::parse_str(city_id_str) {
-                if let Ok(uid) = Uuid::parse_str(&claims.id) {
-                    match self.user_repository.get_user_policies_json_by_id(uid).await {
-                        Ok(p) => return Ok(p),
-                        Err(sqlx::Error::RowNotFound) => {}
-                        Err(_) => return Err(AppError::InternalServerError),
-                    }
-                }
-                let defaults = crate::utils::validations::generate_default_policies(&claims.profile, Some(city_id));
-                return Ok(serde_json::json!(defaults));
-            }
-        }
-        Ok(serde_json::json!({}))
     }
 }
