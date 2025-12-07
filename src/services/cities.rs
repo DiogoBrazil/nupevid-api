@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
+use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 use uuid::Uuid;
 
@@ -6,18 +6,18 @@ use crate::core::entities::cities::{CreateCity, UpdateCity};
 use crate::core::contracts::repository::cities::CityRepository;
 use crate::repositories::cities::PgCityRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::core::contracts::repository::users::UserRepository;
+
 use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
-    validations::{
-        validate_required_fields, is_valid_city_name, is_valid_battalion, is_valid_state,
-        VALID_CITIES, VALID_BATTALIONS, VALID_STATES, PROFILE_ROOT,
-        POLICY_READ_CITIES
-    }
+    authorization::{check_policy, get_allowed_cities_for_policy},
+    service_helpers::{extract_claims, get_user_policies_with_defaults}
 };
-use crate::core::entities::auth::ClaimsToUserToken;
-use crate::utils::authorization::{check_policy, get_allowed_cities_for_policy};
+use crate::validators::{
+    common::{PROFILE_ROOT, POLICY_READ_CITIES},
+    city_validator::CityValidator
+};
+
 
 pub struct CityService {
     city_repository: web::Data<PgCityRepository>,
@@ -32,40 +32,14 @@ impl CityService {
     pub async fn create_city(&self, city: CreateCity, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city creation: {}", city.name);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can create cities");
             return Err(AppError::Forbidden("Only ROOT can create cities".to_string()));
         }
 
-        validate_required_fields(&[
-            ("name", city.name.is_empty()),
-            ("state", city.state.is_empty()),
-            ("battalion", city.battalion.is_empty()),
-        ], "Error adding city: ")?;
+        CityValidator::validate_fields(&city.name, &city.state, &city.battalion, "Error adding city")?;
 
-        if !is_valid_city_name(&city.name) {
-            error!("[CityService] Invalid city name: {}", city.name);
-            return Err(AppError::BadRequest(
-                format!("Error adding city: invalid city name '{}'. Valid cities: {:?}", city.name, VALID_CITIES)
-            ));
-        }
-
-        if !is_valid_state(&city.state) {
-            error!("[CityService] Invalid state: {}", city.state);
-            return Err(AppError::BadRequest(
-                format!("Error adding city: invalid state '{}'. Valid states: {:?}", city.state, VALID_STATES)
-            ));
-        }
-
-        if !is_valid_battalion(&city.battalion) {
-            error!("[CityService] Invalid battalion: {}", city.battalion);
-            return Err(AppError::BadRequest(
-                format!("Error adding city: invalid battalion '{}'. Valid battalions: {:?}", city.battalion, VALID_BATTALIONS)
-            ));
-        }
-
-        // Check if city already exists with the same name and battalion
         match self.city_repository.get_city_by_name_and_battalion(&city.name, &city.battalion).await {
             Ok(Some(_existing_city)) => {
                 error!("[CityService] City already exists with name '{}' and battalion '{}'", city.name, city.battalion);
@@ -99,8 +73,8 @@ impl CityService {
     pub async fn get_city_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting find city by id process for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.city_repository.get_city_by_id(id).await {
             Ok(city) => {
@@ -124,8 +98,8 @@ impl CityService {
     pub async fn get_all_cities(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting process to get all cities");
 
-        let claims = self.get_claims(&req)?;
-        let policies = self.get_user_policies(&claims).await?;
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
         match self.city_repository.get_all_cities().await {
             Ok(cities) => {
@@ -153,43 +127,16 @@ impl CityService {
     pub async fn update_city_by_id(&self, data: UpdateCity, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting city update for id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can update cities");
             return Err(AppError::Forbidden("Only ROOT can update cities".to_string()));
         }
 
-        validate_required_fields(&[
-            ("name", data.name.is_empty()),
-            ("state", data.state.is_empty()),
-            ("battalion", data.battalion.is_empty()),
-        ], "Error updating city: ")?;
+        CityValidator::validate_fields(&data.name, &data.state, &data.battalion, "Error updating city")?;
 
-        if !is_valid_city_name(&data.name) {
-            error!("[CityService] Invalid city name: {}", data.name);
-            return Err(AppError::BadRequest(
-                format!("Error updating city: invalid city name '{}'. Valid cities: {:?}", data.name, VALID_CITIES)
-            ));
-        }
-
-        if !is_valid_state(&data.state) {
-            error!("[CityService] Invalid state: {}", data.state);
-            return Err(AppError::BadRequest(
-                format!("Error updating city: invalid state '{}'. Valid states: {:?}", data.state, VALID_STATES)
-            ));
-        }
-
-        if !is_valid_battalion(&data.battalion) {
-            error!("[CityService] Invalid battalion: {}", data.battalion);
-            return Err(AppError::BadRequest(
-                format!("Error updating city: invalid battalion '{}'. Valid battalions: {:?}", data.battalion, VALID_BATTALIONS)
-            ));
-        }
-
-        // Check if another city already exists with the same name and battalion
         match self.city_repository.get_city_by_name_and_battalion(&data.name, &data.battalion).await {
             Ok(Some(existing_city)) => {
-                // Only error if it's a different city (not the one being updated)
                 if existing_city.id != id {
                     error!("[CityService] Another city already exists with name '{}' and battalion '{}'", data.name, data.battalion);
                     return Err(AppError::BadRequest(
@@ -229,7 +176,7 @@ impl CityService {
     pub async fn delete_city_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting process to delete city with id: {}", id);
 
-        let claims = self.get_claims(&req)?;
+        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can delete cities");
             return Err(AppError::Forbidden("Only ROOT can delete cities".to_string()));
@@ -249,38 +196,5 @@ impl CityService {
                 Err(AppError::InternalServerError)
             }
         }
-    }
-}
-
-impl CityService {
-    fn get_claims(&self, req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
-        req.extensions()
-            .get::<ClaimsToUserToken>()
-            .cloned()
-            .ok_or_else(|| {
-                error!("[CityService] No claims found in request");
-                AppError::Unauthorized("Unauthorized".to_string())
-            })
-    }
-
-    async fn get_user_policies(&self, claims: &ClaimsToUserToken) -> Result<serde_json::Value, AppError> {
-        if claims.profile == PROFILE_ROOT {
-            return Ok(serde_json::json!({}));
-        }
-        if let Ok(uid) = Uuid::parse_str(&claims.id) {
-            match self.user_repository.get_user_policies_json_by_id(uid).await {
-                Ok(p) => return Ok(p),
-                Err(sqlx::Error::RowNotFound) => {}
-                Err(_) => return Err(AppError::InternalServerError),
-            }
-        }
-        if let Some(cid_str) = &claims.city_id {
-            if let Ok(cid) = Uuid::parse_str(cid_str) {
-                let mut defaults = std::collections::HashMap::new();
-                defaults.insert(POLICY_READ_CITIES.to_string(), vec![cid]);
-                return Ok(serde_json::json!(defaults));
-            }
-        }
-        Ok(serde_json::json!({}))
     }
 }
