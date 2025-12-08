@@ -431,42 +431,50 @@ impl UserService {
             }
         }
 
-        if data.current_password.is_empty() {
-            return Err(AppError::BadRequest("Error updating password: current_password is required".to_string()));
+        if claims.profile != PROFILE_ROOT {
+            let current_pwd = data.current_password.as_ref()
+                .filter(|pwd| !pwd.is_empty())
+                .ok_or_else(|| AppError::BadRequest("Error updating password: current_password is required".to_string()))?;
+
+            info!("[UserService] Retrieving current password hash from database");
+
+            let stored_password_hash = match self.user_repository.get_user_password_by_id(id).await {
+                Ok(hash) => hash,
+                Err(sqlx::Error::RowNotFound) => {
+                    info!("[UserService] User with id {} not found", id);
+                    return Err(AppError::NotFound(format!("User with id '{}' not found", id)));
+                }
+                Err(e) => {
+                    error!("[UserService] Failed to retrieve user password: {:?}", e);
+                    return Err(AppError::InternalServerError);
+                }
+            };
+
+            info!("[UserService] Verifying current password");
+
+            let password_matches = self.password_hasher
+                .verify_password(&stored_password_hash, current_pwd)
+                .map_err(|e| {
+                    error!("[UserService] Failed to verify password: {:?}", e);
+                    AppError::InternalServerError
+                })?;
+
+            if !password_matches {
+                error!("[UserService] Current password is incorrect");
+                return Err(AppError::BadRequest("Error updating password: current password is incorrect".to_string()));
+            }
+
+            info!("[UserService] Current password verified with success.");
+
+        } else {
+            info!("[UserService] ROOT user changing password - skipping current password verification");
         }
+
         if data.new_password.is_empty() {
             return Err(AppError::BadRequest("Error updating password: new_password is required".to_string()));
         }
 
-        info!("[UserService] Retrieving current password hash from database");
-
-        let stored_password_hash = match self.user_repository.get_user_password_by_id(id).await {
-            Ok(hash) => hash,
-            Err(sqlx::Error::RowNotFound) => {
-                info!("[UserService] User with id {} not found", id);
-                return Err(AppError::NotFound(format!("User with id '{}' not found", id)));
-            }
-            Err(e) => {
-                error!("[UserService] Failed to retrieve user password: {:?}", e);
-                return Err(AppError::InternalServerError);
-            }
-        };
-
-        info!("[UserService] Verifying current password");
-
-        let password_matches = self.password_hasher
-            .verify_password(&stored_password_hash, &data.current_password)
-            .map_err(|e| {
-                error!("[UserService] Failed to verify password: {:?}", e);
-                AppError::InternalServerError
-            })?;
-
-        if !password_matches {
-            error!("[UserService] Current password is incorrect");
-            return Err(AppError::BadRequest("Error updating password: current password is incorrect".to_string()));
-        }
-
-        info!("[UserService] Current password verified. Hashing new password");
+        info!("[UserService] Starting hashing a new password");
 
         let new_password_hash = self.password_hasher
             .hash_password(&data.new_password)
