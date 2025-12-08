@@ -28,7 +28,9 @@ async fn test_create_offender_success() {
         "uses_alcohol": false,
         "uses_drugs": false,
         "has_psychiatric_issues": false,
-        "was_drunk_during_assault": false
+        "was_drunk_during_assault": false,
+        "education_level": "High School",
+        "assaults_children": false
     });
 
     let req = test_helpers::with_auth_headers(
@@ -135,7 +137,9 @@ async fn test_update_offender() {
         "uses_alcohol": true,
         "uses_drugs": false,
         "has_psychiatric_issues": false,
-        "was_drunk_during_assault": true
+        "was_drunk_during_assault": true,
+        "education_level": "College",
+        "assaults_children": true
     });
 
     let req = test_helpers::with_auth_headers(

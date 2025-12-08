@@ -68,10 +68,10 @@ pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid, vict
             is_public_security_agent, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation,
+            was_drunk_during_assault, education_level, assaults_children, observation,
             is_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::relationship_to_victim_enum, $12, $13, $14, $15, $16, $17, false
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::relationship_to_victim_enum, $12, $13, $14, $15, $16, $17::education_level_enum, $18, $19, false
         )",
     )
     .bind(id)
@@ -90,6 +90,8 @@ pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid, vict
     .bind(false) // has_psychiatric_issues
     .bind(Option::<String>::None) // psychiatric_issues_type
     .bind(false) // was_drunk_during_assault
+    .bind("Elementary") // education_level
+    .bind(false) // assaults_children
     .bind(Option::<String>::None) // observation
     .execute(pool)
     .await
