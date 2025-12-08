@@ -990,6 +990,10 @@ components:
           type: string
           nullable: true
           description: "Número do processo no sistema SEI"
+        occurrence_report_number:
+          type: string
+          nullable: true
+          description: "Número do boletim de ocorrência"
         issued_at:
           type: string
           format: date
@@ -1012,6 +1016,10 @@ components:
         victim_id:
           type: string
           format: uuid
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor associado à medida protetiva"
         created_at:
           type: string
           format: date-time
@@ -1030,6 +1038,7 @@ components:
         - court_district_id
         - is_active
         - victim_id
+        - offender_id
       properties:
         process_number:
           type: string
@@ -1038,6 +1047,11 @@ components:
           type: string
           nullable: true
           example: "SEI-2025/001234"
+        occurrence_report_number:
+          type: string
+          nullable: true
+          example: "BO-2025/001234"
+          description: "Número do boletim de ocorrência"
         issued_at:
           type: string
           format: date
@@ -1059,6 +1073,9 @@ components:
         victim_id:
           type: string
           format: uuid
+        offender_id:
+          type: string
+          format: uuid
 
     UpdateProtectiveMeasureRequest:
       type: object
@@ -1073,6 +1090,9 @@ components:
         process_number:
           type: string
         sei_process_number:
+          type: string
+          nullable: true
+        occurrence_report_number:
           type: string
           nullable: true
         issued_at:
@@ -1093,6 +1113,9 @@ components:
         is_active:
           type: boolean
         victim_id:
+          type: string
+          format: uuid
+        offender_id:
           type: string
           format: uuid
 
