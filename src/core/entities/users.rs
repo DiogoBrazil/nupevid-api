@@ -34,7 +34,7 @@ pub struct UpdateUser {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateUserPassword {
-    pub current_password: String,
+    pub current_password: Option<String>,
     pub new_password: String,
 }
 
