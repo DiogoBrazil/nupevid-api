@@ -8,16 +8,16 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING
             id, full_name, cpf, birth_date, city_id, victim_id, created_at, updated_at, is_deleted,
             imprisoned, occupation, workplace,
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
     "#;
 
     pub const GET_OFFENDER_BY_ID: &'static str = r#"
@@ -27,7 +27,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
         FROM offenders
         WHERE id = $1 AND is_deleted = false
     "#;
@@ -39,7 +39,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
         FROM offenders
         WHERE is_deleted = false
         ORDER BY created_at DESC
@@ -52,7 +52,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
         FROM offenders
         WHERE city_id = $1 AND is_deleted = false
         ORDER BY created_at DESC
@@ -65,7 +65,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
         FROM offenders
         WHERE victim_id = $1 AND is_deleted = false
         ORDER BY created_at DESC
@@ -79,7 +79,7 @@ impl OffendersQueries {
             is_public_security_agent = $10, security_force = $11, relationship_to_victim = $12,
             uses_alcohol = $13, uses_drugs = $14,
             has_psychiatric_issues = $15, psychiatric_issues_type = $16,
-            was_drunk_during_assault = $17, observation = $18
+            was_drunk_during_assault = $17, education_level = $18, assaults_children = $19, observation = $20
         WHERE id = $1 AND is_deleted = false
         RETURNING
             id, full_name, cpf, birth_date, city_id, victim_id, created_at, updated_at, is_deleted,
@@ -87,7 +87,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
     "#;
 
     pub const DELETE_OFFENDER_BY_ID: &'static str = r#"
@@ -100,7 +100,7 @@ impl OffendersQueries {
             is_public_security_agent, security_force, relationship_to_victim,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type,
-            was_drunk_during_assault, observation
+            was_drunk_during_assault, education_level, assaults_children, observation
     "#;
 }
 

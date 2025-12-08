@@ -195,6 +195,8 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(&offender.has_psychiatric_issues)
             .bind(&offender.psychiatric_issues_type)
             .bind(&offender.was_drunk_during_assault)
+            .bind(&offender.education_level)
+            .bind(&offender.assaults_children)
             .bind(&offender.observation)
             .fetch_one(&mut *tx)
             .await?;
@@ -385,6 +387,8 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(&data.has_psychiatric_issues)
             .bind(&data.psychiatric_issues_type)
             .bind(&data.was_drunk_during_assault)
+            .bind(&data.education_level)
+            .bind(&data.assaults_children)
             .bind(&data.observation)
             .fetch_one(&mut *tx)
             .await?;

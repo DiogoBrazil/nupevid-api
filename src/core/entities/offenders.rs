@@ -96,6 +96,23 @@ pub enum PhoneType {
     Work,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[sqlx(type_name = "education_level_enum")]
+pub enum EducationLevel {
+    #[serde(rename = "Elementary")]
+    #[sqlx(rename = "Elementary")]
+    Elementary,
+    #[serde(rename = "High School")]
+    #[sqlx(rename = "High School")]
+    HighSchool,
+    #[serde(rename = "College")]
+    #[sqlx(rename = "College")]
+    College,
+    #[serde(rename = "Postgraduate")]
+    #[sqlx(rename = "Postgraduate")]
+    Postgraduate,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PhoneData {
     pub phone: String,
@@ -248,6 +265,8 @@ pub struct CreateOffender {
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
     pub was_drunk_during_assault: bool,
+    pub education_level: EducationLevel,
+    pub assaults_children: bool,
     pub observation: Option<String>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
@@ -272,6 +291,8 @@ pub struct UpdateOffender {
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
     pub was_drunk_during_assault: bool,
+    pub education_level: EducationLevel,
+    pub assaults_children: bool,
     pub observation: Option<String>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
@@ -297,6 +318,8 @@ pub struct Offender {
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
     pub was_drunk_during_assault: bool,
+    pub education_level: EducationLevel,
+    pub assaults_children: bool,
     pub observation: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -322,6 +345,8 @@ pub struct OffenderWithDetails {
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
     pub was_drunk_during_assault: bool,
+    pub education_level: EducationLevel,
+    pub assaults_children: bool,
     pub observation: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -356,6 +381,8 @@ impl Offender {
             has_psychiatric_issues: self.has_psychiatric_issues,
             psychiatric_issues_type: self.psychiatric_issues_type,
             was_drunk_during_assault: self.was_drunk_during_assault,
+            education_level: self.education_level,
+            assaults_children: self.assaults_children,
             observation: self.observation,
             created_at: self.created_at,
             updated_at: self.updated_at,
