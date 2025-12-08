@@ -390,18 +390,20 @@ async fn update_password_with_empty_current_password_fails() {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
+    let city = db_fixtures::insert_city(&pool, "Test City").await;
+
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    // Create user
+    // Create CITY_USER (non-ROOT users need current_password)
     let user = serde_json::json!({
-        "rank": "CAP PM",
+        "rank": "SD PM",
         "registration": "100012345",
         "full_name": "Test User",
-        "profile": "ROOT",
+        "profile": "CITY_USER",
         "email": "test@test.com",
         "password": "password123",
-        "city_id": null,
+        "city_id": city,
         "permission_policies": null
     });
 
@@ -418,6 +420,22 @@ async fn update_password_with_empty_current_password_fails() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = body["data"]["id"].as_str().unwrap();
 
+    // User logs in to get their token
+    let login_payload = serde_json::json!({
+        "email": "test@test.com",
+        "password": "password123"
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    let login_body: serde_json::Value = test::read_body_json(login_resp).await;
+    let user_token = login_body["data"]["token"].as_str().unwrap();
+
     // Try to update password with empty current_password
     let password_payload = serde_json::json!({
         "current_password": "",
@@ -429,7 +447,7 @@ async fn update_password_with_empty_current_password_fails() {
             .uri(&format!("/api/v1/users/{}/password", user_id))
             .set_json(&password_payload),
         &config,
-        &root_token,
+        user_token,
     )
     .to_request();
 

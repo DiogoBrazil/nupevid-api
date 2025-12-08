@@ -79,14 +79,14 @@ pub fn valid_update_user() -> UpdateUser {
 
 pub fn valid_update_password() -> UpdateUserPassword {
     UpdateUserPassword {
-        current_password: "senha123".to_string(),
+        current_password: Some("senha123".to_string()),
         new_password: "novaSenha456".to_string(),
     }
 }
 
 pub fn invalid_update_password() -> UpdateUserPassword {
     UpdateUserPassword {
-        current_password: "senhaErrada".to_string(),
+        current_password: Some("senhaErrada".to_string()),
         new_password: "novaSenha456".to_string(),
     }
 }

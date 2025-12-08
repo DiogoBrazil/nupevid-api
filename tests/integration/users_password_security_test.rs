@@ -348,9 +348,8 @@ async fn root_can_change_any_user_password() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = body["data"]["id"].as_str().unwrap();
 
-    // ROOT changes the user's password (should work)
+    // ROOT changes the user's password without needing current password (should work)
     let change_password_payload = serde_json::json!({
-        "current_password": "userPassword123",
         "new_password": "newPasswordByRoot"
     });
 
@@ -367,4 +366,77 @@ async fn root_can_change_any_user_password() {
 
     // ROOT should be able to change any user's password
     assert_eq!(change_resp.status(), StatusCode::OK);
+}
+
+#[actix_rt::test]
+async fn root_can_change_password_without_current_password() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Test City").await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create CITY_USER
+    let user_payload = serde_json::json!({
+        "rank": "SD PM",
+        "registration": "100012345",
+        "full_name": "City User",
+        "profile": "CITY_USER",
+        "email": "cityuser@test.com",
+        "password": "userPassword123",
+        "city_id": city,
+        "permission_policies": null
+    });
+
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    let body: serde_json::Value = test::read_body_json(create_resp).await;
+    let user_id = body["data"]["id"].as_str().unwrap();
+
+    // ROOT changes password WITHOUT providing current_password
+    let change_password_payload = serde_json::json!({
+        "new_password": "newPasswordSetByRoot"
+    });
+
+    let change_req = test_helpers::with_auth_headers(
+        test::TestRequest::patch()
+            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .set_json(&change_password_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let change_resp = test::call_service(&app, change_req).await;
+
+    // ROOT should be able to change password without current_password
+    assert_eq!(change_resp.status(), StatusCode::OK);
+
+    // Verify new password works
+    let login_payload = serde_json::json!({
+        "email": "cityuser@test.com",
+        "password": "newPasswordSetByRoot"
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    assert_eq!(login_resp.status(), StatusCode::OK);
 }
