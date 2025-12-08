@@ -217,16 +217,17 @@ components:
     UpdatePasswordRequest:
       type: object
       required:
-        - current_password
         - new_password
       properties:
         current_password:
           type: string
           format: password
+          description: "Senha atual (obrigatória para usuários não-ROOT, opcional para ROOT)"
         new_password:
           type: string
           format: password
           minLength: 8
+          description: "Nova senha (obrigatória para todos)"
 
     AppendPolicyCitiesRequest:
       type: object
@@ -1533,7 +1534,12 @@ paths:
       tags:
         - "Users"
       summary: "Atualizar senha do usuário"
-      description: "Atualiza a senha de um usuário. Usuários podem atualizar sua própria senha ou ROOT pode atualizar qualquer senha"
+      description: |
+        Atualiza a senha de um usuário.
+
+        **Regras:**
+        - Usuários comuns: podem atualizar apenas sua própria senha e DEVEM fornecer a senha atual
+        - ROOT: pode atualizar senha de qualquer usuário SEM precisar fornecer a senha atual
       operationId: "updateUserPassword"
       security:
         - bearerAuth: []
@@ -1544,6 +1550,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdatePasswordRequest"
+            examples:
+              usuario_comum:
+                summary: "Usuário comum alterando sua própria senha"
+                value:
+                  current_password: "SenhaAtual123!"
+                  new_password: "NovaSenha456!"
+              usuario_root:
+                summary: "ROOT alterando senha de outro usuário"
+                value:
+                  new_password: "NovaSenhaDefinidaPeloRoot123!"
       responses:
         "200":
           description: "Senha atualizada com sucesso"
