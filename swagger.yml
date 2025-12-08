@@ -356,6 +356,15 @@ components:
         - "Uncle/Aunt"
       description: "Relacionamento do agressor com a vítima"
 
+    EducationLevel:
+      type: string
+      enum:
+        - "Elementary"
+        - "High School"
+        - "College"
+        - "Postgraduate"
+      description: "Nível de escolaridade do agressor"
+
     # --- Victim Schemas ---
     VictimPhone:
       type: object
@@ -769,6 +778,11 @@ components:
           nullable: true
         was_drunk_during_assault:
           type: boolean
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
         observation:
           type: string
           nullable: true
@@ -806,6 +820,8 @@ components:
         - uses_drugs
         - has_psychiatric_issues
         - was_drunk_during_assault
+        - education_level
+        - assaults_children
       properties:
         full_name:
           type: string
@@ -853,6 +869,13 @@ components:
           nullable: true
         was_drunk_during_assault:
           type: boolean
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+          example: "High School"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+          example: false
         observation:
           type: string
           nullable: true
@@ -885,6 +908,8 @@ components:
         - uses_drugs
         - has_psychiatric_issues
         - was_drunk_during_assault
+        - education_level
+        - assaults_children
       properties:
         full_name:
           type: string
@@ -928,6 +953,11 @@ components:
           nullable: true
         was_drunk_during_assault:
           type: boolean
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
         observation:
           type: string
           nullable: true
