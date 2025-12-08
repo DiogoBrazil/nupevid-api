@@ -35,6 +35,7 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(id)
             .bind(measure.process_number)
             .bind(measure.sei_process_number)
+            .bind(measure.occurrence_report_number)
             .bind(measure.issued_at)
             .bind(measure.valid_until)
             .bind(measure.judicial_authority)
@@ -42,6 +43,7 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(measure.distance_meters)
             .bind(measure.is_active)
             .bind(measure.victim_id)
+            .bind(measure.offender_id)
             .fetch_one(&self.pool)
             .await?;
 
@@ -109,6 +111,7 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(id)
             .bind(data.process_number)
             .bind(data.sei_process_number)
+            .bind(data.occurrence_report_number)
             .bind(data.issued_at)
             .bind(data.valid_until)
             .bind(data.judicial_authority)
@@ -116,6 +119,7 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(data.distance_meters)
             .bind(data.is_active)
             .bind(data.victim_id)
+            .bind(data.offender_id)
             .fetch_one(&self.pool)
             .await?;
 
