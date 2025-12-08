@@ -497,6 +497,7 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
 
     // Cria vítima e medida em city_b
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima PB", city_b).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor PB", city_b, victim_id).await;
     let measure_payload = json!({
         "process_number": "99887-65.2025.8.26.0000",
         "issued_at": "2025-01-01",
@@ -504,6 +505,7 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
         "court_district_id": city_b,
         "is_active": true,
         "victim_id": victim_id,
+        "offender_id": offender_id,
     });
     let create_measure_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/protective-measures").set_json(&measure_payload), &config, &root_token).to_request();
     let create_measure_resp = test::call_service(&app, create_measure_req).await;
@@ -611,6 +613,9 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
     // Cria vítimas e medida em city_a
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a, victim_a).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b, victim_b).await;
+
     let measure_payload = json!({
         "process_number": "55555-55.2025.8.26.0000",
         "issued_at": "2025-01-01",
@@ -618,6 +623,7 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "court_district_id": city_a,
         "is_active": true,
         "victim_id": victim_a,
+        "offender_id": offender_a,
     });
     let create_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/protective-measures").set_json(&measure_payload), &config, &admin_token).to_request();
     let create_resp = test::call_service(&app, create_req).await;
@@ -633,6 +639,7 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "court_district_id": city_b,
         "is_active": true,
         "victim_id": victim_b,
+        "offender_id": offender_b,
     });
     let update_req_forbidden = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/protective-measures/{}", measure_id)).set_json(&update_payload_forbidden), &config, &admin_token).to_request();
     let update_resp_forbidden = test::call_service(&app, update_req_forbidden).await;

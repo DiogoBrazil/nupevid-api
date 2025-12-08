@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::common::{test_helpers, db_fixtures};
 
-fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, is_active: bool) -> serde_json::Value {
+fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, offender_id: Uuid, is_active: bool) -> serde_json::Value {
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
@@ -12,6 +12,7 @@ fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, is_active: bo
         "court_district_id": court_district_id,
         "is_active": is_active,
         "victim_id": victim_id,
+        "offender_id": offender_id,
     })
 }
 
@@ -35,12 +36,13 @@ async fn test_protective_measure_includes_extensions() {
     // 1. Setup Data
     let city = db_fixtures::insert_city(&pool, "Cidade Ext").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima Ext", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor Ext", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // 2. Create Protective Measure
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -136,12 +138,13 @@ async fn test_city_admin_can_create_extension_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "City A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim A", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender A", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -181,12 +184,13 @@ async fn test_city_admin_cannot_create_extension_in_other_city() {
     let city_a = db_fixtures::insert_city(&pool, "City A").await;
     let city_b = db_fixtures::insert_city(&pool, "City B").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Offender B", city_b, victim_b).await;
 
     let admin_b_claims = test_helpers::build_city_admin_claims(city_b);
     let admin_b_token = test_helpers::generate_jwt(&admin_b_claims, &config.jwt_secret);
 
     // Create protective measure in city B
-    let pm_payload = build_measure_payload(victim_b, city_b, true);
+    let pm_payload = build_measure_payload(victim_b, city_b, offender_b, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -228,12 +232,13 @@ async fn test_city_user_cannot_create_extension_without_permission() {
 
     let city = db_fixtures::insert_city(&pool, "City Test").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim Test", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender Test", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -277,12 +282,13 @@ async fn test_city_user_can_read_extension_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "City Read").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim Read", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender Read", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -334,12 +340,13 @@ async fn test_city_user_cannot_read_extension_from_other_city() {
     let city_a = db_fixtures::insert_city(&pool, "City A Read").await;
     let city_b = db_fixtures::insert_city(&pool, "City B Read").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Offender B", city_b, victim_b).await;
 
     let admin_b_claims = test_helpers::build_city_admin_claims(city_b);
     let admin_b_token = test_helpers::generate_jwt(&admin_b_claims, &config.jwt_secret);
 
     // Create protective measure and extension in city B
-    let pm_payload = build_measure_payload(victim_b, city_b, true);
+    let pm_payload = build_measure_payload(victim_b, city_b, offender_b, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -390,12 +397,13 @@ async fn test_city_user_can_list_extensions_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "City List").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim List", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender List", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -449,12 +457,13 @@ async fn test_city_admin_can_update_extension_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "City Update").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim Update", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender Update", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -505,12 +514,13 @@ async fn test_city_admin_cannot_update_extension_in_other_city() {
     let city_a = db_fixtures::insert_city(&pool, "City A Update").await;
     let city_b = db_fixtures::insert_city(&pool, "City B Update").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Offender B", city_b, victim_b).await;
 
     let admin_b_claims = test_helpers::build_city_admin_claims(city_b);
     let admin_b_token = test_helpers::generate_jwt(&admin_b_claims, &config.jwt_secret);
 
     // Create protective measure and extension in city B
-    let pm_payload = build_measure_payload(victim_b, city_b, true);
+    let pm_payload = build_measure_payload(victim_b, city_b, offender_b, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -563,12 +573,13 @@ async fn test_city_user_cannot_update_extension() {
 
     let city = db_fixtures::insert_city(&pool, "City User Update").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -623,12 +634,13 @@ async fn test_city_admin_can_delete_extension_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "City Delete").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim Delete", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender Delete", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -677,12 +689,13 @@ async fn test_city_admin_cannot_delete_extension_in_other_city() {
     let city_a = db_fixtures::insert_city(&pool, "City A Delete").await;
     let city_b = db_fixtures::insert_city(&pool, "City B Delete").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Offender B", city_b, victim_b).await;
 
     let admin_b_claims = test_helpers::build_city_admin_claims(city_b);
     let admin_b_token = test_helpers::generate_jwt(&admin_b_claims, &config.jwt_secret);
 
     // Create protective measure and extension in city B
-    let pm_payload = build_measure_payload(victim_b, city_b, true);
+    let pm_payload = build_measure_payload(victim_b, city_b, offender_b, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
@@ -733,12 +746,13 @@ async fn test_city_user_cannot_delete_extension() {
 
     let city = db_fixtures::insert_city(&pool, "City User Delete").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city, victim_id).await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure and extension
-    let pm_payload = build_measure_payload(victim_id, city, true);
+    let pm_payload = build_measure_payload(victim_id, city, offender_id, true);
     let create_pm_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/protective-measures")
