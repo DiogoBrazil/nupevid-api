@@ -1,3 +1,4 @@
+pub mod attendance_offenders;
 pub mod attendance_victims;
 pub mod auth;
 pub mod cities;
