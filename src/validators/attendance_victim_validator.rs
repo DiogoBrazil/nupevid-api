@@ -1,7 +1,7 @@
 use crate::utils::errors::AppError;
-pub struct AttendanceValidator;
+pub struct AttendanceVictimValidator;
 
-impl AttendanceValidator {
+impl AttendanceVictimValidator {
     pub fn validate_fields() -> Result<(), AppError> {
         // TODO: Future validations can be added here
         Ok(())
@@ -14,7 +14,7 @@ mod tests {
 
     #[test]
     fn test_validate_fields() {
-        let result = AttendanceValidator::validate_fields();
+        let result = AttendanceVictimValidator::validate_fields();
         assert!(result.is_ok());
     }
 }
