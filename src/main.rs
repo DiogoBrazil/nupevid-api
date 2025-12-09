@@ -24,6 +24,8 @@ use nupevid_api::services::{
     users::UserService, victims::VictimService,
 };
 
+use nupevid_api::utils::seeder::seed_admin_user;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let env = Env::default().filter_or("RUST_LOG", "info,actix_web=info");
@@ -44,6 +46,9 @@ async fn main() -> std::io::Result<()> {
     let password_hasher = Box::new(Argon2PasswordHasher::new());
     let token_generator = Box::new(JwtTokenGenerator::new());
     info!("Adapters created");
+
+    // Seed admin user
+    seed_admin_user(&pool, password_hasher.as_ref()).await;
 
     // Create repositories
     let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
