@@ -1,3 +1,4 @@
+pub mod attendance_offenders_integration_test;
 pub mod attendance_victims_integration_test;
 pub mod attendance_victims_validation_test;
 pub mod auth_login_test;

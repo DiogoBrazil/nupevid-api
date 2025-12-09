@@ -7,6 +7,7 @@ use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
+    attendance_offenders::PgAttendanceOffenderRepository,
     attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository, cities::PgCityRepository,
     extensions::PgExtensionRepository, offenders::PgOffenderRepository,
     protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
@@ -14,6 +15,7 @@ use nupevid_api::repositories::{
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
+    attendance_offenders::AttendanceOffenderService,
     attendance_victims::AttendanceVictimService, auth::AuthService, cities::CityService,
     extensions::ExtensionService, offenders::OffenderService,
     protective_measures::ProtectiveMeasureService, users::UserService,
@@ -66,6 +68,8 @@ pub fn build_test_config() -> Config {
 pub async fn clean_database(pool: &PgPool) {
     // Child tables first, then parents
     for sql in [
+        "DELETE FROM attendance_offender_addresses",
+        "DELETE FROM attendance_offenders",
         "DELETE FROM attendance_victim_addresses",
         "DELETE FROM attendance_victims",
         "DELETE FROM protective_measure_extensions",
@@ -105,6 +109,7 @@ pub async fn create_full_test_app(
         web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
     let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
     let attendance_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
+    let attendance_offender_repository = web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
 
     // Shared config
@@ -144,6 +149,12 @@ pub async fn create_full_test_app(
         offender_repository.clone(),
         user_repository.clone(),
     ));
+    let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
+        attendance_offender_repository.clone(),
+        offender_repository.clone(),
+        victim_repository.clone(),
+        user_repository.clone(),
+    ));
 
     test::init_service(
         App::new()
@@ -155,6 +166,7 @@ pub async fn create_full_test_app(
             .app_data(protective_measure_repository.clone())
             .app_data(extension_repository.clone())
             .app_data(attendance_repository.clone())
+            .app_data(attendance_offender_repository.clone())
             .app_data(offender_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
@@ -163,6 +175,7 @@ pub async fn create_full_test_app(
             .app_data(protective_measure_service.clone())
             .app_data(extension_service.clone())
             .app_data(attendance_service.clone())
+            .app_data(attendance_offender_service.clone())
             .app_data(offender_service.clone())
             .app_data(config_data.clone())
             .configure(configure_base_routes),
