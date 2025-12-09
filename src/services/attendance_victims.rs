@@ -2,12 +2,12 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
-use crate::core::contracts::repository::attendances::AttendanceRepository;
+use crate::core::contracts::repository::attendance_victims::AttendanceVictimRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
-use crate::core::entities::attendances::{CreateAttendance, UpdateAttendance};
+use crate::core::entities::attendance_victims::{CreateAttendanceVictim, UpdateAttendanceVictim};
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::victims::VictimWithDetails;
-use crate::repositories::attendances::PgAttendanceRepository;
+use crate::repositories::attendance_victims::PgAttendanceVictimRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
 
@@ -21,28 +21,28 @@ use crate::validators::common::{
     POLICY_CREATE_ATTENDANCES, POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES
 };
 
-pub struct AttendanceService {
-    attendance_repository: web::Data<PgAttendanceRepository>,
+pub struct AttendanceVictimService {
+    attendance_victim_repository: web::Data<PgAttendanceVictimRepository>,
     victim_repository: web::Data<PgVictimRepository>,
     user_repository: web::Data<PgUserRepository>,
 }
 
-impl AttendanceService {
+impl AttendanceVictimService {
     pub fn new(
-        attendance_repository: web::Data<PgAttendanceRepository>,
+        attendance_victim_repository: web::Data<PgAttendanceVictimRepository>,
         victim_repository: web::Data<PgVictimRepository>,
         user_repository: web::Data<PgUserRepository>,
     ) -> Self {
         Self {
-            attendance_repository,
+            attendance_victim_repository,
             victim_repository,
             user_repository,
         }
     }
 
-    pub async fn create_attendance(
+    pub async fn create_attendance_victim(
         &self,
-        attendance: CreateAttendance,
+        attendance: CreateAttendanceVictim,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
@@ -50,29 +50,29 @@ impl AttendanceService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_CREATE_ATTENDANCES, victim.city_id, &policies)?;
 
-        match self.attendance_repository.create_attendance(attendance).await {
+        match self.attendance_victim_repository.create_attendance_victim(attendance).await {
             Ok(attendance_with_address) => {
                 info!(
-                    "[AttendanceService] Attendance created: {}",
+                    "[AttendanceVictimService] Attendance victim created: {}",
                     attendance_with_address.id
                 );
                 Ok(ApiResponse::created(attendance_with_address).into_response())
             }
             Err(e) => {
-                error!("[AttendanceService] Failed to create attendance: {:?}", e);
+                error!("[AttendanceVictimService] Failed to create attendance victim: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }
     }
 
-    pub async fn get_attendance_by_id(
+    pub async fn get_attendance_victim_by_id(
         &self,
         id: Uuid,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
 
-        match self.attendance_repository.get_attendance_by_id(id).await {
+        match self.attendance_victim_repository.get_attendance_victim_by_id(id).await {
             Ok(attendance_with_address) => {
                 let victim = self
                     .victim_repository
@@ -84,18 +84,18 @@ impl AttendanceService {
                 Ok(ApiResponse::success(attendance_with_address).into_response())
             }
             Err(sqlx::Error::RowNotFound) => {
-                Err(AppError::NotFound(format!("Attendance '{}' not found", id)))
+                Err(AppError::NotFound(format!("Attendance victim '{}' not found", id)))
             }
             Err(_) => Err(AppError::InternalServerError),
         }
     }
 
-    pub async fn get_all_attendances(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_attendance_victims(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let attendances = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_ATTENDANCES, &policies) {
-            match self.attendance_repository.get_all_attendances().await {
+            match self.attendance_victim_repository.get_all_attendance_victims().await {
                 Ok(all) => {
                     let mut filtered = Vec::new();
                     for attendance in all {
@@ -110,7 +110,7 @@ impl AttendanceService {
                 Err(e) => Err(e),
             }
         } else {
-            self.attendance_repository.get_all_attendances().await
+            self.attendance_victim_repository.get_all_attendance_victims().await
         };
 
         match attendances {
@@ -119,7 +119,7 @@ impl AttendanceService {
         }
     }
 
-    pub async fn get_attendances_by_victim(
+    pub async fn get_attendance_victims_by_victim(
         &self,
         victim_id: Uuid,
         req: HttpRequest,
@@ -130,8 +130,8 @@ impl AttendanceService {
         check_policy(&claims, POLICY_READ_ATTENDANCES, victim.city_id, &policies)?;
 
         match self
-            .attendance_repository
-            .get_attendances_by_victim(victim_id)
+            .attendance_victim_repository
+            .get_attendance_victims_by_victim(victim_id)
             .await
         {
             Ok(attendances_list) => Ok(ApiResponse::success(attendances_list).into_response()),
@@ -139,21 +139,21 @@ impl AttendanceService {
         }
     }
 
-    pub async fn update_attendance_by_id(
+    pub async fn update_attendance_victim_by_id(
         &self,
-        data: UpdateAttendance,
+        data: UpdateAttendanceVictim,
         id: Uuid,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
 
         let existing = self
-            .attendance_repository
-            .get_attendance_by_id(id)
+            .attendance_victim_repository
+            .get_attendance_victim_by_id(id)
             .await
             .map_err(|e| {
                 if matches!(e, sqlx::Error::RowNotFound) {
-                    AppError::NotFound(format!("Attendance '{}' not found", id))
+                    AppError::NotFound(format!("Attendance victim '{}' not found", id))
                 } else {
                     AppError::InternalServerError
                 }
@@ -173,21 +173,21 @@ impl AttendanceService {
         }
 
         match self
-            .attendance_repository
-            .update_attendance_by_id(data, id)
+            .attendance_victim_repository
+            .update_attendance_victim_by_id(data, id)
             .await
         {
             Ok(attendance_with_address) => {
                 Ok(ApiResponse::success(attendance_with_address).into_response())
             }
             Err(sqlx::Error::RowNotFound) => {
-                Err(AppError::NotFound(format!("Attendance '{}' not found", id)))
+                Err(AppError::NotFound(format!("Attendance victim '{}' not found", id)))
             }
             Err(_) => Err(AppError::InternalServerError),
         }
     }
 
-    pub async fn delete_attendance_by_id(
+    pub async fn delete_attendance_victim_by_id(
         &self,
         id: Uuid,
         req: HttpRequest,
@@ -195,12 +195,12 @@ impl AttendanceService {
         let claims = extract_claims(&req)?;
 
         let attendance = self
-            .attendance_repository
-            .get_attendance_by_id(id)
+            .attendance_victim_repository
+            .get_attendance_victim_by_id(id)
             .await
             .map_err(|e| {
                 if matches!(e, sqlx::Error::RowNotFound) {
-                    AppError::NotFound(format!("Attendance '{}' not found", id))
+                    AppError::NotFound(format!("Attendance victim '{}' not found", id))
                 } else {
                     AppError::InternalServerError
                 }
@@ -214,7 +214,7 @@ impl AttendanceService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_DELETE_ATTENDANCES, victim.city_id, &policies)?;
 
-        match self.attendance_repository.delete_attendance_by_id(id).await {
+        match self.attendance_victim_repository.delete_attendance_victim_by_id(id).await {
             Ok(deleted) => Ok(ApiResponse::success(deleted).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
