@@ -78,11 +78,13 @@ async fn main() -> std::io::Result<()> {
     ));
     let offender_service = web::Data::new(OffenderService::new(
         offender_repository.clone(),
+        victim_repository.clone(),
         user_repository.clone()
     ));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
         victim_repository.clone(),
+        offender_repository.clone(),
         user_repository.clone(),
         extension_repository.clone(),
     ));
@@ -101,6 +103,7 @@ async fn main() -> std::io::Result<()> {
         attendance_offender_repository.clone(),
         offender_repository.clone(),
         victim_repository.clone(),
+        protective_measure_repository.clone(),
         user_repository.clone(),
     ));
     info!("Services created");
