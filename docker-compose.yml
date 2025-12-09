@@ -22,6 +22,24 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build: .
+    container_name: nupevid_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}
+      SERVER_ADDR: 0.0.0.0:8080
+      JWT_SECRET: ${JWT_SECRET:-default_secret_key_change_me}
+      API_KEY: ${API_KEY:-default_api_key_change_me}
+      RUST_LOG: info
+    networks:
+      - nupevid_network
+
 volumes:
   postgres_data:
     driver: local
