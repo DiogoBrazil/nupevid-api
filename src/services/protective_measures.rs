@@ -10,9 +10,11 @@ use crate::core::entities::protective_measures::{
 
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
+use crate::core::contracts::repository::offenders::OffenderRepository;
 use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
+use crate::repositories::offenders::PgOffenderRepository;
 use crate::repositories::users::PgUserRepository;
 use crate::repositories::extensions::PgExtensionRepository;
 
@@ -33,6 +35,7 @@ use crate::validators::{
 pub struct ProtectiveMeasureService {
     measure_repository: web::Data<PgProtectiveMeasureRepository>,
     victim_repository: web::Data<PgVictimRepository>,
+    offender_repository: web::Data<PgOffenderRepository>,
     user_repository: web::Data<PgUserRepository>,
     extension_repository: web::Data<PgExtensionRepository>,
 }
@@ -41,10 +44,11 @@ impl ProtectiveMeasureService {
     pub fn new(
         measure_repository: web::Data<PgProtectiveMeasureRepository>,
         victim_repository: web::Data<PgVictimRepository>,
+        offender_repository: web::Data<PgOffenderRepository>,
         user_repository: web::Data<PgUserRepository>,
         extension_repository: web::Data<PgExtensionRepository>,
     ) -> Self {
-        Self { measure_repository, victim_repository, user_repository, extension_repository }
+        Self { measure_repository, victim_repository, offender_repository, user_repository, extension_repository }
     }
 
     pub async fn create_protective_measure(&self, measure: CreateProtectiveMeasure, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -62,6 +66,17 @@ impl ProtectiveMeasureService {
                 return Err(AppError::InternalServerError);
             }
         };
+
+        match self.offender_repository.get_offender_by_id(measure.offender_id).await {
+            Ok(_) => {},
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!("Offender with id '{}' not found", measure.offender_id)));
+            }
+            Err(e) => {
+                error!("[ProtectiveMeasureService] Error checking offender: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        }
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id, &policies)?;
@@ -177,7 +192,7 @@ impl ProtectiveMeasureService {
                             error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
                             AppError::InternalServerError
                         })?;
-                    
+
                     measures_with_extensions.push(ProtectiveMeasureWithExtensions {
                         measure,
                         extensions,
@@ -222,7 +237,7 @@ impl ProtectiveMeasureService {
                             error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
                             AppError::InternalServerError
                         })?;
-                    
+
                     measures_with_extensions.push(ProtectiveMeasureWithExtensions {
                         measure,
                         extensions,
@@ -277,6 +292,19 @@ impl ProtectiveMeasureService {
             };
 
             check_policy(&claims, POLICY_UPDATE_PROTECTIVE_MEASURES, new_victim.city_id, &policies)?;
+        }
+
+        if data.offender_id != existing_measure.offender_id {
+            match self.offender_repository.get_offender_by_id(data.offender_id).await {
+                Ok(_) => {},
+                Err(sqlx::Error::RowNotFound) => {
+                    return Err(AppError::NotFound(format!("Offender with id '{}' not found", data.offender_id)));
+                }
+                Err(e) => {
+                    error!("[ProtectiveMeasureService] Error checking offender: {:?}", e);
+                    return Err(AppError::InternalServerError);
+                }
+            }
         }
 
         ProtectiveMeasureValidator::validate_required_fields(
