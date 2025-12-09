@@ -7,14 +7,14 @@ use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
-    attendances::PgAttendanceRepository, auth::PgAuthRepository, cities::PgCityRepository,
+    attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository, cities::PgCityRepository,
     extensions::PgExtensionRepository, offenders::PgOffenderRepository,
     protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
     victims::PgVictimRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
-    attendances::AttendanceService, auth::AuthService, cities::CityService,
+    attendance_victims::AttendanceVictimService, auth::AuthService, cities::CityService,
     extensions::ExtensionService, offenders::OffenderService,
     protective_measures::ProtectiveMeasureService, users::UserService,
     victims::VictimService,
@@ -66,8 +66,8 @@ pub fn build_test_config() -> Config {
 pub async fn clean_database(pool: &PgPool) {
     // Child tables first, then parents
     for sql in [
-        "DELETE FROM attendance_addresses",
-        "DELETE FROM attendances",
+        "DELETE FROM attendance_victim_addresses",
+        "DELETE FROM attendance_victims",
         "DELETE FROM protective_measure_extensions",
         "DELETE FROM protective_measures",
         "DELETE FROM offender_phones",
@@ -104,7 +104,7 @@ pub async fn create_full_test_app(
     let protective_measure_repository =
         web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
     let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
-    let attendance_repository = web::Data::new(PgAttendanceRepository::new(pool.clone()));
+    let attendance_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
 
     // Shared config
@@ -135,7 +135,7 @@ pub async fn create_full_test_app(
         victim_repository.clone(),
         user_repository.clone(),
     ));
-    let attendance_service = web::Data::new(AttendanceService::new(
+    let attendance_service = web::Data::new(AttendanceVictimService::new(
         attendance_repository.clone(),
         victim_repository.clone(),
         user_repository.clone(),

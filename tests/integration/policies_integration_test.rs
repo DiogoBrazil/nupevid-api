@@ -432,15 +432,26 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
         "latitude": null,
         "longitude": null,
         "address": null
+        ,
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false
     });
-    let create_att_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/attendances").set_json(&attendance_payload), &config, &root_token).to_request();
+    let create_att_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/attendance-victims").set_json(&attendance_payload), &config, &root_token).to_request();
     let create_att_resp = test::call_service(&app, create_att_req).await;
     assert_eq!(create_att_resp.status(), StatusCode::CREATED);
 
     let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.c@test.com", "Admin C", "100000601", "CAP PM", Some(city_a), &config.jwt_secret);
 
     // Lista atendimentos -> deve incluir o de city_b por extra policy
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/attendances"), &config, &admin_token).to_request();
+    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/attendance-victims"), &config, &admin_token).to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;

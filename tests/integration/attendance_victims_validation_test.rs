@@ -26,11 +26,21 @@ async fn create_attendance_with_nonexistent_victim_returns_404() {
         "latitude": null,
         "longitude": null,
         "address": null,
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     });
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -67,11 +77,21 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
         "latitude": null,
         "longitude": null,
         "address": null,
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     });
 
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -96,11 +116,21 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
         "latitude": null,
         "longitude": null,
         "address": null,
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     });
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/attendances/{}", attendance_id))
+            .uri(&format!("/api/v1/attendance-victims/{}", attendance_id))
             .set_json(&update_payload),
         &config,
         &admin_a_token,
@@ -136,11 +166,21 @@ async fn update_nonexistent_attendance_returns_404() {
         "latitude": null,
         "longitude": null,
         "address": null,
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     });
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/attendances/{}", random_id))
+            .uri(&format!("/api/v1/attendance-victims/{}", random_id))
             .set_json(&update_payload),
         &config,
         &root_token,

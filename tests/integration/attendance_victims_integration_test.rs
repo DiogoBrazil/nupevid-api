@@ -14,6 +14,16 @@ fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
         "latitude": serde_json::Value::Null,
         "longitude": serde_json::Value::Null,
         "address": serde_json::Value::Null,
+        "offender_id": serde_json::Value::Null,
+        "protective_measure_id": serde_json::Value::Null,
+        "is_remote": false,
+        "risk_level": serde_json::Value::Null,
+        "offender_freedom_status": serde_json::Value::Null,
+        "offender_has_firearm_access": serde_json::Value::Null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     })
 }
 
@@ -33,7 +43,17 @@ fn build_attendance_payload_with_address(victim_id: Uuid, city_id: Uuid) -> serd
             "city_id": city_id,
             "zip_code": "22222-222",
             "complement": "Casa"
-        }
+        },
+        "offender_id": serde_json::Value::Null,
+        "protective_measure_id": serde_json::Value::Null,
+        "is_remote": false,
+        "risk_level": serde_json::Value::Null,
+        "offender_freedom_status": serde_json::Value::Null,
+        "offender_has_firearm_access": serde_json::Value::Null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     })
 }
 
@@ -54,7 +74,7 @@ async fn create_attendance_success_for_victim_in_own_city() {
     let payload = build_attendance_payload(victim_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &admin_token,
@@ -90,7 +110,7 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim() {
     let payload = build_attendance_payload(victim_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &admin_a_token,
@@ -102,7 +122,7 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim() {
 }
 
 #[actix_rt::test]
-async fn list_attendances_filtered_by_city() {
+async fn list_attendance_victims_filtered_by_city() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -122,7 +142,7 @@ async fn list_attendances_filtered_by_city() {
         let payload = build_attendance_payload(victim_id);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
-                .uri("/api/v1/attendances")
+                .uri("/api/v1/attendance-victims")
                 .set_json(&payload),
             &config,
             &root_token,
@@ -137,7 +157,7 @@ async fn list_attendances_filtered_by_city() {
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri("/api/v1/attendances"),
+        test::TestRequest::get().uri("/api/v1/attendance-victims"),
         &config,
         &admin_a_token,
     )
@@ -167,7 +187,7 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     let payload = build_attendance_payload(victim_id);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &admin_token,
@@ -179,7 +199,7 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     let attendance_id = body["data"]["id"].as_str().unwrap();
 
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete().uri(&format!("/api/v1/attendances/{}", attendance_id)),
+        test::TestRequest::delete().uri(&format!("/api/v1/attendance-victims/{}", attendance_id)),
         &config,
         &admin_token,
     )
@@ -189,7 +209,7 @@ async fn delete_attendance_soft_delete_and_not_listed() {
 
     // GET by id -> 404
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendances/{}", attendance_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/{}", attendance_id)),
         &config,
         &admin_token,
     )
@@ -199,7 +219,7 @@ async fn delete_attendance_soft_delete_and_not_listed() {
 
     // List -> empty
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri("/api/v1/attendances"),
+        test::TestRequest::get().uri("/api/v1/attendance-victims"),
         &config,
         &admin_token,
     )
@@ -231,7 +251,7 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
     let payload = build_attendance_payload(victim_b);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -247,7 +267,7 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendances/{}", attendance_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/{}", attendance_id)),
         &config,
         &admin_a_token,
     )
@@ -274,7 +294,7 @@ async fn create_attendance_with_address_in_single_request() {
     let payload = build_attendance_payload_with_address(victim_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -326,7 +346,7 @@ async fn get_attendance_returns_address_when_exists() {
     let payload = build_attendance_payload_with_address(victim_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -339,7 +359,7 @@ async fn get_attendance_returns_address_when_exists() {
 
     // GET attendance should include address
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendances/{}", attendance_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/{}", attendance_id)),
         &config,
         &root_token,
     )
@@ -374,7 +394,7 @@ async fn update_attendance_can_add_or_update_address() {
     let payload = build_attendance_payload(victim_id);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &root_token,
@@ -404,12 +424,22 @@ async fn update_attendance_can_add_or_update_address() {
             "city_id": city,
             "zip_code": "20000-000",
             "complement": null
-        }
+        },
+        "offender_id": null,
+        "protective_measure_id": null,
+        "is_remote": false,
+        "risk_level": null,
+        "offender_freedom_status": null,
+        "offender_has_firearm_access": null,
+        "needs_legal_assistance": false,
+        "needs_psychological_support": false,
+        "was_instructed_about_protective_measure_procedures": false,
+        "offender_violated_protective_measure": false,
     });
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/attendances/{}", attendance_id))
+            .uri(&format!("/api/v1/attendance-victims/{}", attendance_id))
             .set_json(&update_payload),
         &config,
         &root_token,
@@ -455,7 +485,7 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     let payload = build_attendance_payload_with_address(victim_b, city_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendances")
+            .uri("/api/v1/attendance-victims")
             .set_json(&payload),
         &config,
         &admin_a_token,
