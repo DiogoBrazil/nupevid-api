@@ -25,6 +25,8 @@ tags:
     description: "Gerenciamento de medidas protetivas"
   - name: "Attendance Victims"
     description: "Gerenciamento de atendimentos às vítimas"
+  - name: "Attendance Offenders"
+    description: "Gerenciamento de atendimentos aos agressores"
 
 security:
   - bearerAuth: []
@@ -1523,6 +1525,232 @@ components:
         offender_violated_protective_measure:
           type: boolean
           description: "Indica se o agressor descumpriu a medida protetiva"
+
+    # --- Attendance Offender Schemas ---
+    ViolenceAggravator:
+      type: string
+      enum:
+        - AlcoholUse
+        - DrugUse
+        - PsychiatricIssues
+        - Other
+      description: "Agravantes da violência durante o atendimento ao agressor"
+
+    CreateAttendanceOffender:
+      type: object
+      required:
+        - offender_id
+        - victim_id
+        - was_offender_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - assaults_children
+        - violence_aggravator
+      properties:
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+          example: "2025-01-15"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+          example: "14:30:00"
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+          description: "Endereço onde o atendimento foi realizado"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+
+    UpdateAttendanceOffender:
+      type: object
+      required:
+        - offender_id
+        - victim_id
+        - was_offender_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - assaults_children
+        - violence_aggravator
+      properties:
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+          description: "Endereço onde o atendimento foi realizado"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+
+    AttendanceOffenderWithAddress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID único do atendimento"
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+        created_at:
+          type: string
+          format: date-time
+          description: "Data e hora de criação do registro"
+        updated_at:
+          type: string
+          format: date-time
+          description: "Data e hora da última atualização"
+        is_deleted:
+          type: boolean
+          description: "Indica se o registro foi excluído (soft delete)"
+        address:
+          allOf:
+            - $ref: "#/components/schemas/AttendanceOffenderAddressResponse"
+          nullable: true
+          description: "Endereço do atendimento"
+
+    AttendanceOffenderAddressResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID único do endereço"
+        street:
+          type: string
+          nullable: true
+          description: "Nome da rua"
+        number:
+          type: string
+          nullable: true
+          description: "Número do endereço"
+        district:
+          type: string
+          nullable: true
+          description: "Bairro"
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da cidade"
+        zip_code:
+          type: string
+          nullable: true
+          description: "CEP"
+        complement:
+          type: string
+          nullable: true
+          description: "Complemento do endereço"
 
 paths:
   # === AUTH ENDPOINTS ===
@@ -3409,3 +3637,294 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
+
+  # --- Attendance Offenders Endpoints ---
+  /attendance-offenders:
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar todos os atendimentos aos agressores"
+      description: "Retorna lista de todos os atendimentos aos agressores (filtrada por cidade conforme permissões)"
+      operationId: "getAllAttendanceOffenders"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+
+    post:
+      tags:
+        - "Attendance Offenders"
+      summary: "Criar novo atendimento ao agressor"
+      description: "Cria um novo registro de atendimento a um agressor"
+      operationId: "createAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttendanceOffender"
+            example:
+              offender_id: "123e4567-e89b-12d3-a456-426614174000"
+              victim_id: "123e4567-e89b-12d3-a456-426614174001"
+              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              was_offender_present: true
+              attendance_date: "2025-01-15"
+              attendance_time: "14:30:00"
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "123e4567-e89b-12d3-a456-426614174003"
+                zip_code: "12345-678"
+                complement: "Sala 10"
+              is_remote: false
+              assaults_children: true
+              violence_aggravator: "AlcoholUse"
+              violence_aggravator_other: null
+              description: "Atendimento inicial ao agressor"
+      responses:
+        "201":
+          description: "Atendimento criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Agressor ou vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Obter atendimento ao agressor por ID"
+      description: "Retorna detalhes de um atendimento específico"
+      operationId: "getAttendanceOffenderById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Attendance Offenders"
+      summary: "Atualizar atendimento ao agressor"
+      description: "Atualiza informações de um atendimento existente"
+      operationId: "updateAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttendanceOffender"
+            example:
+              offender_id: "123e4567-e89b-12d3-a456-426614174000"
+              victim_id: "123e4567-e89b-12d3-a456-426614174001"
+              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              was_offender_present: true
+              attendance_date: "2025-01-15"
+              attendance_time: "14:30:00"
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "123e4567-e89b-12d3-a456-426614174003"
+                zip_code: "12345-678"
+                complement: "Sala 10"
+              is_remote: false
+              assaults_children: false
+              violence_aggravator: "DrugUse"
+              violence_aggravator_other: null
+              description: "Atendimento de acompanhamento"
+      responses:
+        "200":
+          description: "Atendimento atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Attendance Offenders"
+      summary: "Deletar atendimento ao agressor (soft delete)"
+      description: "Realiza soft delete de um atendimento"
+      operationId: "deleteAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/by-offender/{offender_id}:
+    parameters:
+      - name: "offender_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos por agressor"
+      description: "Retorna todos os atendimentos relacionados a um agressor específico"
+      operationId: "getAttendanceOffendersByOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/by-victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos aos agressores por vítima"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica"
+      operationId: "getAttendanceOffendersByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
