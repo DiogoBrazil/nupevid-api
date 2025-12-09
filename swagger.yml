@@ -23,8 +23,8 @@ tags:
     description: "Gerenciamento de agressores"
   - name: "Protective Measures"
     description: "Gerenciamento de medidas protetivas"
-  - name: "Attendances"
-    description: "Gerenciamento de atendimentos"
+  - name: "Attendance Victims"
+    description: "Gerenciamento de atendimentos às vítimas"
 
 security:
   - bearerAuth: []
@@ -364,6 +364,30 @@ components:
         - "College"
         - "Postgraduate"
       description: "Nível de escolaridade do agressor"
+
+    RiskLevel:
+      type: string
+      enum:
+        - "High"
+        - "Medium"
+        - "Low"
+      description: "Nível de risco da vítima"
+
+    OffenderFreedomStatus:
+      type: string
+      enum:
+        - "Imprisoned"
+        - "Free"
+        - "Monitored"
+      description: "Condição de liberdade atual do agressor"
+
+    OffenderFirearmAccess:
+      type: string
+      enum:
+        - "Yes"
+        - "No"
+        - "Unknown"
+      description: "Se o agressor tem acesso a arma de fogo"
 
     # --- Victim Schemas ---
     VictimPhone:
@@ -1205,8 +1229,8 @@ components:
               items:
                 $ref: "#/components/schemas/ProtectiveMeasureExtension"
 
-    # --- Attendance Schemas ---
-    Attendance:
+    # --- Attendance Victim Schemas ---
+    AttendanceVictim:
       type: object
       properties:
         id:
@@ -1235,8 +1259,48 @@ components:
           format: double
           nullable: true
         address:
-          $ref: "#/components/schemas/AttendanceAddress"
+          $ref: "#/components/schemas/AttendanceVictimAddress"
           nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
         created_at:
           type: string
           format: date-time
@@ -1246,13 +1310,13 @@ components:
         is_deleted:
           type: boolean
 
-    AttendanceAddress:
+    AttendanceVictimAddress:
       type: object
       properties:
         id:
           type: string
           format: uuid
-          description: "ID do endereço do atendimento"
+          description: "ID do endereço do atendimento à vítima"
         street:
           type: string
           nullable: true
@@ -1273,9 +1337,9 @@ components:
           type: string
           nullable: true
 
-    AttendanceAddressData:
+    AttendanceVictimAddressData:
       type: object
-      description: "Dados de endereço para criar/atualizar attendance"
+      description: "Dados de endereço para criar/atualizar atendimento à vítima"
       properties:
         street:
           type: string
@@ -1297,13 +1361,18 @@ components:
           type: string
           nullable: true
 
-    CreateAttendanceRequest:
+    CreateAttendanceVictimRequest:
       type: object
       required:
         - victim_id
         - was_victim_present
         - attendance_date
         - attendance_time
+        - is_remote
+        - needs_legal_assistance
+        - needs_psychological_support
+        - was_instructed_about_protective_measure_procedures
+        - offender_violated_protective_measure
       properties:
         victim_id:
           type: string
@@ -1328,16 +1397,66 @@ components:
           format: double
           nullable: true
         address:
-          $ref: "#/components/schemas/AttendanceAddressData"
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+          example: false
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+          example: false
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+          example: false
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+          example: false
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
+          example: false
 
-    UpdateAttendanceRequest:
+    UpdateAttendanceVictimRequest:
       type: object
       required:
         - victim_id
         - was_victim_present
         - attendance_date
         - attendance_time
+        - is_remote
+        - needs_legal_assistance
+        - needs_psychological_support
+        - was_instructed_about_protective_measure_procedures
+        - offender_violated_protective_measure
       properties:
         victim_id:
           type: string
@@ -1362,8 +1481,48 @@ components:
           format: double
           nullable: true
         address:
-          $ref: "#/components/schemas/AttendanceAddressData"
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
 
 paths:
   # === AUTH ENDPOINTS ===
@@ -3098,14 +3257,14 @@ paths:
         "404":
           description: "Prorrogação não encontrada"
 
-  # === ATTENDANCE ENDPOINTS ===
-  /attendances:
+  # === ATTENDANCE VICTIM ENDPOINTS ===
+  /attendance-victims:
     get:
       tags:
-        - "Attendances"
-      summary: "Listar todos os atendimentos"
-      description: "Retorna lista de atendimentos com filtros baseados nas permissões"
-      operationId: "getAllAttendances"
+        - "Attendance Victims"
+      summary: "Listar todos os atendimentos às vítimas"
+      description: "Retorna lista de atendimentos às vítimas com filtros baseados nas permissões"
+      operationId: "getAllAttendanceVictims"
       security:
         - bearerAuth: []
           api_key: []
@@ -3123,14 +3282,14 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/Attendance"
+                      $ref: "#/components/schemas/AttendanceVictim"
 
     post:
       tags:
-        - "Attendances"
-      summary: "Criar novo atendimento"
+        - "Attendance Victims"
+      summary: "Criar novo atendimento à vítima"
       description: "Cria um novo registro de atendimento a uma vítima"
-      operationId: "createAttendance"
+      operationId: "createAttendanceVictim"
       security:
         - bearerAuth: []
           api_key: []
@@ -3139,7 +3298,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateAttendanceRequest"
+              $ref: "#/components/schemas/CreateAttendanceVictimRequest"
       responses:
         "201":
           description: "Atendimento criado com sucesso"
@@ -3152,7 +3311,7 @@ paths:
                     type: integer
                     example: 201
                   data:
-                    $ref: "#/components/schemas/Attendance"
+                    $ref: "#/components/schemas/AttendanceVictim"
         "400":
           description: "Dados inválidos"
           content:
@@ -3166,7 +3325,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /attendances/{id}:
+  /attendance-victims/{id}:
     parameters:
       - name: "id"
         in: "path"
@@ -3178,10 +3337,10 @@ paths:
 
     get:
       tags:
-        - "Attendances"
-      summary: "Obter atendimento por ID"
+        - "Attendance Victims"
+      summary: "Obter atendimento à vítima por ID"
       description: "Retorna detalhes de um atendimento específico"
-      operationId: "getAttendanceById"
+      operationId: "getAttendanceVictimById"
       security:
         - bearerAuth: []
           api_key: []
@@ -3197,14 +3356,14 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/Attendance"
+                    $ref: "#/components/schemas/AttendanceVictim"
 
     put:
       tags:
-        - "Attendances"
-      summary: "Atualizar atendimento"
+        - "Attendance Victims"
+      summary: "Atualizar atendimento à vítima"
       description: "Atualiza informações de um atendimento existente"
-      operationId: "updateAttendance"
+      operationId: "updateAttendanceVictim"
       security:
         - bearerAuth: []
           api_key: []
@@ -3213,7 +3372,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateAttendanceRequest"
+              $ref: "#/components/schemas/UpdateAttendanceVictimRequest"
       responses:
         "200":
           description: "Atendimento atualizado com sucesso"
@@ -3226,14 +3385,14 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/Attendance"
+                    $ref: "#/components/schemas/AttendanceVictim"
 
     delete:
       tags:
-        - "Attendances"
-      summary: "Deletar atendimento (soft delete)"
+        - "Attendance Victims"
+      summary: "Deletar atendimento à vítima (soft delete)"
       description: "Realiza soft delete de um atendimento"
-      operationId: "deleteAttendance"
+      operationId: "deleteAttendanceVictim"
       security:
         - bearerAuth: []
           api_key: []
@@ -3249,4 +3408,4 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/Attendance"
+                    $ref: "#/components/schemas/AttendanceVictim"
