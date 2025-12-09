@@ -131,6 +131,7 @@ pub async fn create_full_test_app(
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
         victim_repository.clone(),
+        offender_repository.clone(),
         user_repository.clone(),
         extension_repository.clone(),
     ));
@@ -147,12 +148,14 @@ pub async fn create_full_test_app(
     ));
     let offender_service = web::Data::new(OffenderService::new(
         offender_repository.clone(),
+        victim_repository.clone(),
         user_repository.clone(),
     ));
     let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
         attendance_offender_repository.clone(),
         offender_repository.clone(),
         victim_repository.clone(),
+        protective_measure_repository.clone(),
         user_repository.clone(),
     ));
 
