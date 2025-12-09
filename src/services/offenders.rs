@@ -3,12 +3,14 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::contracts::repository::offenders::OffenderRepository;
+use crate::core::contracts::repository::victims::VictimRepository;
 
 use crate::core::entities::offenders::{
     AddressData, CreateOffender, PhoneData, UpdateOffender, WorkAddressData,
 };
 use crate::repositories::offenders::PgOffenderRepository;
 use crate::repositories::users::PgUserRepository;
+use crate::repositories::victims::PgVictimRepository;
 
 use crate::utils::{
     errors::AppError,
@@ -23,16 +25,19 @@ use crate::validators::{
 
 pub struct OffenderService {
     offender_repository: web::Data<PgOffenderRepository>,
+    victim_repository: web::Data<PgVictimRepository>,
     user_repository: web::Data<PgUserRepository>,
 }
 
 impl OffenderService {
     pub fn new(
         offender_repository: web::Data<PgOffenderRepository>,
+        victim_repository: web::Data<PgVictimRepository>,
         user_repository: web::Data<PgUserRepository>,
     ) -> Self {
         Self {
             offender_repository,
+            victim_repository,
             user_repository,
         }
     }
@@ -58,6 +63,20 @@ impl OffenderService {
         )?;
 
         OffenderValidator::validate_required_fields(&offender.full_name, "Error adding offender")?;
+
+        match self.victim_repository.get_victim_by_id(offender.victim_id).await {
+            Ok(_) => {},
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!(
+                    "Victim with id '{}' not found",
+                    offender.victim_id
+                )));
+            }
+            Err(e) => {
+                error!("[OffenderService] Error checking victim: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        }
 
         info!("[OffenderService] Saving offender to database");
 
@@ -236,6 +255,22 @@ impl OffenderService {
                     existing_offender.city_id,
                     &policies,
                 )?;
+
+                if existing_offender.victim_id != data.victim_id {
+                    match self.victim_repository.get_victim_by_id(data.victim_id).await {
+                        Ok(_) => {},
+                        Err(sqlx::Error::RowNotFound) => {
+                            return Err(AppError::NotFound(format!(
+                                "Victim with id '{}' not found",
+                                data.victim_id
+                            )));
+                        }
+                        Err(e) => {
+                            error!("[OffenderService] Error checking victim: {:?}", e);
+                            return Err(AppError::InternalServerError);
+                        }
+                    }
+                }
             }
             Err(sqlx::Error::RowNotFound) => {
                 return Err(AppError::NotFound(format!(
