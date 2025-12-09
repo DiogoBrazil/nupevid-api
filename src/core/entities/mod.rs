@@ -1,4 +1,4 @@
-pub mod attendances;
+pub mod attendance_victims;
 pub mod auth;
 pub mod cities;
 pub mod offenders;
