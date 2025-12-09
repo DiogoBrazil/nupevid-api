@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::core::contracts::repository::attendance_offenders::AttendanceOffenderRepository;
 use crate::core::contracts::repository::offenders::OffenderRepository;
+use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
 use crate::core::entities::attendance_offenders::{CreateAttendanceOffender, UpdateAttendanceOffender};
 use crate::core::entities::auth::ClaimsToUserToken;
@@ -11,6 +12,7 @@ use crate::core::entities::offenders::OffenderWithDetails;
 use crate::core::entities::victims::VictimWithDetails;
 use crate::repositories::attendance_offenders::PgAttendanceOffenderRepository;
 use crate::repositories::offenders::PgOffenderRepository;
+use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
 
@@ -28,6 +30,7 @@ pub struct AttendanceOffenderService {
     attendance_offender_repository: web::Data<PgAttendanceOffenderRepository>,
     offender_repository: web::Data<PgOffenderRepository>,
     victim_repository: web::Data<PgVictimRepository>,
+    protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
     user_repository: web::Data<PgUserRepository>,
 }
 
@@ -36,12 +39,14 @@ impl AttendanceOffenderService {
         attendance_offender_repository: web::Data<PgAttendanceOffenderRepository>,
         offender_repository: web::Data<PgOffenderRepository>,
         victim_repository: web::Data<PgVictimRepository>,
+        protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
         user_repository: web::Data<PgUserRepository>,
     ) -> Self {
         Self {
             attendance_offender_repository,
             offender_repository,
             victim_repository,
+            protective_measure_repository,
             user_repository,
         }
     }
@@ -54,6 +59,24 @@ impl AttendanceOffenderService {
         let claims = extract_claims(&req)?;
 
         let offender = self.verify_offender_access(&claims, attendance.offender_id).await?;
+
+        let _victim = self.verify_victim_access(&claims, attendance.victim_id).await?;
+
+        if let Some(pm_id) = attendance.protective_measure_id {
+            match self.protective_measure_repository.get_protective_measure_by_id(pm_id).await {
+                Ok(_) => {},
+                Err(sqlx::Error::RowNotFound) => {
+                    return Err(AppError::NotFound(format!(
+                        "Protective measure with id '{}' not found",
+                        pm_id
+                    )));
+                }
+                Err(e) => {
+                    error!("[AttendanceOffenderService] Error checking protective measure: {:?}", e);
+                    return Err(AppError::InternalServerError);
+                }
+            }
+        }
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_CREATE_ATTENDANCES, offender.city_id, &policies)?;
@@ -203,6 +226,28 @@ impl AttendanceOffenderService {
         if data.offender_id != existing.offender_id {
             let new_offender = self.verify_offender_access(&claims, data.offender_id).await?;
             check_policy(&claims, POLICY_UPDATE_ATTENDANCES, new_offender.city_id, &policies)?;
+        }
+
+        if data.victim_id != existing.victim_id {
+            let _victim = self.verify_victim_access(&claims, data.victim_id).await?;
+        }
+
+        if data.protective_measure_id != existing.protective_measure_id {
+            if let Some(pm_id) = data.protective_measure_id {
+                match self.protective_measure_repository.get_protective_measure_by_id(pm_id).await {
+                    Ok(_) => {},
+                    Err(sqlx::Error::RowNotFound) => {
+                        return Err(AppError::NotFound(format!(
+                            "Protective measure with id '{}' not found",
+                            pm_id
+                        )));
+                    }
+                    Err(e) => {
+                        error!("[AttendanceOffenderService] Error checking protective measure: {:?}", e);
+                        return Err(AppError::InternalServerError);
+                    }
+                }
+            }
         }
 
         match self
