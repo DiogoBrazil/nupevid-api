@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia o binário compilado do estágio de build
+COPY --from=builder /app/swagger.yml .
 COPY --from=builder /app/target/release/nupevid-api .
 
 COPY --from=builder /app/.env .
