@@ -1,6 +1,6 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    error::ErrorUnauthorized, Error, HttpMessage, web,
+    error::ErrorUnauthorized, Error, HttpMessage, web, http::Method,
 };
 use futures::future::{err, ok, Ready, LocalBoxFuture};
 use jsonwebtoken::{decode, DecodingKey, Validation};
@@ -44,11 +44,17 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+
+        if req.method() == Method::OPTIONS {
+            return Box::pin(self.service.call(req));
+        }
+
         let config = req.app_data::<web::Data<Config>>().unwrap();
 
         if let Err(e) = self.verify_api_key(&req, config) {
             return Box::pin(err(e));
         }
+
         if is_public_route(req.path()) {
             return Box::pin(self.service.call(req));
         }

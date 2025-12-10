@@ -120,8 +120,13 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
+            .allowed_origin_fn(|origin, _req_head| {
+                    println!("Origin: {:?}", origin);
+                    true
+                })
             .allow_any_method()
             .allow_any_header()
+            .supports_credentials()
             .max_age(3600);
 
         App::new()
