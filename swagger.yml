@@ -111,6 +111,19 @@ components:
               type: string
               format: email
               description: "Email do usuário"
+            rank:
+              type: string
+              description: "Posto/Graduação do usuário"
+              example: "CAP PM"
+            registration:
+              type: string
+              description: "Matrícula do usuário"
+              example: "100000001"
+            profile:
+              type: string
+              description: "Perfil de acesso do usuário"
+              enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+              example: "CITY_ADMIN"
 
     # --- User Schemas ---
     User:
@@ -1776,6 +1789,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LoginResponse"
+              example:
+                status: 200
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  full_name: "João Silva"
+                  email: "joao.silva@pm.pr.gov.br"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  profile: "CITY_ADMIN"
         "401":
           description: "Credenciais inválidas"
           content:
