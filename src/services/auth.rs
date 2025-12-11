@@ -76,7 +76,11 @@ impl AuthService {
             token,
             id: user.id,
             full_name: user.full_name,
-            email: user.email
+            email: user.email,
+            rank: user.rank,
+            registration: user.registration,
+            profile: user.profile
+
         };
 
         Ok(ApiResponse::success(response).into_response())

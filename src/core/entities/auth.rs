@@ -32,6 +32,9 @@ pub struct LoginResponse {
     pub id: Uuid,
     pub full_name: String,
     pub email: String,
+    pub rank: String,
+    pub registration: String,
+    pub profile: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
