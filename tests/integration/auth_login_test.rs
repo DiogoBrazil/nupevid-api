@@ -56,7 +56,12 @@ async fn login_success_root_user() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
     assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["id"].as_str().is_some());
     assert_eq!(body["data"]["email"].as_str().unwrap(), email);
+    assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Test User");
+    assert_eq!(body["data"]["rank"].as_str().unwrap(), "Sargento");
+    assert_eq!(body["data"]["registration"].as_str().unwrap(), "12345");
+    assert_eq!(body["data"]["profile"].as_str().unwrap(), "ROOT");
 }
 
 #[actix_rt::test]
