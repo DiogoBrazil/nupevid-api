@@ -64,8 +64,14 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
 
-    let root_claims = test_helpers::build_root_claims();
+    // Create root user in database
+    let root_user_id = db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create work session for root user
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     // Create attendance for victim_a
     let payload = serde_json::json!({
