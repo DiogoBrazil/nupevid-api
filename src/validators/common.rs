@@ -45,8 +45,17 @@ pub const POLICY_READ_PROTECTIVE_MEASURES: &str = "read_protective_measures";
 pub const POLICY_UPDATE_PROTECTIVE_MEASURES: &str = "update_protective_measures";
 pub const POLICY_DELETE_PROTECTIVE_MEASURES: &str = "delete_protective_measures";
 
+// Work Sessions policies
+pub const POLICY_CREATE_WORK_SESSIONS: &str = "create_work_sessions";
+pub const POLICY_UPDATE_WORK_SESSIONS: &str = "update_work_sessions";
+pub const POLICY_END_WORK_SESSIONS: &str = "end_work_sessions";
+pub const POLICY_VIEW_OTHER_WORK_SESSIONS: &str = "view_other_work_sessions";
+
+// Attendance Members policies
+pub const POLICY_MANAGE_ATTENDANCE_MEMBERS: &str = "manage_attendance_members";
+
 // All valid policies array
-pub const VALID_POLICIES: [&str; 24] = [
+pub const VALID_POLICIES: [&str; 29] = [
     POLICY_CREATE_CITIES,
     POLICY_READ_CITIES,
     POLICY_UPDATE_CITIES,
@@ -71,6 +80,11 @@ pub const VALID_POLICIES: [&str; 24] = [
     POLICY_READ_PROTECTIVE_MEASURES,
     POLICY_UPDATE_PROTECTIVE_MEASURES,
     POLICY_DELETE_PROTECTIVE_MEASURES,
+    POLICY_CREATE_WORK_SESSIONS,
+    POLICY_UPDATE_WORK_SESSIONS,
+    POLICY_END_WORK_SESSIONS,
+    POLICY_VIEW_OTHER_WORK_SESSIONS,
+    POLICY_MANAGE_ATTENDANCE_MEMBERS,
 ];
 
 // Policies that are inherent to ROOT and must not be assignable
@@ -81,7 +95,7 @@ pub const NON_ASSIGNABLE_POLICIES: [&str; 3] = [
 ];
 
 // Default CRUD policies for CITY_ADMIN (all operations on their city, except city management)
-pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 21] = [
+pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 26] = [
     POLICY_READ_CITIES,
     POLICY_CREATE_USERS,
     POLICY_READ_USERS,
@@ -103,15 +117,24 @@ pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 21] = [
     POLICY_READ_PROTECTIVE_MEASURES,
     POLICY_UPDATE_PROTECTIVE_MEASURES,
     POLICY_DELETE_PROTECTIVE_MEASURES,
+    POLICY_CREATE_WORK_SESSIONS,
+    POLICY_UPDATE_WORK_SESSIONS,
+    POLICY_END_WORK_SESSIONS,
+    POLICY_VIEW_OTHER_WORK_SESSIONS,
+    POLICY_MANAGE_ATTENDANCE_MEMBERS,
 ];
 
-pub const CITY_USER_DEFAULT_POLICIES: [&str; 6] = [
+pub const CITY_USER_DEFAULT_POLICIES: [&str; 10] = [
     POLICY_READ_CITIES,
     POLICY_READ_VICTIMS,
     POLICY_READ_OFFENDERS,
     POLICY_READ_ATTENDANCES,
     POLICY_READ_PROTECTIVE_MEASURES,
     POLICY_READ_USERS,
+    POLICY_CREATE_WORK_SESSIONS,
+    POLICY_UPDATE_WORK_SESSIONS,
+    POLICY_END_WORK_SESSIONS,
+    POLICY_MANAGE_ATTENDANCE_MEMBERS,
 ];
 
 pub const VALID_CITIES: [&str; 52] = [
