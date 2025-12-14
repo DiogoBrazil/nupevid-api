@@ -8,3 +8,4 @@ pub mod protective_measures;
 pub mod swagger;
 pub mod users;
 pub mod victims;
+pub mod work_sessions;
