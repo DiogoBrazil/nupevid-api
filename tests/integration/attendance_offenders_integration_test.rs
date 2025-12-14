@@ -57,7 +57,12 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload(offender_id, victim_id);
@@ -99,7 +104,12 @@ async fn create_attendance_offender_with_address() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100002", "admin2@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload_with_address(offender_id, victim_id, city);
@@ -168,7 +178,12 @@ async fn list_attendance_offenders_filtered_by_city() {
     let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a, victim_a).await;
     let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b, victim_b).await;
 
-    let root_claims = test_helpers::build_root_claims();
+    // Create ROOT user with work session
+    let root_user_id = db_fixtures::insert_user(&pool, "100003", "root@test.com", "ROOT", None).await;
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
+
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance for both offenders as ROOT
@@ -217,7 +232,12 @@ async fn get_attendance_offender_by_id() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100004", "admin4@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload(offender_id, victim_id);
@@ -262,7 +282,12 @@ async fn update_attendance_offender() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100005", "admin5@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload(offender_id, victim_id);
@@ -313,7 +338,12 @@ async fn delete_attendance_offender() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100006", "admin6@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload(offender_id, victim_id);
@@ -365,7 +395,12 @@ async fn get_attendance_offenders_by_offender_id() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100007", "admin7@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create 2 attendances for the same offender
@@ -410,7 +445,12 @@ async fn get_attendance_offenders_by_victim_id() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    // Create user with work session
+    let user_id = db_fixtures::insert_user(&pool, "100008", "admin8@test.com", "CITY_ADMIN", Some(city)).await;
+    test_helpers::create_work_session_for_user(&pool, user_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city);
+    admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create 3 attendances for the same victim
