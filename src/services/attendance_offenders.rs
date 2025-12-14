@@ -6,6 +6,8 @@ use crate::core::contracts::repository::attendance_offenders::AttendanceOffender
 use crate::core::contracts::repository::offenders::OffenderRepository;
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
+use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
+use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::entities::attendance_offenders::{CreateAttendanceOffender, UpdateAttendanceOffender};
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::offenders::OffenderWithDetails;
@@ -15,6 +17,8 @@ use crate::repositories::offenders::PgOffenderRepository;
 use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
+use crate::repositories::work_sessions::PgWorkSessionRepository;
+use crate::repositories::attendance_members::PgAttendanceMemberRepository;
 
 use crate::utils::{
     errors::AppError,
@@ -32,6 +36,8 @@ pub struct AttendanceOffenderService {
     victim_repository: web::Data<PgVictimRepository>,
     protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
     user_repository: web::Data<PgUserRepository>,
+    work_session_repository: web::Data<PgWorkSessionRepository>,
+    attendance_member_repository: web::Data<PgAttendanceMemberRepository>,
 }
 
 impl AttendanceOffenderService {
@@ -41,6 +47,8 @@ impl AttendanceOffenderService {
         victim_repository: web::Data<PgVictimRepository>,
         protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
         user_repository: web::Data<PgUserRepository>,
+        work_session_repository: web::Data<PgWorkSessionRepository>,
+        attendance_member_repository: web::Data<PgAttendanceMemberRepository>,
     ) -> Self {
         Self {
             attendance_offender_repository,
@@ -48,6 +56,8 @@ impl AttendanceOffenderService {
             victim_repository,
             protective_measure_repository,
             user_repository,
+            work_session_repository,
+            attendance_member_repository,
         }
     }
 
@@ -57,6 +67,8 @@ impl AttendanceOffenderService {
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
+        let user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
         let offender = self.verify_offender_access(&claims, attendance.offender_id).await?;
 
@@ -81,12 +93,43 @@ impl AttendanceOffenderService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_CREATE_ATTENDANCES, offender.city_id, &policies)?;
 
+        let active_session = self.work_session_repository
+            .get_active_session_by_user(user_id)
+            .await
+            .map_err(|_| AppError::BadRequest("No active work session found. You must have an active work session to create an attendance.".to_string()))?;
+
+        let session_members = self.work_session_repository
+            .get_session_members(active_session.id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
         match self.attendance_offender_repository.create_attendance_offender(attendance).await {
             Ok(attendance_with_address) => {
                 info!(
                     "[AttendanceOffenderService] Attendance offender created: {}",
                     attendance_with_address.id
                 );
+
+                for member in session_members {
+                    match self.attendance_member_repository
+                        .add_member_to_offender_attendance(attendance_with_address.id, member.user_id, Some(active_session.id))
+                        .await
+                    {
+                        Ok(_) => {
+                            info!(
+                                "[AttendanceOffenderService] Member {} added to attendance {}",
+                                member.user_id, attendance_with_address.id
+                            );
+                        }
+                        Err(e) => {
+                            error!(
+                                "[AttendanceOffenderService] Failed to add member {} to attendance: {:?}",
+                                member.user_id, e
+                            );
+                        }
+                    }
+                }
+
                 Ok(ApiResponse::created(attendance_with_address).into_response())
             }
             Err(e) => {

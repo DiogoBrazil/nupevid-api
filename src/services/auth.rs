@@ -1,16 +1,20 @@
 use actix_web::{web, HttpResponse};
 use log::info;
+use uuid::Uuid;
+
 use crate::adapters::password_hasher::PasswordHasherPort;
 use crate::adapters::token_generator::TokenGeneratorPort;
 use crate::config::config_env::Config;
 use crate::core::contracts::repository::auth::AuthRepository;
+use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
 use crate::core::entities::auth::{Login, LoginResponse};
 use crate::repositories::auth::PgAuthRepository;
+use crate::repositories::work_sessions::PgWorkSessionRepository;
 use crate::utils::errors::AppError;
 use crate::utils::responses::ApiResponse;
-
 pub struct AuthService {
     auth_repository: web::Data<PgAuthRepository>,
+    work_session_repository: web::Data<PgWorkSessionRepository>,
     config: web::Data<Config>,
     password_hasher: Box<dyn PasswordHasherPort>,
     token_generator: Box<dyn TokenGeneratorPort>,
@@ -19,11 +23,12 @@ pub struct AuthService {
 impl AuthService {
     pub fn new(
         auth_repository: web::Data<PgAuthRepository>,
+        work_session_repository: web::Data<PgWorkSessionRepository>,
         config: web::Data<Config>,
         password_hasher: Box<dyn PasswordHasherPort>,
         token_generator: Box<dyn TokenGeneratorPort>,
     ) -> Self {
-        Self { auth_repository, config, password_hasher, token_generator }
+        Self { auth_repository, work_session_repository, config, password_hasher, token_generator }
     }
 
     pub async fn login(&self, data: Login) -> Result<HttpResponse, AppError> {
@@ -72,6 +77,53 @@ impl AuthService {
 
         info!("[Service] Token generated successfully for user with email: {}", data.email);
 
+        let work_session = if data.auto_create_session {
+            info!("[Service] Auto-creating work session for user: {}", user.id);
+
+            match self.work_session_repository.is_user_in_active_session(user.id).await {
+                Ok(true) => {
+                    match self.work_session_repository.get_active_session_by_user(user.id).await {
+                        Ok(session) => {
+                            match self.work_session_repository.get_session_by_id(session.id).await {
+                                Ok(session_with_members) => {
+                                    info!("[Service] Returning existing active session: {}", session_with_members.id);
+                                    Some(session_with_members)
+                                }
+                                Err(e) => {
+                                    log::error!("[Service] Failed to get session details: {:?}", e);
+                                    None
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("[Service] Failed to get active session: {:?}", e);
+                            None
+                        }
+                    }
+                }
+                Ok(false) => {
+                    let session_id = Uuid::new_v4();
+                    let session_member_registration_id = Uuid::new_v4();
+                    match self.work_session_repository.create_auto_login_session(session_id, session_member_registration_id, user.id).await {
+                        Ok(session) => {
+                            info!("[Service] Work session created on login: {}", session.id);
+                            Some(session)
+                        }
+                        Err(e) => {
+                            log::error!("[Service] Failed to create work session on login: {:?}", e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("[Service] Failed to check active session: {:?}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         let response = LoginResponse {
             token,
             id: user.id,
@@ -79,8 +131,8 @@ impl AuthService {
             email: user.email,
             rank: user.rank,
             registration: user.registration,
-            profile: user.profile
-
+            profile: user.profile,
+            work_session,
         };
 
         Ok(ApiResponse::success(response).into_response())

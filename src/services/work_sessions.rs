@@ -1,0 +1,374 @@
+use actix_web::{web, HttpRequest, HttpResponse};
+use log::{error, info};
+use uuid::Uuid;
+
+use crate::core::entities::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
+use crate::core::entities::work_session_members::TeamMemberFunction;
+use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
+use crate::core::contracts::repository::users::UserRepository;
+use crate::repositories::work_sessions::PgWorkSessionRepository;
+use crate::repositories::users::PgUserRepository;
+use crate::utils::errors::AppError;
+use crate::utils::responses::ApiResponse;
+use crate::utils::service_helpers::{extract_claims, get_user_policies_with_defaults, extract_city_id_from_claims};
+use crate::utils::authorization::check_policy;
+use crate::validators::common::{
+    POLICY_CREATE_WORK_SESSIONS,
+    POLICY_UPDATE_WORK_SESSIONS,
+    POLICY_END_WORK_SESSIONS,
+    POLICY_VIEW_OTHER_WORK_SESSIONS,
+};
+use crate::validators::work_session_validator::WorkSessionValidator;
+
+pub struct WorkSessionService {
+    work_session_repository: web::Data<PgWorkSessionRepository>,
+    user_repository: web::Data<PgUserRepository>,
+}
+
+impl WorkSessionService {
+    pub fn new(
+        work_session_repository: web::Data<PgWorkSessionRepository>,
+        user_repository: web::Data<PgUserRepository>,
+    ) -> Self {
+        Self {
+            work_session_repository,
+            user_repository,
+        }
+    }
+
+    pub async fn create_work_session(
+        &self,
+        data: CreateWorkSession,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Starting work session creation");
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
+        let user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(&claims, POLICY_CREATE_WORK_SESSIONS, user_city_id, &policies)?;
+
+        let mut members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = vec![
+            (user_id, Some(TeamMemberFunction::Commander))
+        ];
+        members_with_functions.extend(
+            data.members.iter().map(|m| (m.user_id, m.function.clone()))
+        );
+
+        WorkSessionValidator::validate_team_functions(&members_with_functions)
+            .map_err(|e| AppError::BadRequest(e))?;
+
+        self.validate_members_same_city(&data.members.iter().map(|m| m.user_id).collect::<Vec<_>>()).await?;
+
+        if let Ok(true) = self.work_session_repository.is_user_in_active_session(user_id).await {
+            return Err(AppError::Conflict("User already has an active work session".to_string()));
+        }
+
+        match self.work_session_repository
+            .create_work_session(data, user_id)
+            .await
+        {
+            Ok(session) => {
+                info!("[WorkSessionService] Work session created: {}", session.id);
+                Ok(ApiResponse::created(session).into_response())
+            }
+            Err(e) => {
+                error!("[WorkSessionService] Failed to create work session: {:?}", e);
+                Err(AppError::InternalServerError)
+            }
+        }
+    }
+
+    pub async fn get_active_session(
+        &self,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Getting active session");
+
+        let claims = extract_claims(&req)?;
+        let user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+
+        match self.work_session_repository
+            .get_active_session_by_user(user_id)
+            .await
+        {
+            Ok(session) => {
+                let with_members = self.work_session_repository
+                    .get_session_by_id(session.id)
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?;
+
+                Ok(ApiResponse::success(with_members).into_response())
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                Err(AppError::NotFound("No active work session found".to_string()))
+            }
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn get_session_by_id(
+        &self,
+        session_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Getting session by id: {}", session_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+
+        let session = self.work_session_repository
+            .get_session_by_id(session_id)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound("Work session not found".to_string()),
+                _ => AppError::InternalServerError,
+            })?;
+
+        if session.created_by_user_id != user_id {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(&claims, POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id, &policies)?;
+        }
+
+        Ok(ApiResponse::success(session).into_response())
+    }
+
+    pub async fn end_session(
+        &self,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Ending session");
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(&claims, POLICY_END_WORK_SESSIONS, user_city_id, &policies)?;
+
+        let session = self.work_session_repository
+            .get_active_session_by_user(user_id)
+            .await
+            .map_err(|_| AppError::NotFound("No active work session found".to_string()))?;
+
+        match self.work_session_repository
+            .end_session(session.id)
+            .await
+        {
+            Ok(_) => {
+                info!("[WorkSessionService] Work session ended: {}", session.id);
+                Ok(ApiResponse::success("Work session ended successfully").into_response())
+            }
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn add_member_to_session(
+        &self,
+        session_id: Uuid,
+        user_id: Uuid,
+        function: Option<TeamMemberFunction>,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Adding member to session: {}", session_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let requesting_user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+
+        let session = self.work_session_repository
+            .get_session_by_id(session_id)
+            .await
+            .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
+
+        if session.created_by_user_id != requesting_user_id {
+            return Err(AppError::Forbidden("Only the session creator can add members".to_string()));
+        }
+
+        if !session.is_active {
+            return Err(AppError::BadRequest("Cannot add members to inactive session".to_string()));
+        }
+
+        if let Ok(true) = self.work_session_repository.is_user_in_active_session(user_id).await {
+            return Err(AppError::Conflict("User is already in an active session".to_string()));
+        }
+
+        self.validate_members_same_city(&vec![user_id]).await?;
+
+        let current_members = self.work_session_repository
+            .get_session_members(session_id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
+            .iter()
+            .map(|m| (m.user_id, m.function.clone()))
+            .collect();
+
+        WorkSessionValidator::can_add_member_with_function(&members_with_functions, &function)
+            .map_err(|e| AppError::BadRequest(e))?;
+
+        let session_member_registration_id = Uuid::new_v4();
+        match self.work_session_repository
+            .add_member_to_session(session_member_registration_id, session_id, user_id, function)
+            .await
+        {
+            Ok(member) => {
+                info!("[WorkSessionService] Member added to session");
+                Ok(ApiResponse::success(member).into_response())
+            }
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn remove_member_from_session(
+        &self,
+        session_id: Uuid,
+        member_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Removing member from session: {}", session_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let requesting_user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+
+        let session = self.work_session_repository
+            .get_session_by_id(session_id)
+            .await
+            .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
+
+        if session.created_by_user_id != requesting_user_id {
+            return Err(AppError::Forbidden("Only the session creator can remove members".to_string()));
+        }
+
+        if !session.is_active {
+            return Err(AppError::BadRequest("Cannot remove members from inactive session".to_string()));
+        }
+
+        let current_members = self.work_session_repository
+            .get_session_members(session_id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        WorkSessionValidator::can_remove_member(current_members.len())
+            .map_err(|e| AppError::BadRequest(e))?;
+
+        match self.work_session_repository
+            .remove_member_from_session(session_id, member_id)
+            .await
+        {
+            Ok(_) => {
+                info!("[WorkSessionService] Member removed from session");
+                Ok(ApiResponse::success("Member removed successfully").into_response())
+            }
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn update_members(
+        &self,
+        session_id: Uuid,
+        data: UpdateWorkSessionMembers,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[WorkSessionService] Updating session members: {}", session_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let requesting_user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+
+        let session = self.work_session_repository
+            .get_session_by_id(session_id)
+            .await
+            .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
+
+        if session.created_by_user_id != requesting_user_id {
+            return Err(AppError::Forbidden("Only the session creator can update members".to_string()));
+        }
+
+        if !session.is_active {
+            return Err(AppError::BadRequest("Cannot update members of inactive session".to_string()));
+        }
+
+        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = data.members
+            .iter()
+            .map(|m| (m.user_id, m.function.clone()))
+            .collect();
+
+        WorkSessionValidator::validate_team_functions(&members_with_functions)
+            .map_err(|e| AppError::BadRequest(e))?;
+
+        self.validate_members_same_city(&data.members.iter().map(|m| m.user_id).collect::<Vec<_>>()).await?;
+
+        match self.work_session_repository
+            .update_session_members(session_id, data.members)
+            .await
+        {
+            Ok(_) => {
+                let updated_session = self.work_session_repository
+                    .get_session_by_id(session_id)
+                    .await
+                    .map_err(|_| AppError::InternalServerError)?;
+
+                info!("[WorkSessionService] Session members updated");
+                Ok(ApiResponse::success(updated_session).into_response())
+            }
+            Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    async fn validate_members_same_city(&self, user_ids: &[Uuid]) -> Result<(), AppError> {
+        if user_ids.is_empty() {
+            return Ok(());
+        }
+
+        let mut city_id: Option<Uuid> = None;
+
+        for user_id in user_ids {
+            let user = self.user_repository
+                .get_user_by_id(*user_id)
+                .await
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => AppError::NotFound(format!("User {} not found", user_id)),
+                    _ => AppError::InternalServerError,
+                })?;
+
+            let user_city_id = user.city_id.ok_or_else(|| {
+                AppError::BadRequest(format!("User {} is not associated with a city", user_id))
+            })?;
+
+            match city_id {
+                None => city_id = Some(user_city_id),
+                Some(expected_city_id) => {
+                    if user_city_id != expected_city_id {
+                        return Err(AppError::BadRequest(
+                            "All team members must be from the same city".to_string()
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
