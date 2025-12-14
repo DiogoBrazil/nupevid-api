@@ -3,11 +3,18 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use sqlx::prelude::FromRow;
 
+use super::work_sessions::WorkSessionWithMembers;
 
 #[derive(Serialize, Deserialize)]
 pub struct Login {
     pub email: String,
     pub password: String,
+    #[serde(default = "default_auto_create_session")]
+    pub auto_create_session: bool,
+}
+
+fn default_auto_create_session() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -34,7 +41,8 @@ pub struct LoginResponse {
     pub email: String,
     pub rank: String,
     pub registration: String,
-    pub profile: String
+    pub profile: String,
+    pub work_session: Option<WorkSessionWithMembers>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
