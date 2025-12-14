@@ -8,6 +8,7 @@ use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
     attendance_offenders::PgAttendanceOffenderRepository,
     attendance_victims::PgAttendanceVictimRepository,
+    attendance_members::PgAttendanceMemberRepository,
     auth::PgAuthRepository,
     cities::PgCityRepository,
     extensions::PgExtensionRepository,
@@ -15,13 +16,14 @@ use nupevid_api::repositories::{
     protective_measures::PgProtectiveMeasureRepository,
     users::PgUserRepository,
     victims::PgVictimRepository,
+    work_sessions::PgWorkSessionRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes;
 use nupevid_api::services::{
     attendance_offenders::AttendanceOffenderService, attendance_victims::AttendanceVictimService,
     auth::AuthService, cities::CityService, extensions::ExtensionService,
     offenders::OffenderService, protective_measures::ProtectiveMeasureService,
-    users::UserService, victims::VictimService,
+    users::UserService, victims::VictimService, work_sessions::WorkSessionService,
 };
 
 use nupevid_api::utils::seeder::seed_admin_user;
@@ -60,6 +62,8 @@ async fn main() -> std::io::Result<()> {
     let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
     let attendance_victim_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
     let attendance_offender_repository = web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
+    let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
+    let attendance_member_repository = web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
     info!("Repositories created");
 
     // Create services
@@ -69,6 +73,7 @@ async fn main() -> std::io::Result<()> {
     ));
     let auth_service = web::Data::new(AuthService::new(
         auth_repository.clone(),
+        work_session_repository.clone(),
         web::Data::new(config.clone()),
         password_hasher.clone(),
         token_generator.clone(),
@@ -103,12 +108,20 @@ async fn main() -> std::io::Result<()> {
         attendance_victim_repository.clone(),
         victim_repository.clone(),
         user_repository.clone(),
+        work_session_repository.clone(),
+        attendance_member_repository.clone(),
     ));
     let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
         attendance_offender_repository.clone(),
         offender_repository.clone(),
         victim_repository.clone(),
         protective_measure_repository.clone(),
+        user_repository.clone(),
+        work_session_repository.clone(),
+        attendance_member_repository.clone(),
+    ));
+    let work_session_service = web::Data::new(WorkSessionService::new(
+        work_session_repository.clone(),
         user_repository.clone(),
     ));
     info!("Services created");
@@ -142,6 +155,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(extension_repository.clone())
             .app_data(attendance_victim_repository.clone())
             .app_data(attendance_offender_repository.clone())
+            .app_data(work_session_repository.clone())
+            .app_data(attendance_member_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
             .app_data(city_service.clone())
@@ -151,6 +166,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(extension_service.clone())
             .app_data(attendance_victim_service.clone())
             .app_data(attendance_offender_service.clone())
+            .app_data(work_session_service.clone())
             .app_data(web::Data::new(config.clone()))
             .configure(configure_routes)
     })
