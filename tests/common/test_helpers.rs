@@ -8,18 +8,29 @@ use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
     attendance_offenders::PgAttendanceOffenderRepository,
-    attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository, cities::PgCityRepository,
-    extensions::PgExtensionRepository, offenders::PgOffenderRepository,
-    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    attendance_victims::PgAttendanceVictimRepository,
+    attendance_members::PgAttendanceMemberRepository,
+    auth::PgAuthRepository,
+    cities::PgCityRepository,
+    extensions::PgExtensionRepository,
+    offenders::PgOffenderRepository,
+    protective_measures::PgProtectiveMeasureRepository,
+    users::PgUserRepository,
     victims::PgVictimRepository,
+    work_sessions::PgWorkSessionRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
     attendance_offenders::AttendanceOffenderService,
-    attendance_victims::AttendanceVictimService, auth::AuthService, cities::CityService,
-    extensions::ExtensionService, offenders::OffenderService,
-    protective_measures::ProtectiveMeasureService, users::UserService,
+    attendance_victims::AttendanceVictimService,
+    auth::AuthService,
+    cities::CityService,
+    extensions::ExtensionService,
+    offenders::OffenderService,
+    protective_measures::ProtectiveMeasureService,
+    users::UserService,
     victims::VictimService,
+    work_sessions::WorkSessionService,
 };
 use sqlx::PgPool;
 use std::env;
@@ -68,10 +79,14 @@ pub fn build_test_config() -> Config {
 pub async fn clean_database(pool: &PgPool) {
     // Child tables first, then parents
     for sql in [
+        "DELETE FROM attendance_victim_members",
+        "DELETE FROM attendance_offender_members",
         "DELETE FROM attendance_offender_addresses",
         "DELETE FROM attendance_offenders",
         "DELETE FROM attendance_victim_addresses",
         "DELETE FROM attendance_victims",
+        "DELETE FROM work_session_members",
+        "DELETE FROM work_sessions",
         "DELETE FROM protective_measure_extensions",
         "DELETE FROM protective_measures",
         "DELETE FROM offender_phones",
@@ -111,6 +126,8 @@ pub async fn create_full_test_app(
     let attendance_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
     let attendance_offender_repository = web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
+    let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
+    let attendance_member_repository = web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
 
     // Shared config
     let config_data = web::Data::new(config.clone());
@@ -122,6 +139,7 @@ pub async fn create_full_test_app(
     ));
     let auth_service = web::Data::new(AuthService::new(
         auth_repository.clone(),
+        work_session_repository.clone(),
         config_data.clone(),
         password_hasher.clone(),
         token_generator.clone(),
@@ -145,6 +163,8 @@ pub async fn create_full_test_app(
         attendance_repository.clone(),
         victim_repository.clone(),
         user_repository.clone(),
+        work_session_repository.clone(),
+        attendance_member_repository.clone(),
     ));
     let offender_service = web::Data::new(OffenderService::new(
         offender_repository.clone(),
@@ -156,6 +176,12 @@ pub async fn create_full_test_app(
         offender_repository.clone(),
         victim_repository.clone(),
         protective_measure_repository.clone(),
+        user_repository.clone(),
+        work_session_repository.clone(),
+        attendance_member_repository.clone(),
+    ));
+    let work_session_service = web::Data::new(WorkSessionService::new(
+        work_session_repository.clone(),
         user_repository.clone(),
     ));
 
@@ -171,6 +197,8 @@ pub async fn create_full_test_app(
             .app_data(attendance_repository.clone())
             .app_data(attendance_offender_repository.clone())
             .app_data(offender_repository.clone())
+            .app_data(work_session_repository.clone())
+            .app_data(attendance_member_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
             .app_data(city_service.clone())
@@ -180,6 +208,7 @@ pub async fn create_full_test_app(
             .app_data(attendance_service.clone())
             .app_data(attendance_offender_service.clone())
             .app_data(offender_service.clone())
+            .app_data(work_session_service.clone())
             .app_data(config_data.clone())
             .configure(configure_base_routes),
     )
@@ -248,4 +277,35 @@ pub fn generate_jwt(claims: &ClaimsToUserToken, secret: &str) -> String {
 pub fn with_auth_headers(req: test::TestRequest, config: &Config, token: &str) -> test::TestRequest {
     req.insert_header(("api_key", config.api_key.clone()))
         .insert_header(("Authorization", format!("Bearer {}", token)))
+}
+
+/// Helper to create a work session directly in the database for testing
+pub async fn create_work_session_for_user(pool: &PgPool, user_id: Uuid) -> Uuid {
+    let session_id = Uuid::new_v4();
+    let session_member_registration_id = Uuid::new_v4();
+
+    // Create work session
+    sqlx::query(
+        "INSERT INTO work_sessions (id, created_by_user_id, description) VALUES ($1, $2, $3)"
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .bind("Test session")
+    .execute(pool)
+    .await
+    .expect("Failed to create work session for test");
+
+    // Add user as Commander
+    sqlx::query(
+        "INSERT INTO work_session_members (id, work_session_id, user_id, function) VALUES ($1, $2, $3, $4::team_member_function)"
+    )
+    .bind(session_member_registration_id)
+    .bind(session_id)
+    .bind(user_id)
+    .bind("Commander")
+    .execute(pool)
+    .await
+    .expect("Failed to add user to work session for test");
+
+    session_id
 }

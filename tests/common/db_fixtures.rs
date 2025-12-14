@@ -1,6 +1,10 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 use chrono::NaiveDate;
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    Argon2,
+};
 
 /// Insert a test city into the database and return its id.
 pub async fn insert_city(pool: &PgPool, name: &str) -> Uuid {
@@ -96,5 +100,46 @@ pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid, vict
     .execute(pool)
     .await
     .expect("Failed to insert test offender");
+    id
+}
+
+/// Insert a test user associated with the given city and return its id.
+pub async fn insert_user(pool: &PgPool, registration: &str, email: &str, profile: &str, city_id: Option<Uuid>) -> Uuid {
+    use nupevid_api::validators::common::generate_default_policies;
+
+    let id = Uuid::new_v4();
+
+    // Hash the password "senha123"
+    let password = "senha123";
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .expect("Failed to hash password for test user")
+        .to_string();
+
+    // Generate default policies for the profile
+    let policies = generate_default_policies(profile, city_id);
+    let policies_json = serde_json::to_value(&policies).expect("Failed to serialize policies");
+
+    sqlx::query(
+        "INSERT INTO users (
+            id, rank, registration, full_name, profile, email, password, city_id, permission_policies, is_deleted
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, false
+        )",
+    )
+    .bind(id)
+    .bind("SD PM")
+    .bind(registration)
+    .bind("Test User")
+    .bind(profile)
+    .bind(email)
+    .bind(password_hash)
+    .bind(city_id)
+    .bind(policies_json)
+    .execute(pool)
+    .await
+    .expect("Failed to insert test user");
     id
 }
