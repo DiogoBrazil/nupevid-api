@@ -421,6 +421,13 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
+    // Cria root user no banco e work session
+    let root_user_id = db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
+    let new_root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
+
     // Cria vítima e atendimento em city_b
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let attendance_payload = json!({
@@ -444,7 +451,7 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
         "was_instructed_about_protective_measure_procedures": false,
         "offender_violated_protective_measure": false
     });
-    let create_att_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/attendance-victims").set_json(&attendance_payload), &config, &root_token).to_request();
+    let create_att_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/attendance-victims").set_json(&attendance_payload), &config, &new_root_token).to_request();
     let create_att_resp = test::call_service(&app, create_att_req).await;
     assert_eq!(create_att_resp.status(), StatusCode::CREATED);
 
