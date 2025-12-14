@@ -1,3 +1,4 @@
+pub mod attendance_members;
 pub mod attendance_offenders;
 pub mod attendance_victims;
 pub mod auth;
@@ -7,3 +8,4 @@ pub mod offenders;
 pub mod protective_measures;
 pub mod users;
 pub mod victims;
+pub mod work_sessions;
