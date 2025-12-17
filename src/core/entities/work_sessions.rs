@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
@@ -64,4 +64,12 @@ impl WorkSession {
             members,
         }
     }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ListWorkSessionsQuery {
+    pub user_id: Option<Uuid>,
+    pub start_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
+    pub city_id: Option<Uuid>,
 }
