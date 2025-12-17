@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::core::entities::work_sessions::{
@@ -52,6 +53,14 @@ pub trait WorkSessionRepository: Send + Sync {
         &self,
         user_id: Uuid,
     ) -> Result<Vec<WorkSessionWithMembers>, sqlx::Error>;
+
+    async fn list_sessions_filtered(
+        &self,
+        user_id: Option<Uuid>,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+        city_id: Option<Uuid>,
+    ) -> Result<Vec<WorkSession>, sqlx::Error>;
 
     async fn get_session_members(
         &self,
