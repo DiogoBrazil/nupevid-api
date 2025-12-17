@@ -2,8 +2,8 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use log::info;
 use uuid::Uuid;
 
-use crate::core::entities::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
-use crate::core::entities::work_session_members::TeamMemberFunction;
+use crate::core::entities::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers, ListWorkSessionsQuery};
+use crate::core::entities::work_session_members::{TeamMemberFunction, UpdateMemberFunction};
 use crate::services::work_sessions::WorkSessionService;
 use crate::utils::errors::AppError;
 use serde::Deserialize;
@@ -33,6 +33,15 @@ pub async fn get_session_by_id(
     let session_id = path.into_inner();
     info!("[Controller] Received request to get work session: {}", session_id);
     service.get_session_by_id(session_id, req).await
+}
+
+pub async fn list_sessions(
+    query: web::Query<ListWorkSessionsQuery>,
+    service: web::Data<WorkSessionService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    info!("[Controller] Received request to list work sessions");
+    service.list_sessions(query.into_inner(), req).await
 }
 
 pub async fn end_session(
@@ -79,4 +88,15 @@ pub async fn update_members(
     let session_id = path.into_inner();
     info!("[Controller] Received request to update members of session: {}", session_id);
     service.update_members(session_id, data.into_inner(), req).await
+}
+
+pub async fn update_member_function(
+    path: web::Path<(Uuid, Uuid)>,
+    data: web::Json<UpdateMemberFunction>,
+    service: web::Data<WorkSessionService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let (session_id, user_id) = path.into_inner();
+    info!("[Controller] Received request to update function of member {} in session: {}", user_id, session_id);
+    service.update_member_function(session_id, user_id, data.function.clone(), req).await
 }
