@@ -191,6 +191,24 @@ impl WorkSessionRepository for PgWorkSessionRepository {
         Ok(result)
     }
 
+    async fn list_sessions_filtered(
+        &self,
+        user_id: Option<Uuid>,
+        start_date: Option<chrono::NaiveDate>,
+        end_date: Option<chrono::NaiveDate>,
+        city_id: Option<Uuid>,
+    ) -> Result<Vec<WorkSession>, sqlx::Error> {
+        let sessions: Vec<WorkSession> = sqlx::query_as(WorkSessionsQueries::LIST_SESSIONS_FILTERED)
+            .bind(user_id)
+            .bind(start_date)
+            .bind(end_date)
+            .bind(city_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(sessions)
+    }
+
     async fn get_session_members(
         &self,
         session_id: Uuid,
