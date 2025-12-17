@@ -6,9 +6,11 @@ use crate::core::contracts::repository::attendance_offenders::AttendanceOffender
 use crate::core::contracts::repository::offenders::OffenderRepository;
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
 use crate::core::contracts::repository::victims::VictimRepository;
+use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::entities::attendance_offenders::{CreateAttendanceOffender, UpdateAttendanceOffender};
+use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::offenders::OffenderWithDetails;
 use crate::core::entities::victims::VictimWithDetails;
@@ -27,7 +29,8 @@ use crate::utils::{
     service_helpers::{extract_claims, get_user_policies_with_defaults}
 };
 use crate::validators::common::{
-    POLICY_CREATE_ATTENDANCES, POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES
+    POLICY_CREATE_ATTENDANCES, POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES,
+    POLICY_MANAGE_ATTENDANCE_MEMBERS
 };
 
 pub struct AttendanceOffenderService {
@@ -339,6 +342,135 @@ impl AttendanceOffenderService {
         match self.attendance_offender_repository.delete_attendance_offender_by_id(id).await {
             Ok(deleted) => Ok(ApiResponse::success(deleted).into_response()),
             Err(_) => Err(AppError::InternalServerError),
+        }
+    }
+
+    pub async fn get_attendance_members(
+        &self,
+        attendance_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[AttendanceOffenderService] Getting members for attendance: {}", attendance_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+
+        // Get attendance to verify access
+        let attendance = self.attendance_offender_repository
+            .get_attendance_offender_by_id(attendance_id)
+            .await
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    AppError::NotFound(format!("Attendance offender '{}' not found", attendance_id))
+                } else {
+                    AppError::InternalServerError
+                }
+            })?;
+
+        let offender = self.verify_offender_access(&claims, attendance.offender_id).await?;
+        check_policy(&claims, POLICY_READ_ATTENDANCES, offender.city_id, &policies)?;
+
+        let members = self.attendance_member_repository
+            .get_offender_attendance_members(attendance_id)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        info!("[AttendanceOffenderService] Found {} members", members.len());
+        Ok(ApiResponse::success(members).into_response())
+    }
+
+    pub async fn add_attendance_member(
+        &self,
+        attendance_id: Uuid,
+        data: AddAttendanceMember,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[AttendanceOffenderService] Adding member to attendance: {}", attendance_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+
+        let attendance = self.attendance_offender_repository
+            .get_attendance_offender_by_id(attendance_id)
+            .await
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    AppError::NotFound(format!("Attendance offender '{}' not found", attendance_id))
+                } else {
+                    AppError::InternalServerError
+                }
+            })?;
+
+        let offender = self.verify_offender_access(&claims, attendance.offender_id).await?;
+        check_policy(&claims, POLICY_MANAGE_ATTENDANCE_MEMBERS, offender.city_id, &policies)?;
+
+        let user_to_add = self.user_repository
+            .get_user_by_id(data.user_id)
+            .await
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    AppError::NotFound(format!("User '{}' not found", data.user_id))
+                } else {
+                    AppError::InternalServerError
+                }
+            })?;
+
+        if user_to_add.city_id != Some(offender.city_id) {
+            return Err(AppError::BadRequest("User must be from the same city as the offender".to_string()));
+        }
+
+        match self.attendance_member_repository
+            .add_member_to_offender_attendance(attendance_id, data.user_id, None)
+            .await
+        {
+            Ok(_) => {
+                info!("[AttendanceOffenderService] Member added successfully");
+                Ok(ApiResponse::success("Member added successfully").into_response())
+            }
+            Err(e) => {
+                error!("[AttendanceOffenderService] Failed to add member: {:?}", e);
+                Err(AppError::InternalServerError)
+            }
+        }
+    }
+
+    pub async fn remove_attendance_member(
+        &self,
+        attendance_id: Uuid,
+        user_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[AttendanceOffenderService] Removing member from attendance: {}", attendance_id);
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+
+        let attendance = self.attendance_offender_repository
+            .get_attendance_offender_by_id(attendance_id)
+            .await
+            .map_err(|e| {
+                if matches!(e, sqlx::Error::RowNotFound) {
+                    AppError::NotFound(format!("Attendance offender '{}' not found", attendance_id))
+                } else {
+                    AppError::InternalServerError
+                }
+            })?;
+
+        let offender = self.verify_offender_access(&claims, attendance.offender_id).await?;
+        check_policy(&claims, POLICY_MANAGE_ATTENDANCE_MEMBERS, offender.city_id, &policies)?;
+
+        match self.attendance_member_repository
+            .remove_member_from_offender_attendance(attendance_id, user_id)
+            .await
+        {
+            Ok(_) => {
+                info!("[AttendanceOffenderService] Member removed successfully");
+                Ok(ApiResponse::success("Member removed successfully").into_response())
+            }
+            Err(e) => {
+                error!("[AttendanceOffenderService] Failed to remove member: {:?}", e);
+                Err(AppError::InternalServerError)
+            }
         }
     }
 
