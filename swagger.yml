@@ -27,6 +27,8 @@ tags:
     description: "Gerenciamento de atendimentos às vítimas"
   - name: "Attendance Offenders"
     description: "Gerenciamento de atendimentos aos agressores"
+  - name: "Work Sessions"
+    description: "Gerenciamento de sessões de trabalho e equipes"
 
 security:
   - bearerAuth: []
@@ -87,6 +89,11 @@ components:
           type: string
           format: password
           example: "SecurePassword123!"
+        auto_create_session:
+          type: boolean
+          description: "Se true, cria automaticamente uma sessão de trabalho no login (default: true)"
+          default: true
+          example: true
 
     LoginResponse:
       type: object
@@ -124,6 +131,158 @@ components:
               description: "Perfil de acesso do usuário"
               enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
               example: "CITY_ADMIN"
+            work_session:
+              oneOf:
+                - $ref: "#/components/schemas/WorkSessionWithMembers"
+                - type: "null"
+              description: "Sessão de trabalho ativa do usuário (se auto_create_session foi true e criou/retornou sessão)"
+              nullable: true
+
+    # --- Work Sessions Schemas ---
+    TeamMemberFunction:
+      type: string
+      description: "Função do membro na equipe da sessão de trabalho"
+      enum:
+        - "Commander"
+        - "Driver"
+        - "Patroller"
+      example: "Commander"
+
+    AddWorkSessionMember:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário a ser adicionado como membro"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+
+    CreateWorkSession:
+      type: object
+      properties:
+        description:
+          type: string
+          description: "Descrição opcional da sessão de trabalho"
+          example: "Patrulhamento preventivo zona leste"
+        members:
+          type: array
+          description: "Lista de membros a serem adicionados à sessão (criador é automaticamente Commander)"
+          items:
+            $ref: "#/components/schemas/AddWorkSessionMember"
+          example:
+            - user_id: "550e8400-e29b-41d4-a716-446655440001"
+              function: "Driver"
+            - user_id: "550e8400-e29b-41d4-a716-446655440002"
+              function: "Patroller"
+
+    WorkSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário que criou a sessão"
+        started_at:
+          type: string
+          format: date-time
+          description: "Data e hora de início da sessão"
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data e hora de término da sessão (null se ativa)"
+        is_active:
+          type: boolean
+          description: "Indica se a sessão está ativa"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição da sessão"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WorkSessionMemberWithDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário"
+        user_name:
+          type: string
+          description: "Nome completo do usuário"
+          example: "João Silva"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        created_at:
+          type: string
+          format: date-time
+
+    WorkSessionWithMembers:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        members:
+          type: array
+          description: "Lista de membros da sessão com detalhes"
+          items:
+            $ref: "#/components/schemas/WorkSessionMemberWithDetails"
+
+    UpdateWorkSessionMembers:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          description: "Nova lista completa de membros da sessão"
+          items:
+            $ref: "#/components/schemas/AddWorkSessionMember"
+
+    UpdateMemberFunction:
+      type: object
+      required:
+        - function
+      properties:
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
 
     # --- User Schemas ---
     User:
@@ -1764,6 +1923,45 @@ components:
           type: string
           nullable: true
           description: "Complemento do endereço"
+
+    # --- Attendance Members Schemas ---
+    AddAttendanceMember:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário a ser adicionado como membro do atendimento"
+
+    AttendanceMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        attendance_id:
+          type: string
+          format: uuid
+          description: "ID do atendimento"
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário"
+        user_name:
+          type: string
+          description: "Nome completo do usuário"
+          example: "João Silva"
+        work_session_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da sessão de trabalho associada (preenchido automaticamente ao criar atendimento)"
+        created_at:
+          type: string
+          format: date-time
 
 paths:
   # === AUTH ENDPOINTS ===
@@ -3661,6 +3859,184 @@ paths:
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
 
+  /attendance-victims/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar membros do atendimento à vítima"
+      description: "Retorna lista de todos os membros (policiais) que participaram do atendimento. Membros são automaticamente adicionados da sessão de trabalho ativa."
+      operationId: "getAttendanceVictimMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de membros retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceMember"
+
+    post:
+      tags:
+        - "Attendance Victims"
+      summary: "Adicionar membro ao atendimento"
+      description: "Adiciona manualmente um membro ao atendimento. Requer política 'manage_attendance_members'. Membro deve ser da mesma cidade."
+      operationId: "addAttendanceVictimMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAttendanceMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+      responses:
+        "201":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceMember"
+        "400":
+          description: "Membro de cidade diferente ou já existe"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-victims/{id}/members/{user_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    delete:
+      tags:
+        - "Attendance Victims"
+      summary: "Remover membro do atendimento"
+      description: "Remove um membro específico do atendimento. Requer política 'manage_attendance_members'."
+      operationId: "removeAttendanceVictimMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Member removed successfully"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-victims/by-victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar atendimentos por vítima"
+      description: "Retorna todos os atendimentos relacionados a uma vítima específica"
+      operationId: "getAttendanceVictimsByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceVictim"
+        "403":
+          description: "Sem permissão para acessar vítima de outra cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   # --- Attendance Offenders Endpoints ---
   /attendance-offenders:
     get:
@@ -3870,6 +4246,137 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /attendance-offenders/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar membros do atendimento ao agressor"
+      description: "Retorna lista de todos os membros (policiais) que participaram do atendimento. Membros são automaticamente adicionados da sessão de trabalho ativa."
+      operationId: "getAttendanceOffenderMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de membros retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceMember"
+
+    post:
+      tags:
+        - "Attendance Offenders"
+      summary: "Adicionar membro ao atendimento"
+      description: "Adiciona manualmente um membro ao atendimento. Requer política 'manage_attendance_members'. Membro deve ser da mesma cidade."
+      operationId: "addAttendanceOffenderMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAttendanceMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+      responses:
+        "201":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceMember"
+        "400":
+          description: "Membro de cidade diferente ou já existe"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/{id}/members/{user_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    delete:
+      tags:
+        - "Attendance Offenders"
+      summary: "Remover membro do atendimento"
+      description: "Remove um membro específico do atendimento. Requer política 'manage_attendance_members'."
+      operationId: "removeAttendanceOffenderMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Member removed successfully"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /attendance-offenders/by-offender/{offender_id}:
     parameters:
       - name: "offender_id"
@@ -3947,6 +4454,460 @@ paths:
                       $ref: "#/components/schemas/AttendanceOffenderWithAddress"
         "404":
           description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === WORK SESSIONS ENDPOINTS ===
+  /work-sessions:
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Criar nova sessão de trabalho"
+      description: "Cria uma nova sessão de trabalho. O usuário criador é automaticamente adicionado como Commander. Requer política 'create_work_sessions'."
+      operationId: "createWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkSession"
+            example:
+              description: "Patrulhamento preventivo zona leste"
+              members:
+                - user_id: "550e8400-e29b-41d4-a716-446655440001"
+                  function: "Driver"
+                - user_id: "550e8400-e29b-41d4-a716-446655440002"
+                  function: "Patroller"
+      responses:
+        "201":
+          description: "Sessão de trabalho criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Dados inválidos (ex: usuário já possui sessão ativa, validação de funções falhou)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar sessão de trabalho"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Listar sessões de trabalho"
+      description: "Retorna lista de sessões de trabalho. Usuários regulares veem apenas suas próprias sessões. CITY_ADMIN vê todas da cidade. ROOT vê todas. Suporta filtros opcionais."
+      operationId: "listWorkSessions"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "user_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por ID do usuário criador"
+        - name: "start_date"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+          description: "Data inicial (filtro por data de início da sessão)"
+          example: "2025-01-01"
+        - name: "end_date"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+          description: "Data final (filtro por data de início da sessão)"
+          example: "2025-12-31"
+        - name: "city_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por cidade dos membros"
+      responses:
+        "200":
+          description: "Lista de sessões retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkSessionWithMembers"
+        "403":
+          description: "Sem permissão para visualizar sessões"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/active:
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Obter sessão de trabalho ativa do usuário"
+      description: "Retorna a sessão de trabalho ativa do usuário autenticado (se houver)"
+      operationId: "getActiveWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Sessão ativa retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "404":
+          description: "Nenhuma sessão ativa encontrada para o usuário"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/end:
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Encerrar sessão de trabalho ativa"
+      description: "Encerra a sessão de trabalho ativa do usuário autenticado. Requer política 'end_work_sessions'."
+      operationId: "endWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Sessão encerrada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Usuário não possui sessão ativa"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para encerrar sessão de trabalho"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Obter sessão de trabalho por ID"
+      description: "Retorna detalhes de uma sessão de trabalho específica. Usuários regulares só podem ver suas próprias sessões. CITY_ADMIN vê todas da cidade. ROOT vê todas. Requer política 'view_other_work_sessions' para ver sessões de outros usuários."
+      operationId: "getWorkSessionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Sessão retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "403":
+          description: "Sem permissão para visualizar esta sessão"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Adicionar membro à sessão de trabalho"
+      description: "Adiciona um novo membro à sessão de trabalho. Apenas o criador da sessão pode adicionar membros. Validações aplicadas (1 Commander, máx 1 Driver, cidade igual)."
+      operationId: "addWorkSessionMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddWorkSessionMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+              function: "Patroller"
+      responses:
+        "200":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Erro de validação (ex: dois Commanders, cidade diferente)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador pode adicionar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Work Sessions"
+      summary: "Atualizar lista completa de membros"
+      description: "Substitui completamente a lista de membros da sessão (exceto o criador que sempre permanece). Validações aplicadas."
+      operationId: "updateWorkSessionMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkSessionMembers"
+            example:
+              members:
+                - user_id: "550e8400-e29b-41d4-a716-446655440001"
+                  function: "Driver"
+                - user_id: "550e8400-e29b-41d4-a716-446655440002"
+                  function: "Patroller"
+      responses:
+        "200":
+          description: "Membros atualizados com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Erro de validação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador pode atualizar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members/{member_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+      - name: "member_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do registro de membro (não é o user_id)"
+
+    delete:
+      tags:
+        - "Work Sessions"
+      summary: "Remover membro da sessão de trabalho"
+      description: "Remove um membro da sessão. Não pode remover o criador. Não pode deixar sessão vazia."
+      operationId: "removeWorkSessionMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Não pode remover criador ou deixar sessão vazia"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador pode remover membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão ou membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members/{user_id}/function:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    put:
+      tags:
+        - "Work Sessions"
+      summary: "Atualizar função de um membro"
+      description: "Altera a função (Commander/Driver/Patroller) de um membro específico. Validações aplicadas."
+      operationId: "updateMemberFunction"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberFunction"
+            example:
+              function: "Driver"
+      responses:
+        "200":
+          description: "Função atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Erro de validação (ex: dois Commanders, dois Drivers)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador pode atualizar funções"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão ou membro não encontrado"
           content:
             application/json:
               schema:
