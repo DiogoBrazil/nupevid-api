@@ -17,6 +17,15 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::delete().to(attendance_offenders::delete_attendance_offender_by_id)),
             )
             .service(
+                web::resource("/{id}/members")
+                    .route(web::get().to(attendance_offenders::get_attendance_members))
+                    .route(web::post().to(attendance_offenders::add_attendance_member)),
+            )
+            .service(
+                web::resource("/{id}/members/{user_id}")
+                    .route(web::delete().to(attendance_offenders::remove_attendance_member)),
+            )
+            .service(
                 web::resource("/by-offender/{offender_id}")
                     .route(web::get().to(attendance_offenders::get_attendance_offenders_by_offender)),
             )
