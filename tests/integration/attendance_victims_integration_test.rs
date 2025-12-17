@@ -531,3 +531,185 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
+
+#[actix_rt::test]
+async fn create_attendance_without_active_session_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_id = db_fixtures::insert_city(&pool, "Test City").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+
+    // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
+    // CITY_ADMIN has the necessary policies, so we can test the work session requirement
+    let user_id = db_fixtures::insert_user(&pool, "100099", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
+
+    // DO NOT create work session here - that's the whole point of this test
+    // test_helpers::create_work_session_for_user(&pool, user_id).await; // ← OMITTED
+
+    let mut claims = test_helpers::build_city_admin_claims(city_id);
+    claims.id = user_id.to_string();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let payload = build_attendance_payload(victim_id);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("active work session") || message.contains("No active work session"),
+        "Error message should mention active work session requirement, got: {}",
+        message
+    );
+}
+
+#[actix_rt::test]
+async fn get_attendance_victims_by_victim_id_success() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_id = db_fixtures::insert_city(&pool, "Test City").await;
+    let victim1_id = db_fixtures::insert_victim(&pool, "Victim 1", city_id).await;
+    let victim2_id = db_fixtures::insert_victim(&pool, "Victim 2", city_id).await;
+
+    // Create ROOT user with work session
+    let root_user_id = db_fixtures::insert_user(&pool, "100100", "root@test.com", "ROOT", None).await;
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
+
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create 2 attendances for victim1
+    for i in 0..2 {
+        let payload = serde_json::json!({
+            "victim_id": victim1_id,
+            "was_victim_present": true,
+            "attendance_date": format!("2025-01-{:02}", i + 1),
+            "attendance_time": "14:30:00",
+            "is_remote": false,
+            "needs_legal_assistance": false,
+            "needs_psychological_support": false,
+            "was_instructed_about_protective_measure_procedures": false,
+            "offender_violated_protective_measure": false
+        });
+
+        let req = test_helpers::with_auth_headers(
+            test::TestRequest::post()
+                .uri("/api/v1/attendance-victims")
+                .set_json(&payload),
+            &config,
+            &root_token,
+        )
+        .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    // Create 1 attendance for victim2
+    let payload2 = build_attendance_payload(victim2_id);
+    let req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload2),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::CREATED);
+
+    // Get attendances by victim1 ID
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/by-victim/{}", victim1_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let get_resp = test::call_service(&app, get_req).await;
+    assert_eq!(get_resp.status(), StatusCode::OK);
+
+    let body: serde_json::Value = test::read_body_json(get_resp).await;
+    let data = body["data"].as_array().unwrap();
+
+    // Should return exactly 2 attendances for victim1
+    assert_eq!(data.len(), 2, "Should return 2 attendances for victim 1");
+
+    // Verify all returned attendances belong to victim1
+    for attendance in data {
+        assert_eq!(
+            attendance["victim_id"].as_str().unwrap(),
+            victim1_id.to_string(),
+            "All returned attendances should belong to victim 1"
+        );
+    }
+}
+
+#[actix_rt::test]
+async fn get_attendance_victims_by_victim_different_city_forbidden() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "City A").await;
+    let city_b = db_fixtures::insert_city(&pool, "City B").await;
+
+    let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+
+    // Create ROOT user with work session to create attendance in city B
+    let root_user_id = db_fixtures::insert_user(&pool, "100101", "root@test.com", "ROOT", None).await;
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
+
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    // Create attendance for victim in city B
+    let payload = build_attendance_payload(victim_b);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    // Try to get attendances as CITY_ADMIN from city A
+    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
+
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/by-victim/{}", victim_b)),
+        &config,
+        &admin_a_token,
+    )
+    .to_request();
+
+    let get_resp = test::call_service(&app, get_req).await;
+    assert_eq!(get_resp.status(), StatusCode::FORBIDDEN);
+}

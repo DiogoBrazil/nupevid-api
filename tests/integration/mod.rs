@@ -1,6 +1,7 @@
 pub mod attendance_offenders_integration_test;
 pub mod attendance_victims_integration_test;
 pub mod attendance_victims_validation_test;
+pub mod attendance_members_test;
 pub mod auth_login_test;
 pub mod auth_validation_test;
 pub mod cities_integration_test;
@@ -31,3 +32,4 @@ pub mod work_sessions_data_integrity_test;
 pub mod work_sessions_root_permissions_test;
 pub mod work_sessions_additional_edge_cases_test;
 pub mod work_sessions_cross_user_permissions_test;
+pub mod work_sessions_new_endpoints_test;

@@ -482,3 +482,48 @@ async fn get_attendance_offenders_by_victim_id() {
     let data = body["data"].as_array().unwrap();
     assert_eq!(data.len(), 3);
 }
+
+#[actix_rt::test]
+async fn create_attendance_offender_without_active_session_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_id = db_fixtures::insert_city(&pool, "Test City").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id, victim_id).await;
+
+    // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
+    // CITY_ADMIN has the necessary policies, so we can test the work session requirement
+    let user_id = db_fixtures::insert_user(&pool, "100199", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
+
+    // DO NOT create work session here - that's the whole point of this test
+    // test_helpers::create_work_session_for_user(&pool, user_id).await; // ← OMITTED
+
+    let mut claims = test_helpers::build_city_admin_claims(city_id);
+    claims.id = user_id.to_string();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-offenders")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("active work session") || message.contains("No active work session"),
+        "Error message should mention active work session requirement, got: {}",
+        message
+    );
+}
