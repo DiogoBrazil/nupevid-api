@@ -38,6 +38,11 @@ pub struct UpdateUserPassword {
     pub new_password: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ResetUserPasswordResponse {
+    pub temporary_password: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct UserDataCreatedWithoutPassword {
     pub id: Uuid,

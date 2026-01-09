@@ -5,15 +5,6 @@ use uuid::Uuid;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "violence_type_enum", rename_all = "PascalCase")]
-pub enum ViolenceType {
-    Physical,
-    Sexual,
-    Psychological,
-    Moral,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "has_children_enum", rename_all = "PascalCase")]
 pub enum HasChildren {
     Yes,
@@ -33,6 +24,47 @@ pub enum PhoneType {
     #[serde(rename = "Work")]
     #[sqlx(rename = "Work")]
     Work,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[sqlx(type_name = "address_type_enum", rename_all = "PascalCase")]
+pub enum AddressType {
+    Residential,
+    Work,
+    Correspondence,
+    Commercial,
+    Institutional,
+    Temporary,
+    Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[sqlx(type_name = "education_level_enum")]
+pub enum EducationLevel {
+    #[serde(rename = "Elementary")]
+    #[sqlx(rename = "Elementary")]
+    Elementary,
+    #[serde(rename = "High School")]
+    #[sqlx(rename = "High School")]
+    HighSchool,
+    #[serde(rename = "College")]
+    #[sqlx(rename = "College")]
+    College,
+    #[serde(rename = "Postgraduate")]
+    #[sqlx(rename = "Postgraduate")]
+    Postgraduate,
+    #[serde(rename = "Illiterate")]
+    #[sqlx(rename = "Illiterate")]
+    Illiterate,
+    #[serde(rename = "Semi-illiterate")]
+    #[sqlx(rename = "Semi-illiterate")]
+    SemiIlliterate,
+    #[serde(rename = "Master")]
+    #[sqlx(rename = "Master")]
+    Master,
+    #[serde(rename = "Doctorate")]
+    #[sqlx(rename = "Doctorate")]
+    Doctorate,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -77,6 +109,7 @@ pub struct AddressData {
     pub city_id: Uuid,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,6 +121,7 @@ pub struct VictimAddressResponse {
     pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -100,6 +134,7 @@ pub struct VictimAddress {
     pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
@@ -115,6 +150,7 @@ impl VictimAddress {
             city_id: self.city_id,
             zip_code: self.zip_code,
             complement: self.complement,
+            address_type: self.address_type,
         }
     }
 }
@@ -124,21 +160,21 @@ pub struct CreateVictim {
     pub full_name: String,
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
+    pub city_id: Option<Uuid>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
-    pub education_level: Option<String>,
+    pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
-    pub violence_type: ViolenceType,
     pub has_children: HasChildren,
     pub children_count: Option<i32>,
+    #[serde(default)]
     pub has_special_needs: bool,
-    pub special_needs_type: Option<String>,
+    pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
+    #[serde(default)]
     pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<String>,
+    pub psychiatric_issues_type: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -146,21 +182,21 @@ pub struct UpdateVictim {
     pub full_name: String,
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
+    pub city_id: Option<Uuid>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
-    pub education_level: Option<String>,
+    pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
-    pub violence_type: ViolenceType,
     pub has_children: HasChildren,
     pub children_count: Option<i32>,
+    #[serde(default)]
     pub has_special_needs: bool,
-    pub special_needs_type: Option<String>,
+    pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
+    #[serde(default)]
     pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<String>,
+    pub psychiatric_issues_type: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -173,18 +209,16 @@ pub struct Victim {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-    pub education_level: Option<String>,
+    pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
-    pub violence_type: ViolenceType,
     pub has_children: HasChildren,
     pub children_count: Option<i32>,
     pub has_special_needs: bool,
-    pub special_needs_type: Option<String>,
+    pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<String>,
+    pub psychiatric_issues_type: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,18 +231,16 @@ pub struct VictimWithDetails {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-    pub education_level: Option<String>,
+    pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
-    pub violence_type: ViolenceType,
     pub has_children: HasChildren,
     pub children_count: Option<i32>,
     pub has_special_needs: bool,
-    pub special_needs_type: Option<String>,
+    pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<String>,
+    pub psychiatric_issues_type: Option<Vec<String>>,
     pub phones: Vec<VictimPhoneResponse>,
     pub addresses: Vec<VictimAddressResponse>,
 }
@@ -230,8 +262,6 @@ impl Victim {
             is_deleted: self.is_deleted,
             education_level: self.education_level,
             occupation: self.occupation,
-            workplace: self.workplace,
-            violence_type: self.violence_type,
             has_children: self.has_children,
             children_count: self.children_count,
             has_special_needs: self.has_special_needs,

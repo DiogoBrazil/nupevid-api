@@ -72,4 +72,6 @@ pub struct ListWorkSessionsQuery {
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
     pub city_id: Option<Uuid>,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
 }

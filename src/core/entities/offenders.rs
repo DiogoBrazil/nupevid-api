@@ -30,59 +30,6 @@ pub enum SecurityForce {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "relationship_to_victim_enum")]
-pub enum RelationshipToVictim {
-    #[serde(rename = "Spouse")]
-    #[sqlx(rename = "Spouse")]
-    Spouse,
-    #[serde(rename = "Ex-Spouse")]
-    #[sqlx(rename = "Ex-Spouse")]
-    ExSpouse,
-    #[serde(rename = "Mother")]
-    #[sqlx(rename = "Mother")]
-    Mother,
-    #[serde(rename = "Father")]
-    #[sqlx(rename = "Father")]
-    Father,
-    #[serde(rename = "Stepfather")]
-    #[sqlx(rename = "Stepfather")]
-    Stepfather,
-    #[serde(rename = "Stepmother")]
-    #[sqlx(rename = "Stepmother")]
-    Stepmother,
-    #[serde(rename = "Son/Daughter")]
-    #[sqlx(rename = "Son/Daughter")]
-    SonDaughter,
-    #[serde(rename = "Sibling")]
-    #[sqlx(rename = "Sibling")]
-    Sibling,
-    #[serde(rename = "Cousin")]
-    #[sqlx(rename = "Cousin")]
-    Cousin,
-    #[serde(rename = "Grandfather")]
-    #[sqlx(rename = "Grandfather")]
-    Grandfather,
-    #[serde(rename = "Grandmother")]
-    #[sqlx(rename = "Grandmother")]
-    Grandmother,
-    #[serde(rename = "Brother/Sister-in-law")]
-    #[sqlx(rename = "Brother/Sister-in-law")]
-    BrotherSisterInLaw,
-    #[serde(rename = "Father/Mother-in-law")]
-    #[sqlx(rename = "Father/Mother-in-law")]
-    FatherMotherInLaw,
-    #[serde(rename = "Son-in-law")]
-    #[sqlx(rename = "Son-in-law")]
-    SonInLaw,
-    #[serde(rename = "Daughter-in-law")]
-    #[sqlx(rename = "Daughter-in-law")]
-    DaughterInLaw,
-    #[serde(rename = "Uncle/Aunt")]
-    #[sqlx(rename = "Uncle/Aunt")]
-    UncleAunt,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "phone_type_enum")]
 pub enum PhoneType {
     #[serde(rename = "Mobile")]
@@ -94,6 +41,18 @@ pub enum PhoneType {
     #[serde(rename = "Work")]
     #[sqlx(rename = "Work")]
     Work,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
+#[sqlx(type_name = "address_type_enum", rename_all = "PascalCase")]
+pub enum AddressType {
+    Residential,
+    Work,
+    Correspondence,
+    Commercial,
+    Institutional,
+    Temporary,
+    Other,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
@@ -111,6 +70,18 @@ pub enum EducationLevel {
     #[serde(rename = "Postgraduate")]
     #[sqlx(rename = "Postgraduate")]
     Postgraduate,
+    #[serde(rename = "Illiterate")]
+    #[sqlx(rename = "Illiterate")]
+    Illiterate,
+    #[serde(rename = "Semi-illiterate")]
+    #[sqlx(rename = "Semi-illiterate")]
+    SemiIlliterate,
+    #[serde(rename = "Master")]
+    #[sqlx(rename = "Master")]
+    Master,
+    #[serde(rename = "Doctorate")]
+    #[sqlx(rename = "Doctorate")]
+    Doctorate,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -155,6 +126,7 @@ pub struct AddressData {
     pub city_id: Uuid,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,6 +138,7 @@ pub struct OffenderAddressResponse {
     pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -178,6 +151,7 @@ pub struct OffenderAddress {
     pub city_id: Option<Uuid>,
     pub zip_code: Option<String>,
     pub complement: Option<String>,
+    pub address_type: AddressType,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
@@ -193,56 +167,7 @@ impl OffenderAddress {
             city_id: self.city_id,
             zip_code: self.zip_code,
             complement: self.complement,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WorkAddressData {
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub district: Option<String>,
-    pub city_id: Uuid,
-    pub zip_code: Option<String>,
-    pub complement: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OffenderWorkAddressResponse {
-    pub id: Uuid,
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub district: Option<String>,
-    pub city_id: Option<Uuid>,
-    pub zip_code: Option<String>,
-    pub complement: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct OffenderWorkAddress {
-    pub id: Uuid,
-    pub offender_id: Uuid,
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub district: Option<String>,
-    pub city_id: Option<Uuid>,
-    pub zip_code: Option<String>,
-    pub complement: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub is_deleted: bool,
-}
-
-impl OffenderWorkAddress {
-    pub fn to_response(self) -> OffenderWorkAddressResponse {
-        OffenderWorkAddressResponse {
-            id: self.id,
-            street: self.street,
-            number: self.number,
-            district: self.district,
-            city_id: self.city_id,
-            zip_code: self.zip_code,
-            complement: self.complement,
+            address_type: self.address_type,
         }
     }
 }
@@ -252,25 +177,20 @@ pub struct CreateOffender {
     pub full_name: String,
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
-    pub victim_id: Uuid,
+    pub city_id: Option<Uuid>,
     pub imprisoned: bool,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
+    #[serde(default, skip_deserializing)]
     pub is_public_security_agent: bool,
     pub security_force: Option<SecurityForce>,
-    pub relationship_to_victim: RelationshipToVictim,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
-    pub was_drunk_during_assault: bool,
     pub education_level: EducationLevel,
-    pub assaults_children: bool,
     pub observation: Option<String>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
-    pub work_addresses: Option<Vec<WorkAddressData>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -278,25 +198,20 @@ pub struct UpdateOffender {
     pub full_name: String,
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
-    pub victim_id: Uuid,
+    pub city_id: Option<Uuid>,
     pub imprisoned: bool,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
+    #[serde(default, skip_deserializing)]
     pub is_public_security_agent: bool,
     pub security_force: Option<SecurityForce>,
-    pub relationship_to_victim: RelationshipToVictim,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
-    pub was_drunk_during_assault: bool,
     pub education_level: EducationLevel,
-    pub assaults_children: bool,
     pub observation: Option<String>,
     pub phones: Option<Vec<PhoneData>>,
     pub addresses: Option<Vec<AddressData>>,
-    pub work_addresses: Option<Vec<WorkAddressData>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -306,20 +221,15 @@ pub struct Offender {
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub city_id: Uuid,
-    pub victim_id: Uuid,
     pub imprisoned: bool,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
     pub is_public_security_agent: bool,
     pub security_force: Option<SecurityForce>,
-    pub relationship_to_victim: RelationshipToVictim,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
-    pub was_drunk_during_assault: bool,
     pub education_level: EducationLevel,
-    pub assaults_children: bool,
     pub observation: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -333,27 +243,21 @@ pub struct OffenderWithDetails {
     pub cpf: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub city_id: Uuid,
-    pub victim_id: Uuid,
     pub imprisoned: bool,
     pub occupation: Option<String>,
-    pub workplace: Option<String>,
     pub is_public_security_agent: bool,
     pub security_force: Option<SecurityForce>,
-    pub relationship_to_victim: RelationshipToVictim,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
     pub has_psychiatric_issues: bool,
     pub psychiatric_issues_type: Option<String>,
-    pub was_drunk_during_assault: bool,
     pub education_level: EducationLevel,
-    pub assaults_children: bool,
     pub observation: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
     pub phones: Vec<OffenderPhoneResponse>,
     pub addresses: Vec<OffenderAddressResponse>,
-    pub work_addresses: Vec<OffenderWorkAddressResponse>,
 }
 
 impl Offender {
@@ -361,7 +265,6 @@ impl Offender {
         self,
         phones: Vec<OffenderPhone>,
         addresses: Vec<OffenderAddress>,
-        work_addresses: Vec<OffenderWorkAddress>,
     ) -> OffenderWithDetails {
         OffenderWithDetails {
             id: self.id,
@@ -369,27 +272,21 @@ impl Offender {
             cpf: self.cpf,
             birth_date: self.birth_date,
             city_id: self.city_id,
-            victim_id: self.victim_id,
             imprisoned: self.imprisoned,
             occupation: self.occupation,
-            workplace: self.workplace,
             is_public_security_agent: self.is_public_security_agent,
             security_force: self.security_force,
-            relationship_to_victim: self.relationship_to_victim,
             uses_alcohol: self.uses_alcohol,
             uses_drugs: self.uses_drugs,
             has_psychiatric_issues: self.has_psychiatric_issues,
             psychiatric_issues_type: self.psychiatric_issues_type,
-            was_drunk_during_assault: self.was_drunk_during_assault,
             education_level: self.education_level,
-            assaults_children: self.assaults_children,
             observation: self.observation,
             created_at: self.created_at,
             updated_at: self.updated_at,
             is_deleted: self.is_deleted,
             phones: phones.into_iter().map(|p| p.to_response()).collect(),
             addresses: addresses.into_iter().map(|a| a.to_response()).collect(),
-            work_addresses: work_addresses.into_iter().map(|wa| wa.to_response()).collect(),
         }
     }
 }

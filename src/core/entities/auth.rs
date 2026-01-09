@@ -27,6 +27,8 @@ pub struct CompleteUserData {
     pub email: String,
     pub password: String,
     pub city_id: Option<Uuid>,
+    pub is_temporary_password: bool,
+    pub temporary_password_expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
