@@ -1,12 +1,20 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use log::info;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::core::entities::offenders::{
-    AddressData, CreateOffender, PhoneData, UpdateOffender, WorkAddressData,
+    AddressData, CreateOffender, PhoneData, UpdateOffender,
 };
 use crate::services::offenders::OffenderService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
+
+#[derive(Deserialize)]
+pub struct OffenderSearchQuery {
+    pub name: Option<String>,
+    pub cpf: Option<String>,
+}
 
 pub async fn create_offender(
     offender_data: web::Json<CreateOffender>,
@@ -33,11 +41,24 @@ pub async fn get_offender_by_id(
 }
 
 pub async fn get_all_offenders(
+    query: web::Query<PaginationParams>,
     offender_service: web::Data<OffenderService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all offenders");
-    offender_service.get_all_offenders(req).await
+    offender_service.get_all_offenders(query.into_inner(), req).await
+}
+
+pub async fn search_offenders(
+    query: web::Query<OffenderSearchQuery>,
+    offender_service: web::Data<OffenderService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let query = query.into_inner();
+    info!("[Controller] Received request to search offenders");
+    offender_service
+        .search_offenders(query.name, query.cpf, req)
+        .await
 }
 
 pub async fn get_offenders_by_victim_id(
@@ -172,51 +193,4 @@ pub async fn delete_offender_address(
         address_id
     );
     offender_service.delete_address(address_id, req).await
-}
-
-pub async fn add_work_address_to_offender(
-    path: web::Path<Uuid>,
-    work_address_data: web::Json<WorkAddressData>,
-    offender_service: web::Data<OffenderService>,
-    req: HttpRequest,
-) -> Result<HttpResponse, AppError> {
-    let offender_id = path.into_inner();
-    info!(
-        "[Controller] Received request to add work address to offender {}",
-        offender_id
-    );
-    offender_service
-        .create_work_address(offender_id, work_address_data.into_inner(), req)
-        .await
-}
-
-pub async fn update_offender_work_address(
-    path: web::Path<(Uuid, Uuid)>,
-    work_address_data: web::Json<WorkAddressData>,
-    offender_service: web::Data<OffenderService>,
-    req: HttpRequest,
-) -> Result<HttpResponse, AppError> {
-    let (_offender_id, work_address_id) = path.into_inner();
-    info!(
-        "[Controller] Received request to update work address {}",
-        work_address_id
-    );
-    offender_service
-        .update_work_address(work_address_id, work_address_data.into_inner(), req)
-        .await
-}
-
-pub async fn delete_offender_work_address(
-    path: web::Path<(Uuid, Uuid)>,
-    offender_service: web::Data<OffenderService>,
-    req: HttpRequest,
-) -> Result<HttpResponse, AppError> {
-    let (_offender_id, work_address_id) = path.into_inner();
-    info!(
-        "[Controller] Received request to delete work address {}",
-        work_address_id
-    );
-    offender_service
-        .delete_work_address(work_address_id, req)
-        .await
 }

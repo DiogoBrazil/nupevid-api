@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword};
 use crate::services::users::UserService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
 
 #[derive(serde::Deserialize)]
 pub struct PolicyCitiesPayload {
@@ -50,9 +51,13 @@ pub async fn get_user_by_id(
     service.get_user_by_id(user_id, req).await
 }
 
-pub async fn get_all_users(service: web::Data<UserService>, req: HttpRequest) -> Result<HttpResponse, AppError> {
+pub async fn get_all_users(
+    query: web::Query<PaginationParams>,
+    service: web::Data<UserService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all users");
-    service.get_all_users(req).await
+    service.get_all_users(query.into_inner(), req).await
 }
 
 pub async fn delete_user_by_id(
@@ -82,6 +87,19 @@ pub async fn update_user_password_by_id(
     service
         .update_user_password_by_id(user_id, data.into_inner(), req)
         .await
+}
+
+pub async fn reset_user_password_by_id(
+    path: web::Path<Uuid>,
+    service: web::Data<UserService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let user_id = path.into_inner();
+    info!(
+        "[Controller] Received request to reset password for user with id: {}",
+        user_id
+    );
+    service.reset_user_password_by_id(user_id, req).await
 }
 
 pub async fn append_user_policy_cities(

@@ -6,6 +6,7 @@ use crate::core::entities::attendance_victims::{CreateAttendanceVictim, UpdateAt
 use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::services::attendance_victims::AttendanceVictimService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
 
 pub async fn create_attendance_victim(
     data: web::Json<CreateAttendanceVictim>,
@@ -30,11 +31,12 @@ pub async fn get_attendance_victim_by_id(
 }
 
 pub async fn get_all_attendance_victims(
+    query: web::Query<PaginationParams>,
     service: web::Data<AttendanceVictimService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all attendance victims");
-    service.get_all_attendance_victims(req).await
+    service.get_all_attendance_victims(query.into_inner(), req).await
 }
 
 pub async fn get_attendance_victims_by_victim(

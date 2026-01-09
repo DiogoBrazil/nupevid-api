@@ -1,10 +1,18 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use log::info;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::core::entities::victims::{AddressData, CreateVictim, PhoneData, UpdateVictim};
 use crate::services::victims::VictimService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
+
+#[derive(Deserialize)]
+pub struct VictimSearchQuery {
+    pub name: Option<String>,
+    pub cpf: Option<String>,
+}
 
 pub async fn create_victim(
     victim_data: web::Json<CreateVictim>,
@@ -31,11 +39,22 @@ pub async fn get_victim_by_id(
 }
 
 pub async fn get_all_victims(
+    query: web::Query<PaginationParams>,
     victim_service: web::Data<VictimService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all victims");
-    victim_service.get_all_victims(req).await
+    victim_service.get_all_victims(query.into_inner(), req).await
+}
+
+pub async fn search_victims(
+    query: web::Query<VictimSearchQuery>,
+    victim_service: web::Data<VictimService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let query = query.into_inner();
+    info!("[Controller] Received request to search victims");
+    victim_service.search_victims(query.name, query.cpf, req).await
 }
 
 pub async fn update_victim_by_id(

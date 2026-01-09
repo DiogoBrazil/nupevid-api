@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::core::entities::cities::{CreateCity, UpdateCity};
 use crate::services::cities::CityService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
 
 pub async fn create_city(
     city_data: web::Json<CreateCity>,
@@ -26,11 +27,12 @@ pub async fn get_city_by_id(
 }
 
 pub async fn get_all_cities(
+    query: web::Query<PaginationParams>,
     city_service: web::Data<CityService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all cities");
-    city_service.get_all_cities(req).await
+    city_service.get_all_cities(query.into_inner(), req).await
 }
 
 pub async fn update_city_by_id(

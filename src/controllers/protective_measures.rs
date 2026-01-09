@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::core::entities::protective_measures::{CreateProtectiveMeasure, UpdateProtectiveMeasure};
 use crate::services::protective_measures::ProtectiveMeasureService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
 
 pub async fn create_protective_measure(
     measure_data: web::Json<CreateProtectiveMeasure>,
@@ -26,11 +27,12 @@ pub async fn get_protective_measure_by_id(
 }
 
 pub async fn get_all_protective_measures(
+    query: web::Query<PaginationParams>,
     service: web::Data<ProtectiveMeasureService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all protective measures");
-    service.get_all_protective_measures(req).await
+    service.get_all_protective_measures(query.into_inner(), req).await
 }
 
 pub async fn get_protective_measures_by_victim(

@@ -6,6 +6,7 @@ use crate::core::entities::attendance_offenders::{CreateAttendanceOffender, Upda
 use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::services::attendance_offenders::AttendanceOffenderService;
 use crate::utils::errors::AppError;
+use crate::utils::pagination::PaginationParams;
 
 pub async fn create_attendance_offender(
     data: web::Json<CreateAttendanceOffender>,
@@ -30,11 +31,12 @@ pub async fn get_attendance_offender_by_id(
 }
 
 pub async fn get_all_attendance_offenders(
+    query: web::Query<PaginationParams>,
     service: web::Data<AttendanceOffenderService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all attendance offenders");
-    service.get_all_attendance_offenders(req).await
+    service.get_all_attendance_offenders(query.into_inner(), req).await
 }
 
 pub async fn get_attendance_offenders_by_offender(
