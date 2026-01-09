@@ -348,24 +348,21 @@ async fn root_can_change_any_user_password() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = body["data"]["id"].as_str().unwrap();
 
-    // ROOT changes the user's password without needing current password (should work)
-    let change_password_payload = serde_json::json!({
-        "new_password": "newPasswordByRoot"
-    });
-
-    let change_req = test_helpers::with_auth_headers(
-        test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
-            .set_json(&change_password_payload),
+    // ROOT resets the user's password
+    let reset_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri(&format!("/api/v1/users/{}/password/reset", user_id)),
         &config,
         &root_token,
     )
     .to_request();
 
-    let change_resp = test::call_service(&app, change_req).await;
+    let reset_resp = test::call_service(&app, reset_req).await;
 
-    // ROOT should be able to change any user's password
-    assert_eq!(change_resp.status(), StatusCode::OK);
+    // ROOT should be able to reset any user's password
+    assert_eq!(reset_resp.status(), StatusCode::OK);
+    let reset_body: serde_json::Value = test::read_body_json(reset_resp).await;
+    assert!(reset_body["data"]["temporary_password"].as_str().unwrap().starts_with("prov"));
 }
 
 #[actix_rt::test]
@@ -406,29 +403,24 @@ async fn root_can_change_password_without_current_password() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = body["data"]["id"].as_str().unwrap();
 
-    // ROOT changes password WITHOUT providing current_password
-    let change_password_payload = serde_json::json!({
-        "new_password": "newPasswordSetByRoot"
-    });
-
-    let change_req = test_helpers::with_auth_headers(
-        test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
-            .set_json(&change_password_payload),
+    // ROOT resets password
+    let reset_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri(&format!("/api/v1/users/{}/password/reset", user_id)),
         &config,
         &root_token,
     )
     .to_request();
 
-    let change_resp = test::call_service(&app, change_req).await;
-
-    // ROOT should be able to change password without current_password
-    assert_eq!(change_resp.status(), StatusCode::OK);
+    let reset_resp = test::call_service(&app, reset_req).await;
+    assert_eq!(reset_resp.status(), StatusCode::OK);
+    let reset_body: serde_json::Value = test::read_body_json(reset_resp).await;
+    let temporary_password = reset_body["data"]["temporary_password"].as_str().unwrap();
 
     // Verify new password works
     let login_payload = serde_json::json!({
         "email": "cityuser@test.com",
-        "password": "newPasswordSetByRoot"
+        "password": temporary_password
     });
 
     let login_req = test::TestRequest::post()

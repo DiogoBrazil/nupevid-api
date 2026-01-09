@@ -27,6 +27,22 @@ async fn test_update_password_success() {
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = create_body["data"]["id"].as_str().unwrap();
 
+    // User logs in
+    let login_payload = serde_json::json!({
+        "email": user.email,
+        "password": user.password
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    let login_body: serde_json::Value = test::read_body_json(login_resp).await;
+    let user_token = login_body["data"]["token"].as_str().unwrap();
+
     // Update password
     let password_data = fixtures::valid_update_password();
     let update_req = test_helpers::with_auth_headers(
@@ -34,7 +50,7 @@ async fn test_update_password_success() {
             .uri(&format!("/api/v1/users/{}/password", user_id))
             .set_json(&password_data),
         &config,
-        &token,
+        user_token,
     )
     .to_request();
 
@@ -118,7 +134,7 @@ async fn test_update_password_incorrect_current() {
 }
 
 #[actix_rt::test]
-async fn test_update_password_user_not_found() {
+async fn test_update_password_other_user_forbidden() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
     let config = test_helpers::build_test_config();
@@ -127,23 +143,51 @@ async fn test_update_password_user_not_found() {
     let claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let random_uuid = Uuid::new_v4();
-    let password_data = fixtures::valid_update_password();
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", random_uuid))
-            .set_json(&password_data),
+    let user = fixtures::valid_create_user();
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user),
         &config,
         &token,
     )
     .to_request();
+    let create_resp = test::call_service(&app, create_req).await;
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let user_id = create_body["data"]["id"].as_str().unwrap();
+
+    let login_payload = serde_json::json!({
+        "email": user.email,
+        "password": user.password
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    let login_body: serde_json::Value = test::read_body_json(login_resp).await;
+    let user_token = login_body["data"]["token"].as_str().unwrap();
+
+    let other_user_id = Uuid::new_v4();
+    let password_data = fixtures::valid_update_password();
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::patch()
+            .uri(&format!("/api/v1/users/{}/password", other_user_id))
+            .set_json(&password_data),
+        &config,
+        user_token,
+    )
+    .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 404);
-    assert!(body["message"].as_str().unwrap().contains("not found"));
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert!(body["message"].as_str().unwrap().contains("only change your own password"));
 }
 
 #[actix_rt::test]
@@ -175,12 +219,27 @@ async fn test_update_password_empty_fields() {
         "current_password": "",
         "new_password": ""
     });
+    let login_payload = serde_json::json!({
+        "email": user.email,
+        "password": user.password
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    let login_body: serde_json::Value = test::read_body_json(login_resp).await;
+    let user_token = login_body["data"]["token"].as_str().unwrap();
+
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
             .uri(&format!("/api/v1/users/{}/password", user_id))
             .set_json(&password_data),
         &config,
-        &token,
+        user_token,
     )
     .to_request();
 

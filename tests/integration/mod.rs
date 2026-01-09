@@ -6,6 +6,7 @@ pub mod auth_login_test;
 pub mod auth_validation_test;
 pub mod cities_integration_test;
 pub mod offenders_basic_test;
+pub mod pagination_test;
 pub mod policies_integration_test;
 pub mod protective_measures_integration_test;
 pub mod protective_measures_extensions_test;

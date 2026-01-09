@@ -206,15 +206,11 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         "addresses": serde_json::Value::Null,
         "education_level": serde_json::Value::Null,
         "occupation": serde_json::Value::Null,
-        "workplace": serde_json::Value::Null,
-        "violence_type": "Physical",
         "has_children": "No",
         "children_count": serde_json::Value::Null,
-        "has_special_needs": false,
         "special_needs_type": serde_json::Value::Null,
         "uses_alcohol": false,
         "uses_drugs": false,
-        "has_psychiatric_issues": false,
         "psychiatric_issues_type": serde_json::Value::Null,
     });
     let create_victim_req = test_helpers::with_auth_headers(
@@ -515,13 +511,17 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
 
     // Cria vítima e medida em city_b
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima PB", city_b).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor PB", city_b, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor PB", city_b).await;
     let measure_payload = json!({
         "process_number": "99887-65.2025.8.26.0000",
         "issued_at": "2025-01-01",
         "judicial_authority": "Juiz B",
         "court_district_id": city_b,
-        "is_active": true,
+        "status": "Valid",
+        "violence_types": ["Physical"],
+        "relationship_to_victim": "Spouse",
+        "assaults_children": false,
+        "was_drunk_during_assault": false,
         "victim_id": victim_id,
         "offender_id": offender_id,
     });
@@ -631,15 +631,19 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
     // Cria vítimas e medida em city_a
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
-    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a, victim_a).await;
-    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b, victim_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
 
     let measure_payload = json!({
         "process_number": "55555-55.2025.8.26.0000",
         "issued_at": "2025-01-01",
         "judicial_authority": "Juiz C",
         "court_district_id": city_a,
-        "is_active": true,
+        "status": "Valid",
+        "violence_types": ["Physical"],
+        "relationship_to_victim": "Spouse",
+        "assaults_children": false,
+        "was_drunk_during_assault": false,
         "victim_id": victim_a,
         "offender_id": offender_a,
     });
@@ -655,7 +659,11 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "issued_at": "2025-01-01",
         "judicial_authority": "Juiz C",
         "court_district_id": city_b,
-        "is_active": true,
+        "status": "Valid",
+        "violence_types": ["Physical"],
+        "relationship_to_victim": "Spouse",
+        "assaults_children": false,
+        "was_drunk_during_assault": false,
         "victim_id": victim_b,
         "offender_id": offender_b,
     });

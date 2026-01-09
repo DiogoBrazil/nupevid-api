@@ -499,12 +499,27 @@ async fn update_password_with_empty_new_password_fails() {
         "new_password": ""
     });
 
+    let login_payload = serde_json::json!({
+        "email": "test@test.com",
+        "password": "password123"
+    });
+
+    let login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload)
+        .to_request();
+
+    let login_resp = test::call_service(&app, login_req).await;
+    let login_body: serde_json::Value = test::read_body_json(login_resp).await;
+    let user_token = login_body["data"]["token"].as_str().unwrap();
+
     let password_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
             .uri(&format!("/api/v1/users/{}/password", user_id))
             .set_json(&password_payload),
         &config,
-        &root_token,
+        user_token,
     )
     .to_request();
 

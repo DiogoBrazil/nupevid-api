@@ -319,7 +319,7 @@ async fn get_offender_attendance_members_success() {
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
     let user_id = db_fixtures::insert_user(&pool, "100027", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -388,7 +388,7 @@ async fn add_offender_attendance_member_success() {
     let user_id = db_fixtures::insert_user(&pool, "100028", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
     let member_id = db_fixtures::insert_user(&pool, "100029", "member@test.com", "CITY_USER", Some(city_id)).await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -474,7 +474,7 @@ async fn remove_offender_attendance_member_success() {
     let user_id = db_fixtures::insert_user(&pool, "100030", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
     let member_id = db_fixtures::insert_user(&pool, "100031", "member@test.com", "CITY_USER", Some(city_id)).await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;

@@ -17,7 +17,8 @@ fn build_address_payload(city_id: Uuid) -> serde_json::Value {
         "district": "Bairro",
         "city_id": city_id,
         "zip_code": "12345-000",
-        "complement": "Casa"
+        "complement": "Casa",
+        "address_type": "Residential"
     })
 }
 
@@ -131,7 +132,8 @@ async fn can_add_update_delete_address_for_victim() {
         "district": "Centro",
         "city_id": city_id,
         "zip_code": "54321-000",
-        "complement": ""
+        "complement": "",
+        "address_type": "Residential"
     });
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()

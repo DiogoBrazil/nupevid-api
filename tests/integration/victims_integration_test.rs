@@ -13,15 +13,11 @@ fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
         "addresses": serde_json::Value::Null,
         "education_level": serde_json::Value::Null,
         "occupation": serde_json::Value::Null,
-        "workplace": serde_json::Value::Null,
-        "violence_type": "Physical",
         "has_children": "No",
         "children_count": serde_json::Value::Null,
-        "has_special_needs": false,
         "special_needs_type": serde_json::Value::Null,
         "uses_alcohol": false,
         "uses_drugs": false,
-        "has_psychiatric_issues": false,
         "psychiatric_issues_type": serde_json::Value::Null,
     })
 }
@@ -29,7 +25,7 @@ fn build_victim_payload(full_name: &str, city_id: Uuid) -> serde_json::Value {
 fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
         "full_name": full_name,
-        "cpf": "123456789",
+        "cpf": "529.982.247-25",
         "birth_date": "1990-01-01",
         "city_id": city_id,
         "phones": [{
@@ -42,21 +38,102 @@ fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_js
             "district": "Centro",
             "city_id": city_id,
             "zip_code": "01000-000",
-            "complement": "Apt 10"
+            "complement": "Apt 10",
+            "address_type": "Residential"
         }],
-        "education_level": "Superior Completo",
+        "education_level": "College",
         "occupation": "Professora",
-        "workplace": "Escola Municipal",
-        "violence_type": "Physical",
         "has_children": "Yes",
         "children_count": 2,
-        "has_special_needs": false,
         "special_needs_type": serde_json::Value::Null,
         "uses_alcohol": false,
         "uses_drugs": false,
-        "has_psychiatric_issues": false,
         "psychiatric_issues_type": serde_json::Value::Null,
     })
+}
+
+#[actix_rt::test]
+async fn search_victims_by_name_returns_matches() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Busca").await;
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    for name in ["Maria Silva", "Joao Souza"] {
+        let payload = build_victim_payload(name, city);
+        let req = test_helpers::with_auth_headers(
+            test::TestRequest::post()
+                .uri("/api/v1/victims")
+                .set_json(&payload),
+            &config,
+            &root_token,
+        )
+        .to_request();
+
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims/search?name=maria"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(search_resp).await;
+    let results = body["data"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["full_name"].as_str().unwrap(), "Maria Silva");
+}
+
+#[actix_rt::test]
+async fn search_victims_by_cpf_returns_match() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade CPF").await;
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let mut payload = build_victim_payload("Vitima CPF", city);
+    payload["cpf"] = serde_json::json!("529.982.247-25");
+
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims/search?cpf=529.982.247-25"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(search_resp).await;
+    let results = body["data"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["cpf"].as_str().unwrap(), "529.982.247-25");
 }
 
 #[actix_rt::test]
@@ -306,7 +383,7 @@ async fn create_victim_with_address_in_single_request() {
 
     // Verify victim data
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Vitima Com Endereco");
-    assert_eq!(body["data"]["cpf"].as_str().unwrap(), "123456789");
+    assert_eq!(body["data"]["cpf"].as_str().unwrap(), "529.982.247-25");
 
     // Verify address data is included (now as array)
     assert!(body["data"]["addresses"].is_array());
@@ -406,19 +483,16 @@ async fn update_victim_can_add_or_update_address() {
             "district": "Bairro Novo",
             "city_id": city,
             "zip_code": "20000-000",
-            "complement": null
+            "complement": null,
+            "address_type": "Residential"
         }],
         "education_level": null,
         "occupation": null,
-        "workplace": null,
-        "violence_type": "Physical",
         "has_children": "No",
         "children_count": null,
-        "has_special_needs": false,
         "special_needs_type": null,
         "uses_alcohol": false,
         "uses_drugs": false,
-        "has_psychiatric_issues": false,
         "psychiatric_issues_type": null,
     });
 

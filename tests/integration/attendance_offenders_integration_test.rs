@@ -55,7 +55,7 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
@@ -102,7 +102,7 @@ async fn create_attendance_offender_with_address() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100002", "admin2@test.com", "CITY_ADMIN", Some(city)).await;
@@ -144,7 +144,7 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city() {
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
-    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b, victim_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
@@ -175,8 +175,8 @@ async fn list_attendance_offenders_filtered_by_city() {
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
-    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a, victim_a).await;
-    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b, victim_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
 
     // Create ROOT user with work session
     let root_user_id = db_fixtures::insert_user(&pool, "100003", "root@test.com", "ROOT", None).await;
@@ -230,7 +230,7 @@ async fn get_attendance_offender_by_id() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100004", "admin4@test.com", "CITY_ADMIN", Some(city)).await;
@@ -280,7 +280,7 @@ async fn update_attendance_offender() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100005", "admin5@test.com", "CITY_ADMIN", Some(city)).await;
@@ -336,7 +336,7 @@ async fn delete_attendance_offender() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100006", "admin6@test.com", "CITY_ADMIN", Some(city)).await;
@@ -393,7 +393,7 @@ async fn get_attendance_offenders_by_offender_id() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100007", "admin7@test.com", "CITY_ADMIN", Some(city)).await;
@@ -443,7 +443,7 @@ async fn get_attendance_offenders_by_victim_id() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
     let user_id = db_fixtures::insert_user(&pool, "100008", "admin8@test.com", "CITY_ADMIN", Some(city)).await;
@@ -493,7 +493,7 @@ async fn create_attendance_offender_without_active_session_fails() {
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
 
     // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
     // CITY_ADMIN has the necessary policies, so we can test the work session requirement

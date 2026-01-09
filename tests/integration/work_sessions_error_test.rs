@@ -67,7 +67,7 @@ async fn create_offender_attendance_without_active_session_fails() {
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
-    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city).await;
     let user_id = db_fixtures::insert_user(&pool, "100002", "user2@test.com", "CITY_USER", Some(city)).await;
 
     // Create JWT token but NO work session
