@@ -35,6 +35,40 @@ impl UsersQueries {
         ORDER BY created_at DESC
     "#;
 
+    pub const GET_USERS_PAGED: &'static str = r#"
+        SELECT id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
+        FROM users
+        WHERE is_deleted = false
+          AND ($1 = false OR profile != 'ROOT')
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+    "#;
+
+    pub const GET_USERS_PAGED_BY_CITIES: &'static str = r#"
+        SELECT id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
+        FROM users
+        WHERE is_deleted = false
+          AND city_id = ANY($1)
+          AND ($2 = false OR profile != 'ROOT')
+        ORDER BY created_at DESC
+        LIMIT $3 OFFSET $4
+    "#;
+
+    pub const COUNT_USERS: &'static str = r#"
+        SELECT COUNT(1)
+        FROM users
+        WHERE is_deleted = false
+          AND ($1 = false OR profile != 'ROOT')
+    "#;
+
+    pub const COUNT_USERS_BY_CITIES: &'static str = r#"
+        SELECT COUNT(1)
+        FROM users
+        WHERE is_deleted = false
+          AND city_id = ANY($1)
+          AND ($2 = false OR profile != 'ROOT')
+    "#;
+
     pub const DELETE_USER_BY_ID: &'static str = r#"
         UPDATE users
         SET is_deleted = true
@@ -48,7 +82,18 @@ impl UsersQueries {
 
     pub const UPDATE_USER_PASSWORD_BY_ID: &'static str = r#"
         UPDATE users
-        SET password = $2
+        SET password = $2,
+            is_temporary_password = false,
+            temporary_password_expires_at = NULL
+        WHERE id = $1 AND is_deleted = false
+        RETURNING id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
+    "#;
+
+    pub const RESET_USER_PASSWORD_BY_ID: &'static str = r#"
+        UPDATE users
+        SET password = $2,
+            is_temporary_password = true,
+            temporary_password_expires_at = $3
         WHERE id = $1 AND is_deleted = false
         RETURNING id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
     "#;

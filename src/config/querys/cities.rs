@@ -20,6 +20,36 @@ impl CitiesQueries {
         ORDER BY name ASC
     "#;
 
+    pub const GET_CITIES_PAGED: &'static str = r#"
+        SELECT id, name, state, battalion, created_at, updated_at, is_deleted
+        FROM cities
+        WHERE is_deleted = false
+        ORDER BY name ASC
+        LIMIT $1 OFFSET $2
+    "#;
+
+    pub const GET_CITIES_PAGED_BY_IDS: &'static str = r#"
+        SELECT id, name, state, battalion, created_at, updated_at, is_deleted
+        FROM cities
+        WHERE is_deleted = false
+        AND id = ANY($1)
+        ORDER BY name ASC
+        LIMIT $2 OFFSET $3
+    "#;
+
+    pub const COUNT_CITIES: &'static str = r#"
+        SELECT COUNT(1)
+        FROM cities
+        WHERE is_deleted = false
+    "#;
+
+    pub const COUNT_CITIES_BY_IDS: &'static str = r#"
+        SELECT COUNT(1)
+        FROM cities
+        WHERE is_deleted = false
+        AND id = ANY($1)
+    "#;
+
     pub const UPDATE_CITY_BY_ID: &'static str = r#"
         UPDATE cities
         SET name = $2, state = $3, battalion = $4

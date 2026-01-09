@@ -68,6 +68,31 @@ impl WorkSessionsQueries {
           AND ($4::UUID IS NULL OR u.city_id = $4)
         ORDER BY ws.started_at DESC
     "#;
+
+    pub const LIST_SESSIONS_FILTERED_PAGED: &'static str = r#"
+        SELECT DISTINCT ws.id, ws.created_by_user_id, ws.started_at, ws.ended_at,
+               ws.is_active, ws.description, ws.created_at, ws.updated_at
+        FROM work_sessions ws
+        LEFT JOIN work_session_members wsm ON wsm.work_session_id = ws.id
+        LEFT JOIN users u ON u.id = wsm.user_id
+        WHERE ($1::UUID IS NULL OR ws.created_by_user_id = $1)
+          AND ($2::DATE IS NULL OR ws.started_at::DATE >= $2)
+          AND ($3::DATE IS NULL OR ws.started_at::DATE <= $3)
+          AND ($4::UUID IS NULL OR u.city_id = $4)
+        ORDER BY ws.started_at DESC
+        LIMIT $5 OFFSET $6
+    "#;
+
+    pub const COUNT_SESSIONS_FILTERED: &'static str = r#"
+        SELECT COUNT(DISTINCT ws.id)
+        FROM work_sessions ws
+        LEFT JOIN work_session_members wsm ON wsm.work_session_id = ws.id
+        LEFT JOIN users u ON u.id = wsm.user_id
+        WHERE ($1::UUID IS NULL OR ws.created_by_user_id = $1)
+          AND ($2::DATE IS NULL OR ws.started_at::DATE >= $2)
+          AND ($3::DATE IS NULL OR ws.started_at::DATE <= $3)
+          AND ($4::UUID IS NULL OR u.city_id = $4)
+    "#;
 }
 
 pub struct WorkSessionMembersQueries;

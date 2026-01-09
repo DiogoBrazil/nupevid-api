@@ -33,6 +33,44 @@ impl AttendanceOffendersQueries {
         ORDER BY attendance_date DESC, attendance_time DESC
     "#;
 
+    pub const GET_ATTENDANCE_OFFENDERS_PAGED: &'static str = r#"
+        SELECT id, offender_id, victim_id, protective_measure_id, was_offender_present,
+               attendance_date, attendance_time, is_remote, assaults_children,
+               violence_aggravator, violence_aggravator_other, description,
+               created_at, updated_at, is_deleted
+        FROM attendance_offenders
+        WHERE is_deleted = false
+        ORDER BY attendance_date DESC, attendance_time DESC
+        LIMIT $1 OFFSET $2
+    "#;
+
+    pub const GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES: &'static str = r#"
+        SELECT ao.id, ao.offender_id, ao.victim_id, ao.protective_measure_id, ao.was_offender_present,
+               ao.attendance_date, ao.attendance_time, ao.is_remote, ao.assaults_children,
+               ao.violence_aggravator, ao.violence_aggravator_other, ao.description,
+               ao.created_at, ao.updated_at, ao.is_deleted
+        FROM attendance_offenders ao
+        JOIN offenders o ON o.id = ao.offender_id
+        WHERE ao.is_deleted = false
+        AND o.city_id = ANY($1)
+        ORDER BY ao.attendance_date DESC, ao.attendance_time DESC
+        LIMIT $2 OFFSET $3
+    "#;
+
+    pub const COUNT_ATTENDANCE_OFFENDERS: &'static str = r#"
+        SELECT COUNT(1)
+        FROM attendance_offenders
+        WHERE is_deleted = false
+    "#;
+
+    pub const COUNT_ATTENDANCE_OFFENDERS_BY_CITIES: &'static str = r#"
+        SELECT COUNT(1)
+        FROM attendance_offenders ao
+        JOIN offenders o ON o.id = ao.offender_id
+        WHERE ao.is_deleted = false
+        AND o.city_id = ANY($1)
+    "#;
+
     pub const GET_ATTENDANCE_OFFENDERS_BY_OFFENDER: &'static str = r#"
         SELECT id, offender_id, victim_id, protective_measure_id, was_offender_present,
                attendance_date, attendance_time, is_remote, assaults_children,
