@@ -391,17 +391,25 @@ components:
     UpdatePasswordRequest:
       type: object
       required:
+        - current_password
         - new_password
       properties:
         current_password:
           type: string
           format: password
-          description: "Senha atual (obrigatória para usuários não-ROOT, opcional para ROOT)"
+          description: "Senha atual (obrigatória)"
         new_password:
           type: string
           format: password
           minLength: 8
           description: "Nova senha (obrigatória para todos)"
+
+    ResetUserPasswordResponse:
+      type: object
+      properties:
+        temporary_password:
+          type: string
+          description: "Senha provisória gerada para o usuário"
 
     AppendPolicyCitiesRequest:
       type: object
@@ -537,7 +545,19 @@ components:
         - "High School"
         - "College"
         - "Postgraduate"
-      description: "Nível de escolaridade do agressor"
+        - "Illiterate"
+        - "Semi-illiterate"
+        - "Master"
+        - "Doctorate"
+      description: "Nível de escolaridade"
+
+    ProtectiveMeasureStatus:
+      type: string
+      enum:
+        - "Valid"
+        - "Revoked"
+        - "Expired"
+      description: "Status da medida protetiva"
 
     RiskLevel:
       type: string
@@ -587,6 +607,18 @@ components:
         phone_type:
           $ref: "#/components/schemas/PhoneType"
 
+    AddressType:
+      type: string
+      enum:
+        - "Residential"
+        - "Work"
+        - "Correspondence"
+        - "Commercial"
+        - "Institutional"
+        - "Temporary"
+        - "Other"
+      description: "Tipo de endereco da vitima"
+
     Victim:
       type: object
       properties:
@@ -606,19 +638,13 @@ components:
           type: string
           format: uuid
         education_level:
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
           nullable: true
-          example: "Superior Completo"
         occupation:
           type: string
           nullable: true
           example: "Professora"
-        workplace:
-          type: string
-          nullable: true
-          example: "Escola Municipal"
-        violence_type:
-          $ref: "#/components/schemas/ViolenceType"
         has_children:
           $ref: "#/components/schemas/HasChildren"
         children_count:
@@ -628,7 +654,9 @@ components:
         has_special_needs:
           type: boolean
         special_needs_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         uses_alcohol:
           type: boolean
@@ -637,7 +665,9 @@ components:
         has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         phones:
           type: array
@@ -660,6 +690,7 @@ components:
       type: object
       required:
         - city_id
+        - address_type
       properties:
         id:
           type: string
@@ -682,11 +713,14 @@ components:
         complement:
           type: string
           nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
 
     AddressData:
       type: object
       required:
         - city_id
+        - address_type
       properties:
         street:
           type: string
@@ -706,18 +740,16 @@ components:
         complement:
           type: string
           nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
 
     CreateVictimRequest:
       type: object
       required:
         - full_name
-        - city_id
-        - violence_type
         - has_children
-        - has_special_needs
         - uses_alcohol
         - uses_drugs
-        - has_psychiatric_issues
       properties:
         full_name:
           type: string
@@ -731,6 +763,7 @@ components:
         city_id:
           type: string
           format: uuid
+          nullable: true
         phones:
           type: array
           items:
@@ -742,47 +775,39 @@ components:
             $ref: "#/components/schemas/AddressData"
           nullable: true
         education_level:
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
           nullable: true
         occupation:
           type: string
           nullable: true
-        workplace:
-          type: string
-          nullable: true
-        violence_type:
-          $ref: "#/components/schemas/ViolenceType"
         has_children:
           $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
-        has_special_needs:
-          type: boolean
         special_needs_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         uses_alcohol:
           type: boolean
         uses_drugs:
           type: boolean
-        has_psychiatric_issues:
-          type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
 
     UpdateVictimRequest:
       type: object
       required:
         - full_name
-        - city_id
-        - violence_type
         - has_children
-        - has_special_needs
         - uses_alcohol
         - uses_drugs
-        - has_psychiatric_issues
       properties:
         full_name:
           type: string
@@ -796,6 +821,7 @@ components:
         city_id:
           type: string
           format: uuid
+          nullable: true
         phones:
           type: array
           items:
@@ -807,34 +833,30 @@ components:
             $ref: "#/components/schemas/AddressData"
           nullable: true
         education_level:
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
           nullable: true
         occupation:
           type: string
           nullable: true
-        workplace:
-          type: string
-          nullable: true
-        violence_type:
-          $ref: "#/components/schemas/ViolenceType"
         has_children:
           $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
-        has_special_needs:
-          type: boolean
         special_needs_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         uses_alcohol:
           type: boolean
         uses_drugs:
           type: boolean
-        has_psychiatric_issues:
-          type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
 
     # --- Offender Schemas ---
@@ -854,6 +876,7 @@ components:
       type: object
       required:
         - city_id
+        - address_type
       properties:
         id:
           type: string
@@ -876,57 +899,8 @@ components:
         complement:
           type: string
           nullable: true
-
-    OffenderWorkAddress:
-      type: object
-      required:
-        - city_id
-      properties:
-        id:
-          type: string
-          format: uuid
-        street:
-          type: string
-          nullable: true
-        number:
-          type: string
-          nullable: true
-        district:
-          type: string
-          nullable: true
-        city_id:
-          type: string
-          format: uuid
-        zip_code:
-          type: string
-          nullable: true
-        complement:
-          type: string
-          nullable: true
-
-    WorkAddressData:
-      type: object
-      required:
-        - city_id
-      properties:
-        street:
-          type: string
-          nullable: true
-        number:
-          type: string
-          nullable: true
-        district:
-          type: string
-          nullable: true
-        city_id:
-          type: string
-          format: uuid
-        zip_code:
-          type: string
-          nullable: true
-        complement:
-          type: string
-          nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
 
     Offender:
       type: object
@@ -946,15 +920,9 @@ components:
         city_id:
           type: string
           format: uuid
-        victim_id:
-          type: string
-          format: uuid
         imprisoned:
           type: boolean
         occupation:
-          type: string
-          nullable: true
-        workplace:
           type: string
           nullable: true
         is_public_security_agent:
@@ -963,8 +931,6 @@ components:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
-        relationship_to_victim:
-          $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -974,13 +940,8 @@ components:
         psychiatric_issues_type:
           type: string
           nullable: true
-        was_drunk_during_assault:
-          type: boolean
         education_level:
           $ref: "#/components/schemas/EducationLevel"
-        assaults_children:
-          type: boolean
-          description: "Indica se o agressor agride os filhos"
         observation:
           type: string
           nullable: true
@@ -992,10 +953,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OffenderAddress"
-        work_addresses:
-          type: array
-          items:
-            $ref: "#/components/schemas/OffenderWorkAddress"
         created_at:
           type: string
           format: date-time
@@ -1009,17 +966,11 @@ components:
       type: object
       required:
         - full_name
-        - city_id
-        - victim_id
         - imprisoned
-        - is_public_security_agent
-        - relationship_to_victim
         - uses_alcohol
         - uses_drugs
         - has_psychiatric_issues
-        - was_drunk_during_assault
         - education_level
-        - assaults_children
       properties:
         full_name:
           type: string
@@ -1035,27 +986,17 @@ components:
         city_id:
           type: string
           format: uuid
-        victim_id:
-          type: string
-          format: uuid
+          nullable: true
         imprisoned:
           type: boolean
         occupation:
           type: string
           nullable: true
           example: "Mecânico"
-        workplace:
-          type: string
-          nullable: true
-          example: "Oficina Silva Auto Peças"
-        is_public_security_agent:
-          type: boolean
         security_force:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
-        relationship_to_victim:
-          $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -1065,15 +1006,9 @@ components:
         psychiatric_issues_type:
           type: string
           nullable: true
-        was_drunk_during_assault:
-          type: boolean
         education_level:
           $ref: "#/components/schemas/EducationLevel"
           example: "High School"
-        assaults_children:
-          type: boolean
-          description: "Indica se o agressor agride os filhos"
-          example: false
         observation:
           type: string
           nullable: true
@@ -1087,27 +1022,16 @@ components:
           items:
             $ref: "#/components/schemas/AddressData"
           nullable: true
-        work_addresses:
-          type: array
-          items:
-            $ref: "#/components/schemas/WorkAddressData"
-          nullable: true
 
     UpdateOffenderRequest:
       type: object
       required:
         - full_name
-        - city_id
-        - victim_id
         - imprisoned
-        - is_public_security_agent
-        - relationship_to_victim
         - uses_alcohol
         - uses_drugs
         - has_psychiatric_issues
-        - was_drunk_during_assault
         - education_level
-        - assaults_children
       properties:
         full_name:
           type: string
@@ -1121,25 +1045,16 @@ components:
         city_id:
           type: string
           format: uuid
-        victim_id:
-          type: string
-          format: uuid
+          nullable: true
         imprisoned:
           type: boolean
         occupation:
           type: string
           nullable: true
-        workplace:
-          type: string
-          nullable: true
-        is_public_security_agent:
-          type: boolean
         security_force:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
-        relationship_to_victim:
-          $ref: "#/components/schemas/RelationshipToVictim"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -1149,13 +1064,8 @@ components:
         psychiatric_issues_type:
           type: string
           nullable: true
-        was_drunk_during_assault:
-          type: boolean
         education_level:
           $ref: "#/components/schemas/EducationLevel"
-        assaults_children:
-          type: boolean
-          description: "Indica se o agressor agride os filhos"
         observation:
           type: string
           nullable: true
@@ -1168,11 +1078,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AddressData"
-          nullable: true
-        work_addresses:
-          type: array
-          items:
-            $ref: "#/components/schemas/WorkAddressData"
           nullable: true
 
     # --- Protective Measure Schemas ---
@@ -1209,7 +1114,18 @@ components:
           type: integer
           nullable: true
           description: "Distância em metros que o agressor deve manter da vítima"
-        is_active:
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        was_drunk_during_assault:
           type: boolean
         victim_id:
           type: string
@@ -1234,7 +1150,11 @@ components:
         - issued_at
         - judicial_authority
         - court_district_id
-        - is_active
+        - status
+        - violence_types
+        - relationship_to_victim
+        - assaults_children
+        - was_drunk_during_assault
         - victim_id
         - offender_id
       properties:
@@ -1266,7 +1186,17 @@ components:
           type: integer
           nullable: true
           example: 500
-        is_active:
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+        was_drunk_during_assault:
           type: boolean
         victim_id:
           type: string
@@ -1274,6 +1204,11 @@ components:
         offender_id:
           type: string
           format: uuid
+        extensions:
+          type: array
+          description: "Prorrogações opcionais a serem criadas junto com a medida"
+          items:
+            $ref: "#/components/schemas/ProtectiveMeasureExtensionUpsert"
 
     UpdateProtectiveMeasureRequest:
       type: object
@@ -1282,8 +1217,13 @@ components:
         - issued_at
         - judicial_authority
         - court_district_id
-        - is_active
+        - status
+        - violence_types
+        - relationship_to_victim
+        - assaults_children
+        - was_drunk_during_assault
         - victim_id
+        - offender_id
       properties:
         process_number:
           type: string
@@ -1308,7 +1248,17 @@ components:
         distance_meters:
           type: integer
           nullable: true
-        is_active:
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+        was_drunk_during_assault:
           type: boolean
         victim_id:
           type: string
@@ -1316,8 +1266,36 @@ components:
         offender_id:
           type: string
           format: uuid
+        extensions:
+          type: array
+          description: "Prorrogações opcionais para criar/atualizar (id opcional)"
+          items:
+            $ref: "#/components/schemas/ProtectiveMeasureExtensionUpsert"
 
     # --- Extension Schemas ---
+    ProtectiveMeasureExtensionUpsert:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "Use para atualizar uma prorrogação existente; omita para criar"
+        extension_number:
+          type: integer
+          example: 1
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
     ProtectiveMeasureExtension:
       type: object
       properties:
@@ -2015,6 +1993,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de usuários retornada com sucesso"
@@ -2030,6 +2023,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/User"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -2199,8 +2204,8 @@ paths:
         Atualiza a senha de um usuário.
 
         **Regras:**
-        - Usuários comuns: podem atualizar apenas sua própria senha e DEVEM fornecer a senha atual
-        - ROOT: pode atualizar senha de qualquer usuário SEM precisar fornecer a senha atual
+        - Usuários podem atualizar apenas sua própria senha
+        - É obrigatório informar a senha atual
       operationId: "updateUserPassword"
       security:
         - bearerAuth: []
@@ -2213,14 +2218,10 @@ paths:
               $ref: "#/components/schemas/UpdatePasswordRequest"
             examples:
               usuario_comum:
-                summary: "Usuário comum alterando sua própria senha"
+                summary: "Usuário alterando sua própria senha"
                 value:
                   current_password: "SenhaAtual123!"
                   new_password: "NovaSenha456!"
-              usuario_root:
-                summary: "ROOT alterando senha de outro usuário"
-                value:
-                  new_password: "NovaSenhaDefinidaPeloRoot123!"
       responses:
         "200":
           description: "Senha atualizada com sucesso"
@@ -2236,6 +2237,56 @@ paths:
                     $ref: "#/components/schemas/User"
         "400":
           description: "Senha atual incorreta ou dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/password/reset:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+
+    post:
+      tags:
+        - "Users"
+      summary: "Reset de senha do usuário"
+      description: |
+        Gera uma senha provisória e atualiza o usuário.
+
+        **Regras:**
+        - Apenas ROOT e CITY_ADMIN podem usar
+        - CITY_ADMIN só pode resetar usuários da própria cidade
+      operationId: "resetUserPassword"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Senha provisória gerada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ResetUserPasswordResponse"
+        "403":
+          description: "Sem permissão para resetar senha"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Usuário não encontrado"
           content:
             application/json:
               schema:
@@ -2338,6 +2389,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de cidades retornada com sucesso"
@@ -2353,6 +2419,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/City"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -2515,6 +2593,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de vítimas retornada com sucesso"
@@ -2530,6 +2623,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Victim"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -2567,6 +2672,51 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: "Sem permissão para criar vítima nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /victims/search:
+    get:
+      tags:
+        - "Victims"
+      summary: "Buscar vítimas por nome ou CPF"
+      description: "Busca vítimas pelo nome (ILIKE) ou CPF exato"
+      operationId: "searchVictims"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome da vítima (parcial)"
+        - name: "cpf"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "CPF da vítima no formato 000.000.000-00"
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Parâmetros inválidos"
           content:
             application/json:
               schema:
@@ -2876,6 +3026,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de agressores retornada com sucesso"
@@ -2891,6 +3056,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Offender"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -2928,6 +3105,51 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: "Sem permissão para criar agressor nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /offenders/search:
+    get:
+      tags:
+        - "Offenders"
+      summary: "Buscar agressores por nome ou CPF"
+      description: "Busca agressores pelo nome (ILIKE) ou CPF exato"
+      operationId: "searchOffenders"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome do agressor (parcial)"
+        - name: "cpf"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "CPF do agressor no formato 000.000.000-00"
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Parâmetros inválidos"
           content:
             application/json:
               schema:
@@ -3261,104 +3483,6 @@ paths:
         "200":
           description: "Endereço deletado com sucesso"
 
-  /offenders/{id}/work-addresses:
-    parameters:
-      - name: "id"
-        in: "path"
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: "ID do agressor"
-
-    post:
-      tags:
-        - "Offenders"
-      summary: "Adicionar endereço de trabalho ao agressor"
-      description: "Adiciona um novo endereço de trabalho para o agressor"
-      operationId: "addWorkAddressToOffender"
-      security:
-        - bearerAuth: []
-          api_key: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WorkAddressData"
-      responses:
-        "201":
-          description: "Endereço de trabalho adicionado com sucesso"
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: integer
-                    example: 201
-                  data:
-                    $ref: "#/components/schemas/OffenderWorkAddress"
-
-  /offenders/{id}/work-addresses/{work_address_id}:
-    parameters:
-      - name: "id"
-        in: "path"
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: "ID do agressor"
-      - name: "work_address_id"
-        in: "path"
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: "ID do endereço de trabalho"
-
-    put:
-      tags:
-        - "Offenders"
-      summary: "Atualizar endereço de trabalho do agressor"
-      description: "Atualiza informações de um endereço de trabalho existente"
-      operationId: "updateOffenderWorkAddress"
-      security:
-        - bearerAuth: []
-          api_key: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WorkAddressData"
-      responses:
-        "200":
-          description: "Endereço de trabalho atualizado com sucesso"
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: integer
-                    example: 200
-                  data:
-                    $ref: "#/components/schemas/OffenderWorkAddress"
-
-    delete:
-      tags:
-        - "Offenders"
-      summary: "Deletar endereço de trabalho do agressor (soft delete)"
-      description: "Remove um endereço de trabalho do agressor"
-      operationId: "deleteOffenderWorkAddress"
-      security:
-        - bearerAuth: []
-          api_key: []
-      responses:
-        "200":
-          description: "Endereço de trabalho deletado com sucesso"
-
   # === PROTECTIVE MEASURE ENDPOINTS ===
   /protective-measures:
     get:
@@ -3370,6 +3494,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de medidas protetivas retornada com sucesso"
@@ -3385,6 +3524,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -3717,6 +3868,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -3732,6 +3898,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceVictim"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -4048,6 +4226,21 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -4063,6 +4256,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
 
     post:
       tags:
@@ -4549,6 +4754,20 @@ paths:
             type: string
             format: uuid
           description: "Filtrar por cidade dos membros"
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
       responses:
         "200":
           description: "Lista de sessões retornada com sucesso"
@@ -4564,6 +4783,18 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/WorkSessionWithMembers"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
         "403":
           description: "Sem permissão para visualizar sessões"
           content:
