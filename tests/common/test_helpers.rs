@@ -91,7 +91,6 @@ pub async fn clean_database(pool: &PgPool) {
         "DELETE FROM protective_measures",
         "DELETE FROM offender_phones",
         "DELETE FROM offender_addresses",
-        "DELETE FROM offender_work_addresses",
         "DELETE FROM offenders",
         "DELETE FROM victim_phones",
         "DELETE FROM victim_addresses",
@@ -168,7 +167,6 @@ pub async fn create_full_test_app(
     ));
     let offender_service = web::Data::new(OffenderService::new(
         offender_repository.clone(),
-        victim_repository.clone(),
         user_repository.clone(),
     ));
     let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
