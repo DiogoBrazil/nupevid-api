@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use sqlx::Type;
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
@@ -174,7 +174,10 @@ impl AttendanceVictimAddress {
 }
 
 impl AttendanceVictim {
-    pub fn with_address(self, address: Option<AttendanceVictimAddress>) -> AttendanceVictimWithAddress {
+    pub fn with_address(
+        self,
+        address: Option<AttendanceVictimAddress>,
+    ) -> AttendanceVictimWithAddress {
         AttendanceVictimWithAddress {
             id: self.id,
             victim_id: self.victim_id,
@@ -196,7 +199,8 @@ impl AttendanceVictim {
             offender_has_firearm_access: self.offender_has_firearm_access,
             needs_legal_assistance: self.needs_legal_assistance,
             needs_psychological_support: self.needs_psychological_support,
-            was_instructed_about_protective_measure_procedures: self.was_instructed_about_protective_measure_procedures,
+            was_instructed_about_protective_measure_procedures: self
+                .was_instructed_about_protective_measure_procedures,
             offender_violated_protective_measure: self.offender_violated_protective_measure,
         }
     }

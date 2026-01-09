@@ -1,29 +1,26 @@
 use actix_cors::Cors;
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{App, HttpServer, middleware::Logger, web};
 use env_logger::{Builder, Env};
 use log::info;
-use nupevid_api::adapters::{password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator};
+use nupevid_api::adapters::{
+    password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator,
+};
 use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
-    attendance_offenders::PgAttendanceOffenderRepository,
-    attendance_victims::PgAttendanceVictimRepository,
     attendance_members::PgAttendanceMemberRepository,
-    auth::PgAuthRepository,
-    cities::PgCityRepository,
-    extensions::PgExtensionRepository,
-    offenders::PgOffenderRepository,
-    protective_measures::PgProtectiveMeasureRepository,
-    users::PgUserRepository,
-    victims::PgVictimRepository,
-    work_sessions::PgWorkSessionRepository,
+    attendance_offenders::PgAttendanceOffenderRepository,
+    attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
+    cities::PgCityRepository, extensions::PgExtensionRepository, offenders::PgOffenderRepository,
+    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes;
 use nupevid_api::services::{
     attendance_offenders::AttendanceOffenderService, attendance_victims::AttendanceVictimService,
     auth::AuthService, cities::CityService, extensions::ExtensionService,
-    offenders::OffenderService, protective_measures::ProtectiveMeasureService,
-    users::UserService, victims::VictimService, work_sessions::WorkSessionService,
+    offenders::OffenderService, protective_measures::ProtectiveMeasureService, users::UserService,
+    victims::VictimService, work_sessions::WorkSessionService,
 };
 
 use nupevid_api::utils::seeder::seed_admin_user;
@@ -58,12 +55,16 @@ async fn main() -> std::io::Result<()> {
     let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
     let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
-    let protective_measure_repository = web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let protective_measure_repository =
+        web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
     let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
-    let attendance_victim_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
-    let attendance_offender_repository = web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
+    let attendance_victim_repository =
+        web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
+    let attendance_offender_repository =
+        web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
     let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
-    let attendance_member_repository = web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
+    let attendance_member_repository =
+        web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
     info!("Repositories created");
 
     // Create services
@@ -80,15 +81,15 @@ async fn main() -> std::io::Result<()> {
     ));
     let city_service = web::Data::new(CityService::new(
         city_repository.clone(),
-        user_repository.clone()
+        user_repository.clone(),
     ));
     let victim_service = web::Data::new(VictimService::new(
         victim_repository.clone(),
-        user_repository.clone()
+        user_repository.clone(),
     ));
     let offender_service = web::Data::new(OffenderService::new(
         offender_repository.clone(),
-        user_repository.clone()
+        user_repository.clone(),
     ));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
@@ -133,9 +134,9 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default()
             .allow_any_origin()
             .allowed_origin_fn(|origin, _req_head| {
-                    println!("Origin: {:?}", origin);
-                    true
-                })
+                println!("Origin: {:?}", origin);
+                true
+            })
             .allow_any_method()
             .allow_any_header()
             .supports_credentials()

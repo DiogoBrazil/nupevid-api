@@ -1,7 +1,7 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 9 - Test 1: Try to end session twice
 #[actix_rt::test]
@@ -13,7 +13,8 @@ async fn cannot_end_session_twice() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "600001", "user@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "600001", "user@test.com", "CITY_USER", Some(city)).await;
 
     let mut claims = test_helpers::build_city_user_claims(city);
     claims.id = user_id.to_string();
@@ -24,8 +25,7 @@ async fn cannot_end_session_twice() {
 
     // End session first time
     let end_req1 = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &token,
     )
@@ -36,8 +36,7 @@ async fn cannot_end_session_twice() {
 
     // Try to end again
     let end_req2 = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &token,
     )
@@ -58,7 +57,8 @@ async fn get_session_with_invalid_uuid() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "600002", "user@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "600002", "user@test.com", "CITY_ADMIN", Some(city)).await;
 
     let mut claims = test_helpers::build_city_admin_claims(city);
     claims.id = user_id.to_string();
@@ -66,8 +66,7 @@ async fn get_session_with_invalid_uuid() {
 
     // Try with invalid UUID
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions/not-a-uuid"),
+        test::TestRequest::get().uri("/api/v1/work-sessions/not-a-uuid"),
         &config,
         &token,
     )
@@ -88,7 +87,14 @@ async fn update_members_with_empty_array_fails() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "600003", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "600003",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -142,8 +148,16 @@ async fn cannot_remove_commander_from_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "600004", "creator@test.com", "CITY_ADMIN", Some(city)).await;
-    let member_id = db_fixtures::insert_user(&pool, "600005", "member@test.com", "CITY_USER", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "600004",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "600005", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -207,7 +221,8 @@ async fn get_nonexistent_session_returns_404() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "600006", "user@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "600006", "user@test.com", "CITY_ADMIN", Some(city)).await;
 
     let mut claims = test_helpers::build_city_admin_claims(city);
     claims.id = user_id.to_string();
@@ -217,8 +232,7 @@ async fn get_nonexistent_session_returns_404() {
     let nonexistent_id = Uuid::new_v4();
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/work-sessions/{}", nonexistent_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/work-sessions/{}", nonexistent_id)),
         &config,
         &token,
     )
@@ -238,7 +252,14 @@ async fn add_member_with_malformed_uuid() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "600007", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "600007",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();

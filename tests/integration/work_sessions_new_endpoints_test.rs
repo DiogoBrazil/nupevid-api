@@ -1,6 +1,6 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 // ==================== UPDATE MEMBER FUNCTION TESTS ====================
 
@@ -13,8 +13,22 @@ async fn update_member_function_success() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100001", "creator@test.com", "CITY_USER", Some(city_id)).await;
-    let member_id = db_fixtures::insert_user(&pool, "100002", "member@test.com", "CITY_USER", Some(city_id)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100001",
+        "creator@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let member_id = db_fixtures::insert_user(
+        &pool,
+        "100002",
+        "member@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let mut claims = test_helpers::build_city_user_claims(city_id);
     claims.id = creator_id.to_string();
@@ -52,7 +66,10 @@ async fn update_member_function_success() {
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}/function", session_id, member_id))
+            .uri(&format!(
+                "/api/v1/work-sessions/{}/members/{}/function",
+                session_id, member_id
+            ))
             .set_json(&update_payload),
         &config,
         &token,
@@ -64,8 +81,7 @@ async fn update_member_function_success() {
 
     // Verify function was updated
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/work-sessions/{}", session_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/work-sessions/{}", session_id)),
         &config,
         &token,
     )
@@ -76,7 +92,8 @@ async fn update_member_function_success() {
     let members = get_body["data"]["members"].as_array().unwrap();
 
     // Find the member that was updated
-    let updated_member = members.iter()
+    let updated_member = members
+        .iter()
         .find(|m| m["user_id"].as_str().unwrap() == member_id.to_string())
         .unwrap();
 
@@ -92,8 +109,22 @@ async fn update_member_function_to_commander_fails_when_already_has_commander() 
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100003", "creator@test.com", "CITY_USER", Some(city_id)).await;
-    let member_id = db_fixtures::insert_user(&pool, "100004", "member@test.com", "CITY_USER", Some(city_id)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100003",
+        "creator@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let member_id = db_fixtures::insert_user(
+        &pool,
+        "100004",
+        "member@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let mut claims = test_helpers::build_city_user_claims(city_id);
     claims.id = creator_id.to_string();
@@ -130,7 +161,10 @@ async fn update_member_function_to_commander_fails_when_already_has_commander() 
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}/function", session_id, member_id))
+            .uri(&format!(
+                "/api/v1/work-sessions/{}/members/{}/function",
+                session_id, member_id
+            ))
             .set_json(&update_payload),
         &config,
         &token,
@@ -150,9 +184,30 @@ async fn update_member_function_non_creator_fails() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100005", "creator@test.com", "CITY_USER", Some(city_id)).await;
-    let member_id = db_fixtures::insert_user(&pool, "100006", "member@test.com", "CITY_USER", Some(city_id)).await;
-    let other_user_id = db_fixtures::insert_user(&pool, "100007", "other@test.com", "CITY_USER", Some(city_id)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100005",
+        "creator@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let member_id = db_fixtures::insert_user(
+        &pool,
+        "100006",
+        "member@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let other_user_id = db_fixtures::insert_user(
+        &pool,
+        "100007",
+        "other@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city_id);
     creator_claims.id = creator_id.to_string();
@@ -193,7 +248,10 @@ async fn update_member_function_non_creator_fails() {
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}/function", session_id, member_id))
+            .uri(&format!(
+                "/api/v1/work-sessions/{}/members/{}/function",
+                session_id, member_id
+            ))
             .set_json(&update_payload),
         &config,
         &other_token,
@@ -213,7 +271,14 @@ async fn update_member_function_nonexistent_member_fails() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100008", "creator@test.com", "CITY_USER", Some(city_id)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100008",
+        "creator@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
     let nonexistent_user_id = uuid::Uuid::new_v4();
 
     let mut claims = test_helpers::build_city_user_claims(city_id);
@@ -246,7 +311,10 @@ async fn update_member_function_nonexistent_member_fails() {
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}/function", session_id, nonexistent_user_id))
+            .uri(&format!(
+                "/api/v1/work-sessions/{}/members/{}/function",
+                session_id, nonexistent_user_id
+            ))
             .set_json(&update_payload),
         &config,
         &token,
@@ -268,8 +336,22 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let user1_id = db_fixtures::insert_user(&pool, "100009", "user1@test.com", "CITY_USER", Some(city_id)).await;
-    let user2_id = db_fixtures::insert_user(&pool, "100010", "user2@test.com", "CITY_USER", Some(city_id)).await;
+    let user1_id = db_fixtures::insert_user(
+        &pool,
+        "100009",
+        "user1@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let user2_id = db_fixtures::insert_user(
+        &pool,
+        "100010",
+        "user2@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     // Create session as user1
     let mut user1_claims = test_helpers::build_city_user_claims(city_id);
@@ -315,8 +397,7 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
 
     // List sessions as user1 (should only see own session)
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions"),
+        test::TestRequest::get().uri("/api/v1/work-sessions"),
         &config,
         &user1_token,
     )
@@ -328,7 +409,10 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
     let sessions = list_body["data"].as_array().unwrap();
 
     assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0]["description"].as_str().unwrap(), "User1 session");
+    assert_eq!(
+        sessions[0]["description"].as_str().unwrap(),
+        "User1 session"
+    );
 }
 
 #[actix_rt::test]
@@ -340,8 +424,17 @@ async fn list_sessions_city_admin_sees_all_city_sessions() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let admin_id = db_fixtures::insert_user(&pool, "100011", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
-    let user_id = db_fixtures::insert_user(&pool, "100012", "user@test.com", "CITY_USER", Some(city_id)).await;
+    let admin_id = db_fixtures::insert_user(
+        &pool,
+        "100011",
+        "admin@test.com",
+        "CITY_ADMIN",
+        Some(city_id),
+    )
+    .await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100012", "user@test.com", "CITY_USER", Some(city_id))
+            .await;
 
     // Create session as regular user
     let mut user_claims = test_helpers::build_city_user_claims(city_id);
@@ -387,8 +480,7 @@ async fn list_sessions_city_admin_sees_all_city_sessions() {
 
     // List sessions as admin (should see both)
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions"),
+        test::TestRequest::get().uri("/api/v1/work-sessions"),
         &config,
         &admin_token,
     )
@@ -412,8 +504,22 @@ async fn list_sessions_root_sees_all_sessions() {
 
     let city1_id = db_fixtures::insert_city(&pool, "City 1").await;
     let city2_id = db_fixtures::insert_city(&pool, "City 2").await;
-    let user1_id = db_fixtures::insert_user(&pool, "100013", "user1@test.com", "CITY_USER", Some(city1_id)).await;
-    let user2_id = db_fixtures::insert_user(&pool, "100014", "user2@test.com", "CITY_USER", Some(city2_id)).await;
+    let user1_id = db_fixtures::insert_user(
+        &pool,
+        "100013",
+        "user1@test.com",
+        "CITY_USER",
+        Some(city1_id),
+    )
+    .await;
+    let user2_id = db_fixtures::insert_user(
+        &pool,
+        "100014",
+        "user2@test.com",
+        "CITY_USER",
+        Some(city2_id),
+    )
+    .await;
 
     // Create session in city1
     let mut user1_claims = test_helpers::build_city_user_claims(city1_id);
@@ -462,8 +568,7 @@ async fn list_sessions_root_sees_all_sessions() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions"),
+        test::TestRequest::get().uri("/api/v1/work-sessions"),
         &config,
         &root_token,
     )
@@ -486,7 +591,9 @@ async fn list_sessions_with_date_filters() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "100015", "user@test.com", "CITY_USER", Some(city_id)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100015", "user@test.com", "CITY_USER", Some(city_id))
+            .await;
 
     let mut claims = test_helpers::build_city_user_claims(city_id);
     claims.id = user_id.to_string();
@@ -511,8 +618,7 @@ async fn list_sessions_with_date_filters() {
 
     // List with future start date (should return empty)
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions?start_date=2099-01-01"),
+        test::TestRequest::get().uri("/api/v1/work-sessions?start_date=2099-01-01"),
         &config,
         &token,
     )

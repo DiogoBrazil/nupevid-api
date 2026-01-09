@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use sqlx::Type;
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::core::entities::attendance_victims::AttendanceAddressData;
@@ -127,7 +127,10 @@ impl AttendanceOffenderAddress {
 }
 
 impl AttendanceOffender {
-    pub fn with_address(self, address: Option<AttendanceOffenderAddress>) -> AttendanceOffenderWithAddress {
+    pub fn with_address(
+        self,
+        address: Option<AttendanceOffenderAddress>,
+    ) -> AttendanceOffenderWithAddress {
         AttendanceOffenderWithAddress {
             id: self.id,
             offender_id: self.offender_id,

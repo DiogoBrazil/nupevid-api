@@ -5,12 +5,25 @@ use uuid::Uuid;
 use crate::common::{db_fixtures, test_helpers};
 
 // Helper: build JWT for a persisted user
-fn build_token_for_user(id: Uuid, profile: &str, email: &str, full_name: &str, registration: &str, rank: &str, city_id: Option<Uuid>, jwt_secret: &str) -> String {
+fn build_token_for_user(
+    id: Uuid,
+    profile: &str,
+    email: &str,
+    full_name: &str,
+    registration: &str,
+    rank: &str,
+    city_id: Option<Uuid>,
+    jwt_secret: &str,
+) -> String {
     let claims = nupevid_api::core::entities::auth::ClaimsToUserToken {
         id: id.to_string(),
         exp: {
             use std::time::{SystemTime, UNIX_EPOCH};
-            (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600
+            (SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as usize)
+                + 3600
         },
         rank: rank.to_string(),
         registration: registration.to_string(),
@@ -32,7 +45,8 @@ async fn root_cannot_assign_city_management_policies() {
 
     // Cria cidade e usuário alvo
     let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     let user_payload = json!({
         "rank": "CB PM",
@@ -44,23 +58,35 @@ async fn root_cannot_assign_city_management_policies() {
         "city_id": city,
     });
     let create_user = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, create_user).await;
     let user_status = user_resp.status();
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
     if !user_status.is_success() {
-        panic!("Failed to create user: status={}, body={:?}", user_status, user_body);
+        panic!(
+            "Failed to create user: status={}, body={:?}",
+            user_status, user_body
+        );
     }
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Tenta conceder políticas de gestão de cidades (não atribuíveis)
-    for p in ["create_cities", "update_cities", "delete_cities"] {        
+    for p in ["create_cities", "update_cities", "delete_cities"] {
         let append_payload = json!({ "city_ids": [city] });
         let append_req = test_helpers::with_auth_headers(
-            test::TestRequest::post().uri(&format!("/api/v1/users/{}/policies/{}/cities", user_id, p))
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/users/{}/policies/{}/cities", user_id, p))
                 .set_json(&append_payload),
-            &config, &root_token).to_request();
+            &config,
+            &root_token,
+        )
+        .to_request();
         let append_resp = test::call_service(&app, append_req).await;
         assert_eq!(append_resp.status(), StatusCode::BAD_REQUEST);
     }
@@ -76,7 +102,8 @@ async fn root_cannot_remove_city_management_policies() {
 
     // Cria cidade e usuário alvo
     let city = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     let user_payload = json!({
         "rank": "CB PM",
@@ -88,8 +115,13 @@ async fn root_cannot_remove_city_management_policies() {
         "city_id": city,
     });
     let create_user = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, create_user).await;
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -98,9 +130,13 @@ async fn root_cannot_remove_city_management_policies() {
     for p in ["create_cities", "update_cities", "delete_cities"] {
         let remove_payload = json!({ "city_ids": [city] });
         let remove_req = test_helpers::with_auth_headers(
-            test::TestRequest::delete().uri(&format!("/api/v1/users/{}/policies/{}/cities", user_id, p))
+            test::TestRequest::delete()
+                .uri(&format!("/api/v1/users/{}/policies/{}/cities", user_id, p))
                 .set_json(&remove_payload),
-            &config, &root_token).to_request();
+            &config,
+            &root_token,
+        )
+        .to_request();
         let remove_resp = test::call_service(&app, remove_req).await;
         assert_eq!(remove_resp.status(), StatusCode::BAD_REQUEST);
     }
@@ -133,8 +169,13 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         "city_id": city_a,
     });
     let create_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let create_admin_resp = test::call_service(&app, create_admin_req).await;
     assert_eq!(create_admin_resp.status(), StatusCode::CREATED);
     let admin_body: serde_json::Value = test::read_body_json(create_admin_resp).await;
@@ -144,16 +185,25 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
     // Primeiro obter policies atuais via GET /users/{id}
     let get_admin_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     assert_eq!(get_admin_resp.status(), StatusCode::OK);
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
     // garantir array para read_victims
     {
-        let arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+        let arr = policies["read_victims"]
+            .as_array()
+            .cloned()
+            .unwrap_or_else(|| vec![json!(city_a.to_string())]);
         let mut new_arr = arr.clone();
-        if !new_arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
+        if !new_arr
+            .iter()
+            .any(|v| v.as_str() == Some(&city_b.to_string()))
+        {
             new_arr.push(json!(city_b.to_string()));
         }
         policies["read_victims"] = json!(new_arr);
@@ -168,13 +218,27 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         "permission_policies": policies,
     });
     let update_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
     // Token do ADMIN com id persistido
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.a@test.com", "Admin A", "100000101", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.a@test.com",
+        "Admin A",
+        "100000101",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // ADMIN cria CITY_USER e atribui read_victims em city_b
     let city_user_payload = json!({
@@ -189,8 +253,13 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         }
     });
     let create_user_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&city_user_payload),
-        &config, &admin_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&city_user_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let create_user_resp = test::call_service(&app, create_user_req).await;
     assert_eq!(create_user_resp.status(), StatusCode::CREATED);
     let user_body: serde_json::Value = test::read_body_json(create_user_resp).await;
@@ -214,20 +283,45 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         "psychiatric_issues_type": serde_json::Value::Null,
     });
     let create_victim_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/victims").set_json(&victim_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/victims")
+            .set_json(&victim_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let create_victim_resp = test::call_service(&app, create_victim_req).await;
     assert_eq!(create_victim_resp.status(), StatusCode::CREATED);
 
     // Token do CITY_USER persistido
-    let user_token = build_token_for_user(user_id, "CITY_USER", "user.a@test.com", "User A", "100000201", "CB PM", Some(city_a), &config.jwt_secret);
+    let user_token = build_token_for_user(
+        user_id,
+        "CITY_USER",
+        "user.a@test.com",
+        "User A",
+        "100000201",
+        "CB PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // CITY_USER lista vítimas -> deve ver vítima de city_b por extra policy
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/victims"), &config, &user_token).to_request();
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims"),
+        &config,
+        &user_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
-    assert!(list_body["data"].as_array().unwrap().iter().any(|v| v["city_id"].as_str().unwrap() == city_b.to_string()));
+    assert!(
+        list_body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["city_id"].as_str().unwrap() == city_b.to_string())
+    );
 }
 
 #[actix_rt::test]
@@ -239,7 +333,8 @@ async fn city_admin_cannot_assign_policy_not_possessed() {
 
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria ADMIN A
     let admin_payload = json!({
@@ -252,12 +347,26 @@ async fn city_admin_cannot_assign_policy_not_possessed() {
         "city_id": city_a,
     });
     let create_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.b@test.com", "Admin B", "100000301", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.b@test.com",
+        "Admin B",
+        "100000301",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // ADMIN tenta criar CITY_USER com create_victims em city_b (não possui)
     let user_payload = json!({
@@ -272,8 +381,13 @@ async fn city_admin_cannot_assign_policy_not_possessed() {
         }
     });
     let create_user_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &admin_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let resp = test::call_service(&app, create_user_req).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
@@ -286,7 +400,8 @@ async fn city_user_cannot_assign_policies() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_USER
     let user_payload = json!({
@@ -299,15 +414,29 @@ async fn city_user_cannot_assign_policies() {
         "city_id": city,
     });
     let create_user_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp = test::call_service(&app, create_user_req).await;
     assert_eq!(resp.status(), StatusCode::CREATED);
     let body: serde_json::Value = test::read_body_json(resp).await;
     let user_id: Uuid = body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_USER persistido
-    let token = build_token_for_user(user_id, "CITY_USER", "user.c@test.com", "User C", "100000401", "CB PM", Some(city), &config.jwt_secret);
+    let token = build_token_for_user(
+        user_id,
+        "CITY_USER",
+        "user.c@test.com",
+        "User C",
+        "100000401",
+        "CB PM",
+        Some(city),
+        &config.jwt_secret,
+    );
 
     // Tenta criar outro usuário com policies -> deve ser proibido
     let payload = json!({
@@ -322,8 +451,13 @@ async fn city_user_cannot_assign_policies() {
         }
     });
     let create_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&payload),
-        &config, &token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&payload),
+        &config,
+        &token,
+    )
+    .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     assert_eq!(create_resp.status(), StatusCode::FORBIDDEN);
 }
@@ -338,7 +472,8 @@ async fn city_user_read_cities_only_own_city() {
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let _city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
 
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_USER em city_a
     let user_payload = json!({
@@ -351,16 +486,35 @@ async fn city_user_read_cities_only_own_city() {
         "city_id": city_a,
     });
     let create_user_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp = test::call_service(&app, create_user_req).await;
     assert_eq!(resp.status(), StatusCode::CREATED);
     let body: serde_json::Value = test::read_body_json(resp).await;
     let user_id: Uuid = body["data"]["id"].as_str().unwrap().parse().unwrap();
-    let token = build_token_for_user(user_id, "CITY_USER", "user.e@test.com", "User E", "100000501", "CB PM", Some(city_a), &config.jwt_secret);
+    let token = build_token_for_user(
+        user_id,
+        "CITY_USER",
+        "user.e@test.com",
+        "User E",
+        "100000501",
+        "CB PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // Lista cidades -> deve vir apenas a própria (fallback + filtragem)
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/cities"), &config, &token).to_request();
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/cities"),
+        &config,
+        &token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
@@ -378,7 +532,8 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
 
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria ADMIN A
     let admin_payload = json!({
@@ -390,19 +545,39 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
         "password": "Secret123!",
         "city_id": city_a,
     });
-    let create_admin_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload), &config, &root_token).to_request();
+    let create_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Atualiza admin adicionando read_attendances em city_b
-    let get_admin_req = test_helpers::with_auth_headers(test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)), &config, &root_token).to_request();
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let arr = policies["read_attendances"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let arr = policies["read_attendances"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     let mut new_arr = arr.clone();
-    if !new_arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) { new_arr.push(json!(city_b.to_string())); }
+    if !new_arr
+        .iter()
+        .any(|v| v.as_str() == Some(&city_b.to_string()))
+    {
+        new_arr.push(json!(city_b.to_string()));
+    }
     policies["read_attendances"] = json!(new_arr);
     let update_admin_payload = json!({
         "rank": "CAP PM",
@@ -413,12 +588,20 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
         "city_id": city_a,
         "permission_policies": policies,
     });
-    let update_admin_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload), &config, &root_token).to_request();
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
     // Cria root user no banco e work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
     let mut root_claims = test_helpers::build_root_claims();
     root_claims.id = root_user_id.to_string();
     let new_root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
@@ -447,14 +630,35 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
         "was_instructed_about_protective_measure_procedures": false,
         "offender_violated_protective_measure": false
     });
-    let create_att_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/attendance-victims").set_json(&attendance_payload), &config, &new_root_token).to_request();
+    let create_att_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&attendance_payload),
+        &config,
+        &new_root_token,
+    )
+    .to_request();
     let create_att_resp = test::call_service(&app, create_att_req).await;
     assert_eq!(create_att_resp.status(), StatusCode::CREATED);
 
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.c@test.com", "Admin C", "100000601", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.c@test.com",
+        "Admin C",
+        "100000601",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // Lista atendimentos -> deve incluir o de city_b por extra policy
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/attendance-victims"), &config, &admin_token).to_request();
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/attendance-victims"),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
@@ -470,7 +674,8 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
 
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria ADMIN A
     let admin_payload = json!({
@@ -482,19 +687,39 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
         "password": "Secret123!",
         "city_id": city_a,
     });
-    let create_admin_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload), &config, &root_token).to_request();
+    let create_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Atualiza admin adicionando read_protective_measures em city_b
-    let get_admin_req = test_helpers::with_auth_headers(test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)), &config, &root_token).to_request();
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let arr = policies["read_protective_measures"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let arr = policies["read_protective_measures"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     let mut new_arr = arr.clone();
-    if !new_arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) { new_arr.push(json!(city_b.to_string())); }
+    if !new_arr
+        .iter()
+        .any(|v| v.as_str() == Some(&city_b.to_string()))
+    {
+        new_arr.push(json!(city_b.to_string()));
+    }
     policies["read_protective_measures"] = json!(new_arr);
     let update_admin_payload = json!({
         "rank": "CAP PM",
@@ -505,7 +730,14 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
         "city_id": city_a,
         "permission_policies": policies,
     });
-    let update_admin_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload), &config, &root_token).to_request();
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
@@ -525,14 +757,35 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
         "victim_id": victim_id,
         "offender_id": offender_id,
     });
-    let create_measure_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/protective-measures").set_json(&measure_payload), &config, &root_token).to_request();
+    let create_measure_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&measure_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let create_measure_resp = test::call_service(&app, create_measure_req).await;
     assert_eq!(create_measure_resp.status(), StatusCode::CREATED);
 
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.d@test.com", "Admin D", "100000701", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.d@test.com",
+        "Admin D",
+        "100000701",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // Lista medidas -> deve incluir city_b
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/protective-measures"), &config, &admin_token).to_request();
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/protective-measures"),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
@@ -546,7 +799,8 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
     let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
 
     // Tentativa de criação com policy inválida
@@ -562,7 +816,14 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
             "invalid_policy": [Uuid::new_v4()]
         }
     });
-    let create_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&invalid_create), &config, &root_token).to_request();
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&invalid_create),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     assert_eq!(create_resp.status(), StatusCode::BAD_REQUEST);
 
@@ -576,12 +837,22 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
         "password": "Secret123!",
         "city_id": city
     });
-    let valid_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&valid_user), &config, &root_token).to_request();
+    let valid_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&valid_user),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let valid_resp = test::call_service(&app, valid_req).await;
     let valid_status = valid_resp.status();
     let valid_body: serde_json::Value = test::read_body_json(valid_resp).await;
     if !valid_status.is_success() {
-        panic!("Failed to create valid user: status={}, body={:?}", valid_status, valid_body);
+        panic!(
+            "Failed to create valid user: status={}, body={:?}",
+            valid_status, valid_body
+        );
     }
     let user_id: Uuid = valid_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
@@ -595,7 +866,14 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
         "city_id": city,
         "permission_policies": { "invalid_policy": [Uuid::new_v4()] }
     });
-    let update_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", user_id)).set_json(&invalid_update), &config, &root_token).to_request();
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", user_id))
+            .set_json(&invalid_update),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
 }
@@ -609,7 +887,8 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
 
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria ADMIN A
     let admin_payload = json!({
@@ -621,12 +900,28 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "password": "Secret123!",
         "city_id": city_a,
     });
-    let create_admin_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload), &config, &root_token).to_request();
+    let create_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     assert!(admin_resp.status().is_success());
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.e@test.com", "Admin E", "100000901", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.e@test.com",
+        "Admin E",
+        "100000901",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // Cria vítimas e medida em city_a
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
@@ -647,7 +942,14 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "victim_id": victim_a,
         "offender_id": offender_a,
     });
-    let create_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/protective-measures").set_json(&measure_payload), &config, &admin_token).to_request();
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&measure_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     assert_eq!(create_resp.status(), 201);
     let created: serde_json::Value = test::read_body_json(create_resp).await;
@@ -667,18 +969,38 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "victim_id": victim_b,
         "offender_id": offender_b,
     });
-    let update_req_forbidden = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/protective-measures/{}", measure_id)).set_json(&update_payload_forbidden), &config, &admin_token).to_request();
+    let update_req_forbidden = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/protective-measures/{}", measure_id))
+            .set_json(&update_payload_forbidden),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let update_resp_forbidden = test::call_service(&app, update_req_forbidden).await;
     assert_eq!(update_resp_forbidden.status(), 403);
 
     // ROOT concede update_protective_measures para city_b
-    let get_admin_req = test_helpers::with_auth_headers(test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)), &config, &root_token).to_request();
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let arr = policies["update_protective_measures"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let arr = policies["update_protective_measures"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     let mut new_arr = arr.clone();
-    if !new_arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) { new_arr.push(json!(city_b.to_string())); }
+    if !new_arr
+        .iter()
+        .any(|v| v.as_str() == Some(&city_b.to_string()))
+    {
+        new_arr.push(json!(city_b.to_string()));
+    }
     policies["update_protective_measures"] = json!(new_arr);
     let update_admin_payload = json!({
         "rank": "CAP PM",
@@ -689,12 +1011,26 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
         "city_id": city_a,
         "permission_policies": policies,
     });
-    let update_admin_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload), &config, &root_token).to_request();
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), 200);
 
     // Agora consegue atualizar a medida para vítima em city_b
-    let update_req_ok = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/protective-measures/{}", measure_id)).set_json(&update_payload_forbidden), &config, &admin_token).to_request();
+    let update_req_ok = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/protective-measures/{}", measure_id))
+            .set_json(&update_payload_forbidden),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let update_resp_ok = test::call_service(&app, update_req_ok).await;
     assert_eq!(update_resp_ok.status(), 200);
 }
@@ -709,7 +1045,8 @@ async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
     let city_c = db_fixtures::insert_city(&pool, "JARU").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria ADMIN A
     let admin_payload = json!({
@@ -721,18 +1058,35 @@ async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
         "password": "Secret123!",
         "city_id": city_a,
     });
-    let create_admin_req = test_helpers::with_auth_headers(test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload), &config, &root_token).to_request();
+    let create_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // ROOT adiciona read_victims em city_b, mas não em city_c
-    let get_admin_req = test_helpers::with_auth_headers(test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)), &config, &root_token).to_request();
+    let get_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
-    if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) { arr.push(json!(city_b.to_string())); }
+    let mut arr = policies["read_victims"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
+        arr.push(json!(city_b.to_string()));
+    }
     policies["read_victims"] = json!(arr);
     let update_admin_payload = json!({
         "rank": "CAP PM",
@@ -743,7 +1097,14 @@ async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
         "city_id": city_a,
         "permission_policies": policies,
     });
-    let update_admin_req = test_helpers::with_auth_headers(test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload), &config, &root_token).to_request();
+    let update_admin_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), 200);
 
@@ -752,14 +1113,33 @@ async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
     db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     db_fixtures::insert_victim(&pool, "Vitima C", city_c).await;
 
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.f@test.com", "Admin F", "100001001", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.f@test.com",
+        "Admin F",
+        "100001001",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // Lista vítimas -> deve retornar apenas A e B, não C
-    let list_req = test_helpers::with_auth_headers(test::TestRequest::get().uri("/api/v1/victims"), &config, &admin_token).to_request();
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims"),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), 200);
     let body: serde_json::Value = test::read_body_json(list_resp).await;
-    let cities: std::collections::HashSet<_> = body["data"].as_array().unwrap().iter().map(|v| v["city_id"].as_str().unwrap().to_string()).collect();
+    let cities: std::collections::HashSet<_> = body["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["city_id"].as_str().unwrap().to_string())
+        .collect();
     assert!(cities.contains(&city_a.to_string()));
     assert!(cities.contains(&city_b.to_string()));
     assert!(!cities.contains(&city_c.to_string()));
@@ -773,7 +1153,8 @@ async fn city_user_cannot_append_policies_via_endpoint() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_USER A
     let user_a_payload = json!({
@@ -786,8 +1167,13 @@ async fn city_user_cannot_append_policies_via_endpoint() {
         "city_id": city,
     });
     let create_user_a = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_a_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_a_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_a = test::call_service(&app, create_user_a).await;
     let body_a: serde_json::Value = test::read_body_json(resp_a).await;
     let user_a_id: Uuid = body_a["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -803,23 +1189,44 @@ async fn city_user_cannot_append_policies_via_endpoint() {
         "city_id": city,
     });
     let create_user_b = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_b_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_b_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_b = test::call_service(&app, create_user_b).await;
     let body_b: serde_json::Value = test::read_body_json(resp_b).await;
     let user_b_id: Uuid = body_b["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_USER A
-    let token_a = build_token_for_user(user_a_id, "CITY_USER", "user.a@test.com", "User A", "100001101", "CB PM", Some(city), &config.jwt_secret);
+    let token_a = build_token_for_user(
+        user_a_id,
+        "CITY_USER",
+        "user.a@test.com",
+        "User A",
+        "100001101",
+        "CB PM",
+        Some(city),
+        &config.jwt_secret,
+    );
 
     // CITY_USER A tenta adicionar policy para CITY_USER B -> deve ser FORBIDDEN
     let append_payload = json!({
         "city_ids": [city]
     });
     let append_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri(&format!("/api/v1/users/{}/policies/create_victims/cities", user_b_id))
+        test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/create_victims/cities",
+                user_b_id
+            ))
             .set_json(&append_payload),
-        &config, &token_a).to_request();
+        &config,
+        &token_a,
+    )
+    .to_request();
     let append_resp = test::call_service(&app, append_req).await;
     assert_eq!(append_resp.status(), StatusCode::FORBIDDEN);
 }
@@ -832,7 +1239,8 @@ async fn city_user_cannot_remove_policies_via_endpoint() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_USER A
     let user_a_payload = json!({
@@ -845,8 +1253,13 @@ async fn city_user_cannot_remove_policies_via_endpoint() {
         "city_id": city,
     });
     let create_user_a = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_a_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_a_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_a = test::call_service(&app, create_user_a).await;
     let body_a: serde_json::Value = test::read_body_json(resp_a).await;
     let user_a_id: Uuid = body_a["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -866,23 +1279,44 @@ async fn city_user_cannot_remove_policies_via_endpoint() {
         }
     });
     let create_user_b = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_b_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_b_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_b = test::call_service(&app, create_user_b).await;
     let body_b: serde_json::Value = test::read_body_json(resp_b).await;
     let user_b_id: Uuid = body_b["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_USER A
-    let token_a = build_token_for_user(user_a_id, "CITY_USER", "user.c@test.com", "User C", "100001201", "CB PM", Some(city), &config.jwt_secret);
+    let token_a = build_token_for_user(
+        user_a_id,
+        "CITY_USER",
+        "user.c@test.com",
+        "User C",
+        "100001201",
+        "CB PM",
+        Some(city),
+        &config.jwt_secret,
+    );
 
     // CITY_USER A tenta remover policy de CITY_USER B -> deve ser FORBIDDEN
     let remove_payload = json!({
         "city_ids": [city]
     });
     let remove_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete().uri(&format!("/api/v1/users/{}/policies/create_victims/cities", user_b_id))
+        test::TestRequest::delete()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/create_victims/cities",
+                user_b_id
+            ))
             .set_json(&remove_payload),
-        &config, &token_a).to_request();
+        &config,
+        &token_a,
+    )
+    .to_request();
     let remove_resp = test::call_service(&app, remove_req).await;
     assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN);
 }
@@ -896,7 +1330,8 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
 
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_ADMIN A
     let admin_payload = json!({
@@ -909,8 +1344,13 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
         "city_id": city_a,
     });
     let create_admin = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -918,11 +1358,17 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
     // ROOT adiciona read_victims em city_b para o ADMIN
     let get_admin_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let mut arr = policies["read_victims"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
         arr.push(json!(city_b.to_string()));
     }
@@ -937,8 +1383,13 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
         "permission_policies": policies,
     });
     let update_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
@@ -953,54 +1404,100 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
         "city_id": city_a,
     });
     let create_user = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, create_user).await;
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_ADMIN
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.g@test.com", "Admin G", "100001301", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.g@test.com",
+        "Admin G",
+        "100001301",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // CITY_ADMIN adiciona read_victims em city_b para CITY_USER -> deve ser OK
     let append_payload = json!({
         "city_ids": [city_b]
     });
     let append_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+        test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                user_id
+            ))
             .set_json(&append_payload),
-        &config, &admin_token).to_request();
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let append_resp = test::call_service(&app, append_req).await;
     assert_eq!(append_resp.status(), StatusCode::OK);
 
     // Verifica que a policy foi adicionada
     let get_user_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", user_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_user_resp = test::call_service(&app, get_user_req).await;
     let get_user_body: serde_json::Value = test::read_body_json(get_user_resp).await;
-    let user_policies = get_user_body["data"]["permission_policies"]["read_victims"].as_array().unwrap();
-    assert!(user_policies.iter().any(|v| v.as_str().unwrap() == city_b.to_string()));
+    let user_policies = get_user_body["data"]["permission_policies"]["read_victims"]
+        .as_array()
+        .unwrap();
+    assert!(
+        user_policies
+            .iter()
+            .any(|v| v.as_str().unwrap() == city_b.to_string())
+    );
 
     // CITY_ADMIN remove read_victims em city_b de CITY_USER -> deve ser OK
     let remove_payload = json!({
         "city_ids": [city_b]
     });
     let remove_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+        test::TestRequest::delete()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                user_id
+            ))
             .set_json(&remove_payload),
-        &config, &admin_token).to_request();
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let remove_resp = test::call_service(&app, remove_req).await;
     assert_eq!(remove_resp.status(), StatusCode::OK);
 
     // Verifica que a policy foi removida
     let get_user_req2 = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", user_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_user_resp2 = test::call_service(&app, get_user_req2).await;
     let get_user_body2: serde_json::Value = test::read_body_json(get_user_resp2).await;
-    let user_policies2 = get_user_body2["data"]["permission_policies"]["read_victims"].as_array().unwrap();
-    assert!(!user_policies2.iter().any(|v| v.as_str().unwrap() == city_b.to_string()));
+    let user_policies2 = get_user_body2["data"]["permission_policies"]["read_victims"]
+        .as_array()
+        .unwrap();
+    assert!(
+        !user_policies2
+            .iter()
+            .any(|v| v.as_str().unwrap() == city_b.to_string())
+    );
 }
 
 #[actix_rt::test]
@@ -1013,7 +1510,8 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
     let city_c = db_fixtures::insert_city(&pool, "JARU").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_ADMIN A (city_a) com permissão extra para city_b
     let admin_payload = json!({
@@ -1026,8 +1524,13 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
         "city_id": city_a,
     });
     let create_admin = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -1035,11 +1538,17 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
     // ROOT adiciona read_victims em city_b para o ADMIN (mas NÃO em city_c)
     let get_admin_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let mut arr = policies["read_victims"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
         arr.push(json!(city_b.to_string()));
     }
@@ -1054,8 +1563,13 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
         "permission_policies": policies,
     });
     let update_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
@@ -1070,14 +1584,28 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
         "city_id": city_c,
     });
     let create_user = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, create_user).await;
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_ADMIN
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.h@test.com", "Admin H", "100001401", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.h@test.com",
+        "Admin H",
+        "100001401",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // CITY_ADMIN tenta adicionar read_victims em city_b para usuário de city_c
     // Ele TEM a permissão read_victims para city_b, MAS o usuário está em city_c (não autorizado)
@@ -1086,12 +1614,22 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
         "city_ids": [city_b]
     });
     let append_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+        test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                user_id
+            ))
             .set_json(&append_payload),
-        &config, &admin_token).to_request();
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let append_resp = test::call_service(&app, append_req).await;
-    assert_eq!(append_resp.status(), StatusCode::FORBIDDEN,
-        "CITY_ADMIN should not be able to assign policies to users from cities they don't manage");
+    assert_eq!(
+        append_resp.status(),
+        StatusCode::FORBIDDEN,
+        "CITY_ADMIN should not be able to assign policies to users from cities they don't manage"
+    );
 }
 
 #[actix_rt::test]
@@ -1104,7 +1642,8 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
     let city_a = db_fixtures::insert_city(&pool, "PORTO VELHO").await;
     let city_b = db_fixtures::insert_city(&pool, "ARIQUEMES").await;
     let city_c = db_fixtures::insert_city(&pool, "JARU").await;
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
 
     // Cria CITY_ADMIN A (city_a) com permissão extra para city_b
     let admin_payload = json!({
@@ -1117,8 +1656,13 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
         "city_id": city_a,
     });
     let create_admin = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -1126,11 +1670,17 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
     // ROOT adiciona read_victims em city_b para o ADMIN
     let get_admin_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", admin_id)),
-        &config, &root_token).to_request();
+        &config,
+        &root_token,
+    )
+    .to_request();
     let get_admin_resp = test::call_service(&app, get_admin_req).await;
     let get_admin_body: serde_json::Value = test::read_body_json(get_admin_resp).await;
     let mut policies = get_admin_body["data"]["permission_policies"].clone();
-    let mut arr = policies["read_victims"].as_array().cloned().unwrap_or_else(|| vec![json!(city_a.to_string())]);
+    let mut arr = policies["read_victims"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| vec![json!(city_a.to_string())]);
     if !arr.iter().any(|v| v.as_str() == Some(&city_b.to_string())) {
         arr.push(json!(city_b.to_string()));
     }
@@ -1145,8 +1695,13 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
         "permission_policies": policies,
     });
     let update_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/users/{}", admin_id)).set_json(&update_admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", admin_id))
+            .set_json(&update_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let update_admin_resp = test::call_service(&app, update_admin_req).await;
     assert_eq!(update_admin_resp.status(), StatusCode::OK);
 
@@ -1164,14 +1719,28 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
         }
     });
     let create_user = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, create_user).await;
     let user_body: serde_json::Value = test::read_body_json(user_resp).await;
     let user_id: Uuid = user_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Token do CITY_ADMIN
-    let admin_token = build_token_for_user(admin_id, "CITY_ADMIN", "admin.i@test.com", "Admin I", "100001501", "CAP PM", Some(city_a), &config.jwt_secret);
+    let admin_token = build_token_for_user(
+        admin_id,
+        "CITY_ADMIN",
+        "admin.i@test.com",
+        "Admin I",
+        "100001501",
+        "CAP PM",
+        Some(city_a),
+        &config.jwt_secret,
+    );
 
     // CITY_ADMIN tenta remover read_victims city_b de usuário da city_c
     // Ele TEM a permissão read_victims para city_b, MAS o usuário está em city_c (não autorizado)
@@ -1180,10 +1749,20 @@ async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
         "city_ids": [city_b]
     });
     let remove_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete().uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+        test::TestRequest::delete()
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                user_id
+            ))
             .set_json(&remove_payload),
-        &config, &admin_token).to_request();
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let remove_resp = test::call_service(&app, remove_req).await;
-    assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN,
-        "CITY_ADMIN should not be able to remove policies from users of cities they don't manage");
+    assert_eq!(
+        remove_resp.status(),
+        StatusCode::FORBIDDEN,
+        "CITY_ADMIN should not be able to remove policies from users of cities they don't manage"
+    );
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use super::work_session_members::{TeamMemberFunction, AddWorkSessionMember};
+use super::work_session_members::{AddWorkSessionMember, TeamMemberFunction};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateWorkSession {
@@ -51,7 +51,10 @@ pub struct UpdateWorkSessionMembers {
 }
 
 impl WorkSession {
-    pub fn with_members(self, members: Vec<WorkSessionMemberWithDetails>) -> WorkSessionWithMembers {
+    pub fn with_members(
+        self,
+        members: Vec<WorkSessionMemberWithDetails>,
+    ) -> WorkSessionWithMembers {
         WorkSessionWithMembers {
             id: self.id,
             created_by_user_id: self.created_by_user_id,

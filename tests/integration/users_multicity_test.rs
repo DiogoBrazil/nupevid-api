@@ -1,6 +1,6 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
-use crate::common::{fixtures, test_helpers, db_fixtures};
+use crate::common::{db_fixtures, fixtures, test_helpers};
 
 #[actix_rt::test]
 async fn create_city_admin_without_city_id_should_fail() {
@@ -30,7 +30,12 @@ async fn create_city_admin_without_city_id_should_fail() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -61,7 +66,12 @@ async fn create_city_user_without_city_id_should_fail() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -95,7 +105,10 @@ async fn create_city_admin_success_with_city_id() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 201);
     assert_eq!(body["data"]["profile"].as_str().unwrap(), "CITY_ADMIN");
-    assert_eq!(body["data"]["city_id"].as_str().unwrap(), city_id.to_string());
+    assert_eq!(
+        body["data"]["city_id"].as_str().unwrap(),
+        city_id.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -144,7 +157,12 @@ async fn create_second_city_admin_same_city_should_fail() {
 
     let body: serde_json::Value = test::read_body_json(resp2).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("CITY_ADMIN already exists"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("CITY_ADMIN already exists")
+    );
 }
 
 #[actix_rt::test]
@@ -191,7 +209,12 @@ async fn update_user_to_city_admin_without_city_id_should_fail() {
 
     let body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -256,5 +279,10 @@ async fn update_user_creating_duplicate_city_admin_should_fail() {
 
     let body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("CITY_ADMIN already exists"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("CITY_ADMIN already exists")
+    );
 }

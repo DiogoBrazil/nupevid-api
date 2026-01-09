@@ -1,6 +1,6 @@
 use actix_web::{http::StatusCode, test};
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// VULNERABILITY TEST: User should NOT be able to change another user's password
 /// even if they know the current password
@@ -350,8 +350,7 @@ async fn root_can_change_any_user_password() {
 
     // ROOT resets the user's password
     let reset_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri(&format!("/api/v1/users/{}/password/reset", user_id)),
+        test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
         &config,
         &root_token,
     )
@@ -362,7 +361,12 @@ async fn root_can_change_any_user_password() {
     // ROOT should be able to reset any user's password
     assert_eq!(reset_resp.status(), StatusCode::OK);
     let reset_body: serde_json::Value = test::read_body_json(reset_resp).await;
-    assert!(reset_body["data"]["temporary_password"].as_str().unwrap().starts_with("prov"));
+    assert!(
+        reset_body["data"]["temporary_password"]
+            .as_str()
+            .unwrap()
+            .starts_with("prov")
+    );
 }
 
 #[actix_rt::test]
@@ -405,8 +409,7 @@ async fn root_can_change_password_without_current_password() {
 
     // ROOT resets password
     let reset_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri(&format!("/api/v1/users/{}/password/reset", user_id)),
+        test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
         &config,
         &root_token,
     )

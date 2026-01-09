@@ -1,6 +1,6 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 4 - Test 1: Cannot add members to inactive session
 #[actix_rt::test]
@@ -12,8 +12,16 @@ async fn cannot_add_members_to_inactive_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100001", "creator@test.com", "CITY_ADMIN", Some(city)).await;
-    let new_member_id = db_fixtures::insert_user(&pool, "100002", "member@test.com", "CITY_USER", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100001",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let new_member_id =
+        db_fixtures::insert_user(&pool, "100002", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -40,8 +48,7 @@ async fn cannot_add_members_to_inactive_session() {
 
     // End session
     let end_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &creator_token,
     )
@@ -81,8 +88,16 @@ async fn cannot_remove_members_from_inactive_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100003", "creator@test.com", "CITY_ADMIN", Some(city)).await;
-    let member_id = db_fixtures::insert_user(&pool, "100004", "member@test.com", "CITY_USER", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100003",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "100004", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -114,8 +129,7 @@ async fn cannot_remove_members_from_inactive_session() {
 
     // End session
     let end_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &creator_token,
     )
@@ -125,8 +139,10 @@ async fn cannot_remove_members_from_inactive_session() {
 
     // Try to remove member from ended session
     let remove_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}", session_id, member_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/work-sessions/{}/members/{}",
+            session_id, member_id
+        )),
         &config,
         &creator_token,
     )
@@ -149,7 +165,14 @@ async fn can_create_new_session_after_ending_previous() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100005", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100005",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -175,8 +198,7 @@ async fn can_create_new_session_after_ending_previous() {
 
     // End first session
     let end_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &creator_token,
     )
@@ -205,7 +227,10 @@ async fn can_create_new_session_after_ending_previous() {
 
     let create2_body: serde_json::Value = test::read_body_json(create2_resp).await;
     assert_eq!(create2_body["data"]["is_active"].as_bool().unwrap(), true);
-    assert_eq!(create2_body["data"]["description"].as_str().unwrap(), "Second session");
+    assert_eq!(
+        create2_body["data"]["description"].as_str().unwrap(),
+        "Second session"
+    );
 }
 
 /// Phase 4 - Test 4: Verify ended session is_active=false
@@ -218,7 +243,14 @@ async fn ended_session_has_is_active_false() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100006", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100006",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -242,14 +274,13 @@ async fn ended_session_has_is_active_false() {
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
     let session_id = create_body["data"]["id"].as_str().unwrap();
-    
+
     // Verify initially active
     assert_eq!(create_body["data"]["is_active"].as_bool().unwrap(), true);
 
     // End session
     let end_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &creator_token,
     )
@@ -258,13 +289,11 @@ async fn ended_session_has_is_active_false() {
     test::call_service(&app, end_req).await;
 
     // Verify in database
-    let is_active: bool = sqlx::query_scalar(
-        "SELECT is_active FROM work_sessions WHERE id = $1"
-    )
-    .bind(uuid::Uuid::parse_str(session_id).unwrap())
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to check session status");
+    let is_active: bool = sqlx::query_scalar("SELECT is_active FROM work_sessions WHERE id = $1")
+        .bind(uuid::Uuid::parse_str(session_id).unwrap())
+        .fetch_one(&pool)
+        .await
+        .expect("Failed to check session status");
 
     assert_eq!(is_active, false);
 }
@@ -279,10 +308,38 @@ async fn can_add_multiple_patrollers() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100007", "creator@test.com", "CITY_ADMIN", Some(city)).await;
-    let patroller1_id = db_fixtures::insert_user(&pool, "100008", "patroller1@test.com", "CITY_USER", Some(city)).await;
-    let patroller2_id = db_fixtures::insert_user(&pool, "100009", "patroller2@test.com", "CITY_USER", Some(city)).await;
-    let patroller3_id = db_fixtures::insert_user(&pool, "100010", "patroller3@test.com", "CITY_USER", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100007",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let patroller1_id = db_fixtures::insert_user(
+        &pool,
+        "100008",
+        "patroller1@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
+    let patroller2_id = db_fixtures::insert_user(
+        &pool,
+        "100009",
+        "patroller2@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
+    let patroller3_id = db_fixtures::insert_user(
+        &pool,
+        "100010",
+        "patroller3@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -329,8 +386,7 @@ async fn can_add_multiple_patrollers() {
 
     // Verify session has 4 members (Commander + 3 Patrollers)
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/work-sessions/{}", session_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/work-sessions/{}", session_id)),
         &config,
         &creator_token,
     )
@@ -341,7 +397,8 @@ async fn can_add_multiple_patrollers() {
     let members = get_body["data"]["members"].as_array().unwrap();
     assert_eq!(members.len(), 4);
 
-    let patroller_count = members.iter()
+    let patroller_count = members
+        .iter()
         .filter(|m| m["function"].as_str() == Some("Patroller"))
         .count();
     assert_eq!(patroller_count, 3);
@@ -357,7 +414,14 @@ async fn get_active_session_returns_404_after_ending() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "100011", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100011",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -382,8 +446,7 @@ async fn get_active_session_returns_404_after_ending() {
 
     // Verify active session exists
     let get_before_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions/active"),
+        test::TestRequest::get().uri("/api/v1/work-sessions/active"),
         &config,
         &creator_token,
     )
@@ -394,8 +457,7 @@ async fn get_active_session_returns_404_after_ending() {
 
     // End session
     let end_req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/work-sessions/end"),
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
         &creator_token,
     )
@@ -405,8 +467,7 @@ async fn get_active_session_returns_404_after_ending() {
 
     // Verify no active session
     let get_after_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions/active"),
+        test::TestRequest::get().uri("/api/v1/work-sessions/active"),
         &config,
         &creator_token,
     )

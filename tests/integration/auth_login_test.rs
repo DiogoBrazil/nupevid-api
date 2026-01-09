@@ -1,9 +1,9 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use nupevid_api::adapters::password_hasher::{Argon2PasswordHasher, PasswordHasherPort};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 async fn insert_test_user(pool: &PgPool, email: &str, plain_password: &str) {
     let hasher = Argon2PasswordHasher::new();
@@ -88,7 +88,12 @@ async fn login_invalid_email_returns_unauthorized() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 401);
-    assert!(body["message"].as_str().unwrap().contains("Invalid credentials"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid credentials")
+    );
 }
 
 #[actix_rt::test]
@@ -118,7 +123,12 @@ async fn login_invalid_password_returns_unauthorized() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 401);
-    assert!(body["message"].as_str().unwrap().contains("Invalid credentials"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid credentials")
+    );
 }
 
 #[actix_rt::test]
@@ -131,7 +141,9 @@ async fn login_with_auto_create_session_true_creates_work_session() {
 
     // Create city and user
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "100001", "user@test.com", "CITY_USER", Some(city_id)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100001", "user@test.com", "CITY_USER", Some(city_id))
+            .await;
 
     let payload = serde_json::json!({
         "email": "user@test.com",
@@ -151,14 +163,17 @@ async fn login_with_auto_create_session_true_creates_work_session() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
     assert!(body["data"]["token"].as_str().is_some());
-    assert!(body["data"]["work_session"].is_object(), "work_session should be an object");
+    assert!(
+        body["data"]["work_session"].is_object(),
+        "work_session should be an object"
+    );
 
     // Verify work session was created in database
     let session_id = body["data"]["work_session"]["id"].as_str().unwrap();
     let session_uuid = Uuid::parse_str(session_id).expect("Invalid session UUID");
 
     let session_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM work_sessions WHERE id = $1 AND created_by_user_id = $2)"
+        "SELECT EXISTS(SELECT 1 FROM work_sessions WHERE id = $1 AND created_by_user_id = $2)",
     )
     .bind(session_uuid)
     .bind(user_id)
@@ -191,7 +206,14 @@ async fn login_with_auto_create_session_false_does_not_create_session() {
 
     // Create city and user
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "100002", "user2@test.com", "CITY_USER", Some(city_id)).await;
+    let user_id = db_fixtures::insert_user(
+        &pool,
+        "100002",
+        "user2@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let payload = serde_json::json!({
         "email": "user2@test.com",
@@ -211,16 +233,18 @@ async fn login_with_auto_create_session_false_does_not_create_session() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
     assert!(body["data"]["token"].as_str().is_some());
-    assert!(body["data"]["work_session"].is_null(), "work_session should be null when auto_create_session is false");
+    assert!(
+        body["data"]["work_session"].is_null(),
+        "work_session should be null when auto_create_session is false"
+    );
 
     // Verify no work session was created
-    let session_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM work_sessions WHERE created_by_user_id = $1"
-    )
-    .bind(user_id)
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to count work sessions");
+    let session_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM work_sessions WHERE created_by_user_id = $1")
+            .bind(user_id)
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to count work sessions");
 
     assert_eq!(session_count, 0, "No work session should be created");
 }
@@ -235,7 +259,14 @@ async fn login_with_auto_create_session_returns_existing_active_session() {
 
     // Create city and user
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "100003", "user3@test.com", "CITY_USER", Some(city_id)).await;
+    let user_id = db_fixtures::insert_user(
+        &pool,
+        "100003",
+        "user3@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     // Create an existing active work session
     let existing_session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -258,20 +289,25 @@ async fn login_with_auto_create_session_returns_existing_active_session() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
     assert!(body["data"]["token"].as_str().is_some());
-    assert!(body["data"]["work_session"].is_object(), "work_session should be an object");
+    assert!(
+        body["data"]["work_session"].is_object(),
+        "work_session should be an object"
+    );
 
     // Verify it returns the existing session, not a new one
     let returned_session_id = body["data"]["work_session"]["id"].as_str().unwrap();
     assert_eq!(returned_session_id, existing_session_id.to_string());
 
     // Verify only one session exists
-    let session_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM work_sessions WHERE created_by_user_id = $1"
-    )
-    .bind(user_id)
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to count work sessions");
+    let session_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM work_sessions WHERE created_by_user_id = $1")
+            .bind(user_id)
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to count work sessions");
 
-    assert_eq!(session_count, 1, "Should return existing session, not create new one");
+    assert_eq!(
+        session_count, 1,
+        "Should return existing session, not create new one"
+    );
 }

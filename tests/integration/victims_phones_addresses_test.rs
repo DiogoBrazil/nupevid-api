@@ -59,7 +59,10 @@ async fn can_add_update_delete_phone_for_victim() {
     });
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/victims/{}/phones/{}", victim_id, phone_id))
+            .uri(&format!(
+                "/api/v1/victims/{}/phones/{}",
+                victim_id, phone_id
+            ))
             .set_json(&update_payload),
         &config,
         &token,
@@ -68,13 +71,18 @@ async fn can_add_update_delete_phone_for_victim() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::OK);
     let updated_body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(updated_body["data"]["phone"].as_str().unwrap(), "11123456789");
+    assert_eq!(
+        updated_body["data"]["phone"].as_str().unwrap(),
+        "11123456789"
+    );
     assert_eq!(updated_body["data"]["phone_type"].as_str().unwrap(), "Work");
 
     // 3. Delete phone
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/victims/{}/phones/{}", victim_id, phone_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/victims/{}/phones/{}",
+            victim_id, phone_id
+        )),
         &config,
         &token,
     )
@@ -84,8 +92,7 @@ async fn can_add_update_delete_phone_for_victim() {
 
     // 4. Verify it's gone
     let get_victim_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/victims/{}", victim_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/victims/{}", victim_id)),
         &config,
         &token,
     )
@@ -137,7 +144,10 @@ async fn can_add_update_delete_address_for_victim() {
     });
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/victims/{}/addresses/{}", victim_id, address_id))
+            .uri(&format!(
+                "/api/v1/victims/{}/addresses/{}",
+                victim_id, address_id
+            ))
             .set_json(&update_payload),
         &config,
         &token,
@@ -146,12 +156,17 @@ async fn can_add_update_delete_address_for_victim() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::OK);
     let updated_body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(updated_body["data"]["street"].as_str().unwrap(), "Rua Alterada");
+    assert_eq!(
+        updated_body["data"]["street"].as_str().unwrap(),
+        "Rua Alterada"
+    );
 
     // 3. Delete address
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/victims/{}/addresses/{}", victim_id, address_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/victims/{}/addresses/{}",
+            victim_id, address_id
+        )),
         &config,
         &token,
     )
@@ -161,15 +176,19 @@ async fn can_add_update_delete_address_for_victim() {
 
     // 4. Verify it's gone
     let get_victim_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/victims/{}", victim_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/victims/{}", victim_id)),
         &config,
         &token,
     )
     .to_request();
     let get_victim_resp = test::call_service(&app, get_victim_req).await;
     let victim_body: serde_json::Value = test::read_body_json(get_victim_resp).await;
-    assert!(victim_body["data"]["addresses"].as_array().unwrap().is_empty());
+    assert!(
+        victim_body["data"]["addresses"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[actix_rt::test]

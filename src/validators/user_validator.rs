@@ -12,9 +12,8 @@ impl UserValidator {
         profile: &str,
         email: &str,
         password: Option<&str>,
-        error_context: &str
+        error_context: &str,
     ) -> Result<(), AppError> {
-
         let mut fields_to_validate = vec![
             ("rank", rank.is_empty()),
             ("registration", registration.is_empty()),
@@ -30,30 +29,31 @@ impl UserValidator {
         validate_required_fields(&fields_to_validate, error_context)?;
 
         if !is_valid_rank(rank) {
-            return Err(AppError::BadRequest(
-                format!("{}invalid rank '{}'. Valid ranks are: {:?}", error_context, rank, VALID_RANKS)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}invalid rank '{}'. Valid ranks are: {:?}",
+                error_context, rank, VALID_RANKS
+            )));
         }
 
         if !is_valid_registration(registration) {
-            return Err(AppError::BadRequest(
-                format!(
-                    "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
-                    error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
-                )
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
+                error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
+            )));
         }
 
         if !is_valid_profile(profile) {
-            return Err(AppError::BadRequest(
-                format!("{}invalid profile '{}'. Valid profiles are: {:?}", error_context, profile, VALID_PROFILES)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}invalid profile '{}'. Valid profiles are: {:?}",
+                error_context, profile, VALID_PROFILES
+            )));
         }
 
         if !is_valid_email(email) {
-            return Err(AppError::BadRequest(
-                format!("{}'{}' is not a valid email", error_context, email)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}'{}' is not a valid email",
+                error_context, email
+            )));
         }
 
         Ok(())
@@ -62,12 +62,13 @@ impl UserValidator {
     pub fn validate_city_requirement(
         profile: &str,
         city_id: &Option<Uuid>,
-        error_context: &str
+        error_context: &str,
     ) -> Result<(), AppError> {
         if profile != PROFILE_ROOT && city_id.is_none() {
-            return Err(AppError::BadRequest(
-                format!("{}: city_id is required for profile '{}'", error_context, profile)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}: city_id is required for profile '{}'",
+                error_context, profile
+            )));
         }
         Ok(())
     }
@@ -87,7 +88,7 @@ mod tests {
             "ROOT",
             "joao@example.com",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_ok());
     }
@@ -101,10 +102,15 @@ mod tests {
             "ROOT",
             "joao@example.com",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("rank cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("rank cannot be empty")
+        );
     }
 
     #[test]
@@ -116,7 +122,7 @@ mod tests {
             "ROOT",
             "joao@example.com",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("invalid rank"));
@@ -131,10 +137,15 @@ mod tests {
             "ROOT",
             "joao@example.com",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid registration"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid registration")
+        );
     }
 
     #[test]
@@ -146,7 +157,7 @@ mod tests {
             "INVALID_PROFILE",
             "joao@example.com",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("invalid profile"));
@@ -161,41 +172,40 @@ mod tests {
             "ROOT",
             "invalid-email",
             Some("senha123"),
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not a valid email"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not a valid email")
+        );
     }
 
     #[test]
     fn test_validate_city_requirement_root_without_city() {
-        let result = UserValidator::validate_city_requirement(
-            PROFILE_ROOT,
-            &None,
-            "test"
-        );
+        let result = UserValidator::validate_city_requirement(PROFILE_ROOT, &None, "test");
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_city_requirement_city_admin_without_city() {
-        let result = UserValidator::validate_city_requirement(
-            PROFILE_CITY_ADMIN,
-            &None,
-            "test"
-        );
+        let result = UserValidator::validate_city_requirement(PROFILE_CITY_ADMIN, &None, "test");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("city_id is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("city_id is required")
+        );
     }
 
     #[test]
     fn test_validate_city_requirement_city_admin_with_city() {
         let city_id = Uuid::new_v4();
-        let result = UserValidator::validate_city_requirement(
-            PROFILE_CITY_ADMIN,
-            &Some(city_id),
-            "test"
-        );
+        let result =
+            UserValidator::validate_city_requirement(PROFILE_CITY_ADMIN, &Some(city_id), "test");
         assert!(result.is_ok());
     }
 }

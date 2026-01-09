@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::core::entities::attendance_members::{
-    AttendanceVictimMember, AttendanceOffenderMember, AttendanceMemberWithDetails,
+    AttendanceMemberWithDetails, AttendanceOffenderMember, AttendanceVictimMember,
 };
 
 #[async_trait]

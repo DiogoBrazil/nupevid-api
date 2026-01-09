@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateCity {

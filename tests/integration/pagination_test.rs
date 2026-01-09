@@ -91,8 +91,7 @@ async fn cities_list_pagination_clamps_page_size() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/cities?page=1&page_size=500"),
+        test::TestRequest::get().uri("/api/v1/cities?page=1&page_size=500"),
         &config,
         &root_token,
     )
@@ -117,14 +116,27 @@ async fn users_list_pagination_returns_metadata() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "User City").await;
-    db_fixtures::insert_user(&pool, "200001", "user1@test.com", "CITY_ADMIN", Some(city_id)).await;
-    db_fixtures::insert_user(&pool, "200002", "user2@test.com", "CITY_USER", Some(city_id)).await;
+    db_fixtures::insert_user(
+        &pool,
+        "200001",
+        "user1@test.com",
+        "CITY_ADMIN",
+        Some(city_id),
+    )
+    .await;
+    db_fixtures::insert_user(
+        &pool,
+        "200002",
+        "user2@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/users?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/users?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -155,8 +167,7 @@ async fn victims_list_pagination_returns_metadata() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/victims?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/victims?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -187,8 +198,7 @@ async fn offenders_list_pagination_returns_metadata() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/offenders?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/offenders?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -224,8 +234,7 @@ async fn protective_measures_list_pagination_returns_metadata() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/protective-measures?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/protective-measures?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -257,8 +266,7 @@ async fn attendance_victims_list_pagination_returns_metadata() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/attendance-victims?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/attendance-victims?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -291,8 +299,7 @@ async fn attendance_offenders_list_pagination_returns_metadata() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/attendance-offenders?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/attendance-offenders?page=1&page_size=1"),
         &config,
         &root_token,
     )
@@ -317,16 +324,17 @@ async fn work_sessions_list_pagination_returns_metadata() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Work City").await;
-    let user_a = db_fixtures::insert_user(&pool, "300001", "ws1@test.com", "CITY_USER", Some(city_id)).await;
-    let user_b = db_fixtures::insert_user(&pool, "300002", "ws2@test.com", "CITY_USER", Some(city_id)).await;
+    let user_a =
+        db_fixtures::insert_user(&pool, "300001", "ws1@test.com", "CITY_USER", Some(city_id)).await;
+    let user_b =
+        db_fixtures::insert_user(&pool, "300002", "ws2@test.com", "CITY_USER", Some(city_id)).await;
     test_helpers::create_work_session_for_user(&pool, user_a).await;
     test_helpers::create_work_session_for_user(&pool, user_b).await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions?page=1&page_size=1"),
+        test::TestRequest::get().uri("/api/v1/work-sessions?page=1&page_size=1"),
         &config,
         &root_token,
     )

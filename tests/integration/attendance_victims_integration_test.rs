@@ -69,7 +69,8 @@ async fn create_attendance_success_for_victim_in_own_city() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
 
     // Create user with default policies and work session
-    let user_id = db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     // Create claims with the actual user_id
@@ -141,7 +142,8 @@ async fn list_attendance_victims_filtered_by_city() {
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -193,7 +195,8 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -244,9 +247,10 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
     let atts = list_body["data"].as_array().unwrap();
-    assert!(atts
-        .iter()
-        .all(|a| a["id"].as_str().unwrap() != attendance_id));
+    assert!(
+        atts.iter()
+            .all(|a| a["id"].as_str().unwrap() != attendance_id)
+    );
 }
 
 #[actix_rt::test]
@@ -261,7 +265,8 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -351,7 +356,10 @@ async fn create_attendance_with_address_in_single_request() {
         body["data"]["address"]["district"].as_str().unwrap(),
         "Centro"
     );
-    assert_eq!(body["data"]["address"]["city_id"].as_str().unwrap(), city.to_string());
+    assert_eq!(
+        body["data"]["address"]["city_id"].as_str().unwrap(),
+        city.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -366,7 +374,8 @@ async fn get_attendance_returns_address_when_exists() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -419,7 +428,8 @@ async fn update_attendance_can_add_or_update_address() {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -545,7 +555,14 @@ async fn create_attendance_without_active_session_fails() {
 
     // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
     // CITY_ADMIN has the necessary policies, so we can test the work session requirement
-    let user_id = db_fixtures::insert_user(&pool, "100099", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
+    let user_id = db_fixtures::insert_user(
+        &pool,
+        "100099",
+        "admin@test.com",
+        "CITY_ADMIN",
+        Some(city_id),
+    )
+    .await;
 
     // DO NOT create work session here - that's the whole point of this test
     // test_helpers::create_work_session_for_user(&pool, user_id).await; // ← OMITTED
@@ -589,7 +606,8 @@ async fn get_attendance_victims_by_victim_id_success() {
     let victim2_id = db_fixtures::insert_victim(&pool, "Victim 2", city_id).await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100100", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100100", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -639,7 +657,10 @@ async fn get_attendance_victims_by_victim_id_success() {
 
     // Get attendances by victim1 ID
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/by-victim/{}", victim1_id)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-victims/by-victim/{}",
+            victim1_id
+        )),
         &config,
         &root_token,
     )
@@ -678,7 +699,8 @@ async fn get_attendance_victims_by_victim_different_city_forbidden() {
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
 
     // Create ROOT user with work session to create attendance in city B
-    let root_user_id = db_fixtures::insert_user(&pool, "100101", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100101", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -704,7 +726,10 @@ async fn get_attendance_victims_by_victim_different_city_forbidden() {
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendance-victims/by-victim/{}", victim_b)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-victims/by-victim/{}",
+            victim_b
+        )),
         &config,
         &admin_a_token,
     )

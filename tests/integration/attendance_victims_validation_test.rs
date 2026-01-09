@@ -2,7 +2,7 @@ use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 #[actix_rt::test]
 async fn create_attendance_with_nonexistent_victim_returns_404() {
@@ -65,7 +65,8 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
 
     // Create root user in database
-    let root_user_id = db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100000001", "root@test.com", "ROOT", None).await;
     let mut root_claims = test_helpers::build_root_claims();
     root_claims.id = root_user_id.to_string();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);

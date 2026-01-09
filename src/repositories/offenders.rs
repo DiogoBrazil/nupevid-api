@@ -66,7 +66,7 @@ impl PgOffenderRepository {
                 .bind(&address.street)
                 .bind(&address.number)
                 .bind(&address.district)
-                .bind(&address.city_id)
+                .bind(address.city_id)
                 .bind(&address.zip_code)
                 .bind(&address.complement)
                 .bind(&address.address_type)
@@ -132,15 +132,15 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(offender_id)
             .bind(&offender.full_name)
             .bind(&offender.cpf)
-            .bind(&offender.birth_date)
+            .bind(offender.birth_date)
             .bind(offender.city_id)
-            .bind(&offender.imprisoned)
+            .bind(offender.imprisoned)
             .bind(&offender.occupation)
-            .bind(&offender.is_public_security_agent)
+            .bind(offender.is_public_security_agent)
             .bind(&offender.security_force)
-            .bind(&offender.uses_alcohol)
-            .bind(&offender.uses_drugs)
-            .bind(&offender.has_psychiatric_issues)
+            .bind(offender.uses_alcohol)
+            .bind(offender.uses_drugs)
+            .bind(offender.has_psychiatric_issues)
             .bind(&offender.psychiatric_issues_type)
             .bind(&offender.education_level)
             .bind(&offender.observation)
@@ -252,9 +252,15 @@ impl OffenderRepository for PgOffenderRepository {
         Ok(result)
     }
 
-    async fn get_offenders_by_name(&self, name: &str) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+    async fn get_offenders_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
         let pattern = format!("%{}%", name);
-        info!("[Repository] Fetching offenders by name pattern: {}", pattern);
+        info!(
+            "[Repository] Fetching offenders by name pattern: {}",
+            pattern
+        );
 
         let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_NAME)
             .bind(pattern)
@@ -273,7 +279,10 @@ impl OffenderRepository for PgOffenderRepository {
         Ok(result)
     }
 
-    async fn get_offenders_by_cpf(&self, cpf: &str) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+    async fn get_offenders_by_cpf(
+        &self,
+        cpf: &str,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
         info!("[Repository] Fetching offenders by cpf");
 
         let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_CPF)
@@ -299,11 +308,10 @@ impl OffenderRepository for PgOffenderRepository {
     ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
         info!("[Repository] Fetching offenders for victim: {}", victim_id);
 
-        let offenders: Vec<Offender> =
-            sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_VICTIM_ID)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await?;
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_VICTIM_ID)
+            .bind(victim_id)
+            .fetch_all(&self.pool)
+            .await?;
 
         let mut result = Vec::with_capacity(offenders.len());
 
@@ -331,17 +339,21 @@ impl OffenderRepository for PgOffenderRepository {
         info!("[Repository] Fetching offenders paginated");
 
         let offenders: Vec<Offender> = match allowed_cities {
-            Some(cities) => sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
-                .bind(cities)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
-            None => sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
         };
 
         let mut result = Vec::with_capacity(offenders.len());
@@ -358,13 +370,17 @@ impl OffenderRepository for PgOffenderRepository {
 
     async fn count_offenders(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
         let total: i64 = match allowed_cities {
-            Some(cities) => sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS_BY_CITIES)
-                .bind(cities)
-                .fetch_one(&self.pool)
-                .await?,
-            None => sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS)
-                .fetch_one(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS_BY_CITIES)
+                    .bind(cities)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
         };
         Ok(total)
     }
@@ -374,7 +390,10 @@ impl OffenderRepository for PgOffenderRepository {
         data: UpdateOffender,
         id: Uuid,
     ) -> Result<OffenderWithDetails, sqlx::Error> {
-        info!("[Repository] Starting transaction to update offender: {}", id);
+        info!(
+            "[Repository] Starting transaction to update offender: {}",
+            id
+        );
 
         let mut tx = self.pool.begin().await?;
 
@@ -382,15 +401,15 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(id)
             .bind(&data.full_name)
             .bind(&data.cpf)
-            .bind(&data.birth_date)
+            .bind(data.birth_date)
             .bind(data.city_id)
-            .bind(&data.imprisoned)
+            .bind(data.imprisoned)
             .bind(&data.occupation)
-            .bind(&data.is_public_security_agent)
+            .bind(data.is_public_security_agent)
             .bind(&data.security_force)
-            .bind(&data.uses_alcohol)
-            .bind(&data.uses_drugs)
-            .bind(&data.has_psychiatric_issues)
+            .bind(data.uses_alcohol)
+            .bind(data.uses_drugs)
+            .bind(data.has_psychiatric_issues)
             .bind(&data.psychiatric_issues_type)
             .bind(&data.education_level)
             .bind(&data.observation)
@@ -545,7 +564,7 @@ impl OffenderRepository for PgOffenderRepository {
                 .bind(&address_data.street)
                 .bind(&address_data.number)
                 .bind(&address_data.district)
-                .bind(&address_data.city_id)
+                .bind(address_data.city_id)
                 .bind(&address_data.zip_code)
                 .bind(&address_data.complement)
                 .bind(&address_data.address_type)
@@ -582,7 +601,7 @@ impl OffenderRepository for PgOffenderRepository {
                 .bind(&address_data.street)
                 .bind(&address_data.number)
                 .bind(&address_data.district)
-                .bind(&address_data.city_id)
+                .bind(address_data.city_id)
                 .bind(&address_data.zip_code)
                 .bind(&address_data.complement)
                 .bind(&address_data.address_type)
@@ -602,8 +621,10 @@ impl OffenderRepository for PgOffenderRepository {
                 .fetch_one(&self.pool)
                 .await?;
 
-        info!("[Repository] Address {} soft deleted successfully", address_id);
+        info!(
+            "[Repository] Address {} soft deleted successfully",
+            address_id
+        );
         Ok(address)
     }
-
 }

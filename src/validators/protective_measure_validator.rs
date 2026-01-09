@@ -8,13 +8,16 @@ impl ProtectiveMeasureValidator {
         process_number: &str,
         judicial_authority: &str,
         violence_types: &[crate::core::entities::protective_measures::ViolenceType],
-        error_context: &str
+        error_context: &str,
     ) -> Result<(), AppError> {
-        validate_required_fields(&[
-            ("process_number", process_number.is_empty()),
-            ("judicial_authority", judicial_authority.is_empty()),
-            ("violence_types", violence_types.is_empty()),
-        ], error_context)
+        validate_required_fields(
+            &[
+                ("process_number", process_number.is_empty()),
+                ("judicial_authority", judicial_authority.is_empty()),
+                ("violence_types", violence_types.is_empty()),
+            ],
+            error_context,
+        )
     }
 }
 
@@ -28,7 +31,7 @@ mod tests {
             "2025.001.000001-0",
             "1ª Vara Criminal de Porto Velho",
             &[crate::core::entities::protective_measures::ViolenceType::Physical],
-            "test"
+            "test",
         );
         assert!(result.is_ok());
     }
@@ -39,10 +42,15 @@ mod tests {
             "",
             "1ª Vara Criminal de Porto Velho",
             &[crate::core::entities::protective_measures::ViolenceType::Physical],
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("process_number cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("process_number cannot be empty")
+        );
     }
 
     #[test]
@@ -51,10 +59,15 @@ mod tests {
             "2025.001.000001-0",
             "",
             &[crate::core::entities::protective_measures::ViolenceType::Physical],
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("judicial_authority cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("judicial_authority cannot be empty")
+        );
     }
 
     #[test]
@@ -63,7 +76,7 @@ mod tests {
             "",
             "",
             &[crate::core::entities::protective_measures::ViolenceType::Physical],
-            "test"
+            "test",
         );
         assert!(result.is_err());
     }
@@ -74,9 +87,14 @@ mod tests {
             "2025.001.000001-0",
             "1ª Vara Criminal de Porto Velho",
             &[],
-            "test"
+            "test",
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("violence_types cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("violence_types cannot be empty")
+        );
     }
 }

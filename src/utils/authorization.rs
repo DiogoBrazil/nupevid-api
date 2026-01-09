@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::utils::errors::AppError;
-use crate::validators::common::{PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER};
+use crate::validators::common::{PROFILE_CITY_ADMIN, PROFILE_CITY_USER, PROFILE_ROOT};
 
 pub fn check_policy(
     claims: &ClaimsToUserToken,
@@ -12,34 +12,41 @@ pub fn check_policy(
     city_id: Uuid,
     user_policies: &JsonValue,
 ) -> Result<(), AppError> {
-    info!("[Authorization] Checking policy '{}' for city '{}' by user '{}'",
-        policy_name, city_id, claims.id);
+    info!(
+        "[Authorization] Checking policy '{}' for city '{}' by user '{}'",
+        policy_name, city_id, claims.id
+    );
 
     if claims.profile == PROFILE_ROOT {
         info!("[Authorization] ROOT user - implicit access granted");
         return Ok(());
     }
 
-    if let Some(city_ids) = user_policies.get(policy_name) {
-        if let Some(city_array) = city_ids.as_array() {
-            for cid in city_array {
-                if let Some(cid_str) = cid.as_str() {
-                    if let Ok(parsed_cid) = Uuid::parse_str(cid_str) {
-                        if parsed_cid == city_id {
-                            info!("[Authorization] Policy '{}' found for city '{}'", policy_name, city_id);
-                            return Ok(());
-                        }
-                    }
-                }
+    if let Some(city_ids) = user_policies.get(policy_name)
+        && let Some(city_array) = city_ids.as_array()
+    {
+        for cid in city_array {
+            if let Some(cid_str) = cid.as_str()
+                && let Ok(parsed_cid) = Uuid::parse_str(cid_str)
+                && parsed_cid == city_id
+            {
+                info!(
+                    "[Authorization] Policy '{}' found for city '{}'",
+                    policy_name, city_id
+                );
+                return Ok(());
             }
         }
     }
 
-    warn!("[Authorization] Policy '{}' not found for city '{}' for user '{}'",
-        policy_name, city_id, claims.id);
-    Err(AppError::Forbidden(
-        format!("You don't have permission to perform '{}' for this city", policy_name)
-    ))
+    warn!(
+        "[Authorization] Policy '{}' not found for city '{}' for user '{}'",
+        policy_name, city_id, claims.id
+    );
+    Err(AppError::Forbidden(format!(
+        "You don't have permission to perform '{}' for this city",
+        policy_name
+    )))
 }
 
 pub fn get_allowed_cities_for_policy(
@@ -47,8 +54,10 @@ pub fn get_allowed_cities_for_policy(
     policy_name: &str,
     user_policies: &JsonValue,
 ) -> Option<Vec<Uuid>> {
-    info!("[Authorization] Getting allowed cities for policy '{}' by user '{}'",
-        policy_name, claims.id);
+    info!(
+        "[Authorization] Getting allowed cities for policy '{}' by user '{}'",
+        policy_name, claims.id
+    );
 
     if claims.profile == PROFILE_ROOT {
         info!("[Authorization] ROOT user - access to all cities");
@@ -57,20 +66,23 @@ pub fn get_allowed_cities_for_policy(
 
     let mut allowed_cities = Vec::new();
 
-    if let Some(city_ids) = user_policies.get(policy_name) {
-        if let Some(city_array) = city_ids.as_array() {
-            for cid in city_array {
-                if let Some(cid_str) = cid.as_str() {
-                    if let Ok(parsed_cid) = Uuid::parse_str(cid_str) {
-                        allowed_cities.push(parsed_cid);
-                    }
-                }
+    if let Some(city_ids) = user_policies.get(policy_name)
+        && let Some(city_array) = city_ids.as_array()
+    {
+        for cid in city_array {
+            if let Some(cid_str) = cid.as_str()
+                && let Ok(parsed_cid) = Uuid::parse_str(cid_str)
+            {
+                allowed_cities.push(parsed_cid);
             }
         }
     }
 
-    info!("[Authorization] Found {} allowed cities for policy '{}'",
-        allowed_cities.len(), policy_name);
+    info!(
+        "[Authorization] Found {} allowed cities for policy '{}'",
+        allowed_cities.len(),
+        policy_name
+    );
     Some(allowed_cities)
 }
 
@@ -83,10 +95,10 @@ pub fn has_policy(
         return true;
     }
 
-    if let Some(city_ids) = user_policies.get(policy_name) {
-        if let Some(city_array) = city_ids.as_array() {
-            return !city_array.is_empty();
-        }
+    if let Some(city_ids) = user_policies.get(policy_name)
+        && let Some(city_array) = city_ids.as_array()
+    {
+        return !city_array.is_empty();
     }
 
     false
@@ -96,7 +108,10 @@ pub fn validate_user_creation_permission(
     creator_profile: &str,
     target_profile: &str,
 ) -> Result<(), AppError> {
-    info!("[Authorization] Validating user creation permission: '{}' creating '{}'", creator_profile, target_profile);
+    info!(
+        "[Authorization] Validating user creation permission: '{}' creating '{}'",
+        creator_profile, target_profile
+    );
 
     if creator_profile == PROFILE_ROOT {
         info!("[Authorization] ROOT user - allowed to create any profile");
@@ -106,7 +121,7 @@ pub fn validate_user_creation_permission(
     if creator_profile == PROFILE_CITY_USER {
         error!("[Authorization] CITY_USER cannot create users");
         return Err(AppError::Forbidden(
-            "CITY_USER profile is not allowed to create users".to_string()
+            "CITY_USER profile is not allowed to create users".to_string(),
         ));
     }
 
@@ -114,14 +129,14 @@ pub fn validate_user_creation_permission(
         if target_profile == PROFILE_ROOT {
             error!("[Authorization] CITY_ADMIN cannot create ROOT users");
             return Err(AppError::Forbidden(
-                "CITY_ADMIN is not allowed to create ROOT users".to_string()
+                "CITY_ADMIN is not allowed to create ROOT users".to_string(),
             ));
         }
 
         if target_profile == PROFILE_CITY_ADMIN {
             error!("[Authorization] CITY_ADMIN cannot create other CITY_ADMIN users");
             return Err(AppError::Forbidden(
-                "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string()
+                "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string(),
             ));
         }
 
@@ -129,7 +144,10 @@ pub fn validate_user_creation_permission(
         return Ok(());
     }
 
-    error!("[Authorization] Unknown profile '{}' attempted to create user", creator_profile);
+    error!(
+        "[Authorization] Unknown profile '{}' attempted to create user",
+        creator_profile
+    );
     Err(AppError::Forbidden("Permission denied".to_string()))
 }
 

@@ -1,25 +1,26 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
 use uuid::Uuid;
 
-use crate::core::entities::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers, ListWorkSessionsQuery};
-use crate::core::entities::work_session_members::TeamMemberFunction;
-use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
 use crate::core::contracts::repository::users::UserRepository;
-use crate::repositories::work_sessions::PgWorkSessionRepository;
+use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
+use crate::core::entities::work_session_members::TeamMemberFunction;
+use crate::core::entities::work_sessions::{
+    CreateWorkSession, ListWorkSessionsQuery, UpdateWorkSessionMembers,
+};
 use crate::repositories::users::PgUserRepository;
-use crate::utils::errors::AppError;
-use crate::utils::responses::{ApiResponse, PaginatedResponse};
-use crate::utils::service_helpers::{extract_claims, get_user_policies_with_defaults, extract_city_id_from_claims};
+use crate::repositories::work_sessions::PgWorkSessionRepository;
 use crate::utils::authorization::check_policy;
 use crate::utils::db_error_mapper::map_unique_constraint;
+use crate::utils::errors::AppError;
 use crate::utils::pagination::{PaginationParams, normalize_pagination};
+use crate::utils::responses::{ApiResponse, PaginatedResponse};
+use crate::utils::service_helpers::{
+    extract_city_id_from_claims, extract_claims, get_user_policies_with_defaults,
+};
 use crate::validators::common::{
-    POLICY_CREATE_WORK_SESSIONS,
-    POLICY_UPDATE_WORK_SESSIONS,
-    POLICY_END_WORK_SESSIONS,
-    POLICY_VIEW_OTHER_WORK_SESSIONS,
-    PROFILE_ROOT,
+    POLICY_CREATE_WORK_SESSIONS, POLICY_END_WORK_SESSIONS, POLICY_UPDATE_WORK_SESSIONS,
+    POLICY_VIEW_OTHER_WORK_SESSIONS, PROFILE_ROOT,
 };
 use crate::validators::work_session_validator::WorkSessionValidator;
 
@@ -47,30 +48,43 @@ impl WorkSessionService {
         info!("[WorkSessionService] Starting work session creation");
 
         let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
+        let policies =
+            get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         let user_city_id = extract_city_id_from_claims(&claims)?;
 
-        check_policy(&claims, POLICY_CREATE_WORK_SESSIONS, user_city_id, &policies)?;
+        check_policy(
+            &claims,
+            POLICY_CREATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
 
-        let mut members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = vec![
-            (user_id, Some(TeamMemberFunction::Commander))
-        ];
-        members_with_functions.extend(
-            data.members.iter().map(|m| (m.user_id, m.function.clone()))
-        );
+        let mut members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> =
+            vec![(user_id, Some(TeamMemberFunction::Commander))];
+        members_with_functions.extend(data.members.iter().map(|m| (m.user_id, m.function.clone())));
 
         WorkSessionValidator::validate_team_functions(&members_with_functions)
-            .map_err(|e| AppError::BadRequest(e))?;
+            .map_err(AppError::BadRequest)?;
 
-        self.validate_members_same_city(&data.members.iter().map(|m| m.user_id).collect::<Vec<_>>()).await?;
+        self.validate_members_same_city(
+            &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
+        )
+        .await?;
 
-        if let Ok(true) = self.work_session_repository.is_user_in_active_session(user_id).await {
-            return Err(AppError::Conflict("User already has an active work session".to_string()));
+        if let Ok(true) = self
+            .work_session_repository
+            .is_user_in_active_session(user_id)
+            .await
+        {
+            return Err(AppError::Conflict(
+                "User already has an active work session".to_string(),
+            ));
         }
 
-        match self.work_session_repository
+        match self
+            .work_session_repository
             .create_work_session(data, user_id)
             .await
         {
@@ -79,52 +93,62 @@ impl WorkSessionService {
                 Ok(ApiResponse::created(session).into_response())
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.is_unique_violation() {
-                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
-                            ("unique_active_session_per_user", "User already has an active work session"),
-                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
-                        ]) {
-                            return Err(app_err);
-                        }
-                    }
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.is_unique_violation()
+                    && let Some(app_err) = map_unique_constraint(
+                        db_err.constraint(),
+                        &[
+                            (
+                                "unique_active_session_per_user",
+                                "User already has an active work session",
+                            ),
+                            (
+                                "work_session_members_work_session_id_user_id_key",
+                                "User already added to session",
+                            ),
+                        ],
+                    )
+                {
+                    return Err(app_err);
                 }
-                error!("[WorkSessionService] Failed to create work session: {:?}", e);
+                error!(
+                    "[WorkSessionService] Failed to create work session: {:?}",
+                    e
+                );
                 Err(AppError::InternalServerError)
             }
         }
     }
 
-    pub async fn get_active_session(
-        &self,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+    pub async fn get_active_session(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[WorkSessionService] Getting active session");
 
         let claims = extract_claims(&req)?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        match self.work_session_repository
+        match self
+            .work_session_repository
             .get_active_session_by_user(user_id)
             .await
         {
             Ok(session) => {
-                let with_members = self.work_session_repository
+                let with_members = self
+                    .work_session_repository
                     .get_session_by_id(session.id)
                     .await
                     .map_err(|e| match e {
-                        sqlx::Error::RowNotFound => AppError::NotFound(
-                            "Work session not found".to_string()
-                        ),
+                        sqlx::Error::RowNotFound => {
+                            AppError::NotFound("Work session not found".to_string())
+                        }
                         _ => AppError::InternalServerError,
                     })?;
 
                 Ok(ApiResponse::success(with_members).into_response())
             }
-            Err(sqlx::Error::RowNotFound) => {
-                Err(AppError::NotFound("No active work session found".to_string()))
-            }
+            Err(sqlx::Error::RowNotFound) => Err(AppError::NotFound(
+                "No active work session found".to_string(),
+            )),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -141,17 +165,25 @@ impl WorkSessionService {
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AppError::NotFound("Work session not found".to_string()),
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound("Work session not found".to_string())
+                }
                 _ => AppError::InternalServerError,
             })?;
 
         if session.created_by_user_id != user_id {
             let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(&claims, POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id, &policies)?;
+            check_policy(
+                &claims,
+                POLICY_VIEW_OTHER_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
         }
 
         Ok(ApiResponse::success(session).into_response())
@@ -175,20 +207,24 @@ impl WorkSessionService {
             let user_city_id = Uuid::parse_str(city_id_str)
                 .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
 
-            check_policy(&claims, POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id, &policies).is_ok()
+            check_policy(
+                &claims,
+                POLICY_VIEW_OTHER_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )
+            .is_ok()
         } else {
             false
         };
 
         if !can_view_others {
             query.user_id = Some(user_id);
-        } else {
-            if claims.profile == PROFILE_ROOT {
-            } else if let Some(city_id_str) = &claims.city_id {
-                let user_city_id = Uuid::parse_str(city_id_str)
-                    .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
-                query.city_id = Some(user_city_id);
-            }
+        } else if claims.profile == PROFILE_ROOT {
+        } else if let Some(city_id_str) = &claims.city_id {
+            let user_city_id = Uuid::parse_str(city_id_str)
+                .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
+            query.city_id = Some(user_city_id);
         }
 
         let pagination_params = PaginationParams {
@@ -197,7 +233,8 @@ impl WorkSessionService {
         };
         let pagination = normalize_pagination(&pagination_params);
 
-        let total_items = self.work_session_repository
+        let total_items = self
+            .work_session_repository
             .count_sessions_filtered(
                 query.user_id,
                 query.start_date,
@@ -207,7 +244,8 @@ impl WorkSessionService {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        let sessions = self.work_session_repository
+        let sessions = self
+            .work_session_repository
             .list_sessions_filtered(
                 query.user_id,
                 query.start_date,
@@ -221,19 +259,24 @@ impl WorkSessionService {
 
         let mut sessions_with_members = Vec::with_capacity(sessions.len());
         for session in sessions {
-            let members = self.work_session_repository
+            let members = self
+                .work_session_repository
                 .get_session_members_with_details(session.id)
                 .await
                 .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => AppError::NotFound(
-                        format!("Session members not found for session '{}'", session.id)
-                    ),
+                    sqlx::Error::RowNotFound => AppError::NotFound(format!(
+                        "Session members not found for session '{}'",
+                        session.id
+                    )),
                     _ => AppError::InternalServerError,
                 })?;
             sessions_with_members.push(session.with_members(members));
         }
 
-        info!("[WorkSessionService] Found {} sessions", sessions_with_members.len());
+        info!(
+            "[WorkSessionService] Found {} sessions",
+            sessions_with_members.len()
+        );
         Ok(PaginatedResponse::success(
             sessions_with_members,
             pagination.page,
@@ -243,10 +286,7 @@ impl WorkSessionService {
         .into_response())
     }
 
-    pub async fn end_session(
-        &self,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+    pub async fn end_session(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
         info!("[WorkSessionService] Ending session");
 
         let claims = extract_claims(&req)?;
@@ -257,15 +297,13 @@ impl WorkSessionService {
 
         check_policy(&claims, POLICY_END_WORK_SESSIONS, user_city_id, &policies)?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_active_session_by_user(user_id)
             .await
             .map_err(|_| AppError::NotFound("No active work session found".to_string()))?;
 
-        match self.work_session_repository
-            .end_session(session.id)
-            .await
-        {
+        match self.work_session_repository.end_session(session.id).await {
             Ok(_) => {
                 info!("[WorkSessionService] Work session ended: {}", session.id);
                 Ok(ApiResponse::success("Work session ended successfully").into_response())
@@ -281,7 +319,10 @@ impl WorkSessionService {
         function: Option<TeamMemberFunction>,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
-        info!("[WorkSessionService] Adding member to session: {}", session_id);
+        info!(
+            "[WorkSessionService] Adding member to session: {}",
+            session_id
+        );
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
@@ -289,34 +330,51 @@ impl WorkSessionService {
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         let user_city_id = extract_city_id_from_claims(&claims)?;
 
-        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+        check_policy(
+            &claims,
+            POLICY_UPDATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
 
         if session.created_by_user_id != requesting_user_id {
-            return Err(AppError::Forbidden("Only the session creator can add members".to_string()));
+            return Err(AppError::Forbidden(
+                "Only the session creator can add members".to_string(),
+            ));
         }
 
         if !session.is_active {
-            return Err(AppError::BadRequest("Cannot add members to inactive session".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot add members to inactive session".to_string(),
+            ));
         }
 
-        if let Ok(true) = self.work_session_repository.is_user_in_active_session(user_id).await {
-            return Err(AppError::Conflict("User is already in an active session".to_string()));
+        if let Ok(true) = self
+            .work_session_repository
+            .is_user_in_active_session(user_id)
+            .await
+        {
+            return Err(AppError::Conflict(
+                "User is already in an active session".to_string(),
+            ));
         }
 
-        self.validate_members_same_city(&vec![user_id]).await?;
+        self.validate_members_same_city(&[user_id]).await?;
 
-        let current_members = self.work_session_repository
+        let current_members = self
+            .work_session_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AppError::NotFound(
-                    "Session members not found".to_string()
-                ),
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound("Session members not found".to_string())
+                }
                 _ => AppError::InternalServerError,
             })?;
 
@@ -326,11 +384,17 @@ impl WorkSessionService {
             .collect();
 
         WorkSessionValidator::can_add_member_with_function(&members_with_functions, &function)
-            .map_err(|e| AppError::BadRequest(e))?;
+            .map_err(AppError::BadRequest)?;
 
         let session_member_registration_id = Uuid::new_v4();
-        match self.work_session_repository
-            .add_member_to_session(session_member_registration_id, session_id, user_id, function)
+        match self
+            .work_session_repository
+            .add_member_to_session(
+                session_member_registration_id,
+                session_id,
+                user_id,
+                function,
+            )
             .await
         {
             Ok(member) => {
@@ -338,14 +402,17 @@ impl WorkSessionService {
                 Ok(ApiResponse::success(member).into_response())
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.is_unique_violation() {
-                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
-                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
-                        ]) {
-                            return Err(app_err);
-                        }
-                    }
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.is_unique_violation()
+                    && let Some(app_err) = map_unique_constraint(
+                        db_err.constraint(),
+                        &[(
+                            "work_session_members_work_session_id_user_id_key",
+                            "User already added to session",
+                        )],
+                    )
+                {
+                    return Err(app_err);
                 }
                 Err(AppError::InternalServerError)
             }
@@ -358,7 +425,10 @@ impl WorkSessionService {
         member_id: Uuid,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
-        info!("[WorkSessionService] Removing member from session: {}", session_id);
+        info!(
+            "[WorkSessionService] Removing member from session: {}",
+            session_id
+        );
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
@@ -366,35 +436,47 @@ impl WorkSessionService {
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         let user_city_id = extract_city_id_from_claims(&claims)?;
 
-        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+        check_policy(
+            &claims,
+            POLICY_UPDATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
 
         if session.created_by_user_id != requesting_user_id {
-            return Err(AppError::Forbidden("Only the session creator can remove members".to_string()));
+            return Err(AppError::Forbidden(
+                "Only the session creator can remove members".to_string(),
+            ));
         }
 
         if !session.is_active {
-            return Err(AppError::BadRequest("Cannot remove members from inactive session".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot remove members from inactive session".to_string(),
+            ));
         }
 
-        let current_members = self.work_session_repository
+        let current_members = self
+            .work_session_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AppError::NotFound(
-                    "Session members not found".to_string()
-                ),
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound("Session members not found".to_string())
+                }
                 _ => AppError::InternalServerError,
             })?;
 
         WorkSessionValidator::can_remove_member(current_members.len())
-            .map_err(|e| AppError::BadRequest(e))?;
+            .map_err(AppError::BadRequest)?;
 
-        match self.work_session_repository
+        match self
+            .work_session_repository
             .remove_member_from_session(session_id, member_id)
             .await
         {
@@ -412,7 +494,10 @@ impl WorkSessionService {
         data: UpdateWorkSessionMembers,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
-        info!("[WorkSessionService] Updating session members: {}", session_id);
+        info!(
+            "[WorkSessionService] Updating session members: {}",
+            session_id
+        );
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
@@ -420,37 +505,53 @@ impl WorkSessionService {
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         let user_city_id = extract_city_id_from_claims(&claims)?;
 
-        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+        check_policy(
+            &claims,
+            POLICY_UPDATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
 
         if session.created_by_user_id != requesting_user_id {
-            return Err(AppError::Forbidden("Only the session creator can update members".to_string()));
+            return Err(AppError::Forbidden(
+                "Only the session creator can update members".to_string(),
+            ));
         }
 
         if !session.is_active {
-            return Err(AppError::BadRequest("Cannot update members of inactive session".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot update members of inactive session".to_string(),
+            ));
         }
 
-        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = data.members
+        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = data
+            .members
             .iter()
             .map(|m| (m.user_id, m.function.clone()))
             .collect();
 
         WorkSessionValidator::validate_team_functions(&members_with_functions)
-            .map_err(|e| AppError::BadRequest(e))?;
+            .map_err(AppError::BadRequest)?;
 
-        self.validate_members_same_city(&data.members.iter().map(|m| m.user_id).collect::<Vec<_>>()).await?;
+        self.validate_members_same_city(
+            &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
+        )
+        .await?;
 
-        match self.work_session_repository
+        match self
+            .work_session_repository
             .update_session_members(session_id, data.members)
             .await
         {
             Ok(_) => {
-                let updated_session = self.work_session_repository
+                let updated_session = self
+                    .work_session_repository
                     .get_session_by_id(session_id)
                     .await
                     .map_err(|_| AppError::InternalServerError)?;
@@ -459,14 +560,17 @@ impl WorkSessionService {
                 Ok(ApiResponse::success(updated_session).into_response())
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.is_unique_violation() {
-                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
-                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
-                        ]) {
-                            return Err(app_err);
-                        }
-                    }
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.is_unique_violation()
+                    && let Some(app_err) = map_unique_constraint(
+                        db_err.constraint(),
+                        &[(
+                            "work_session_members_work_session_id_user_id_key",
+                            "User already added to session",
+                        )],
+                    )
+                {
+                    return Err(app_err);
                 }
                 Err(AppError::InternalServerError)
             }
@@ -480,7 +584,10 @@ impl WorkSessionService {
         new_function: Option<TeamMemberFunction>,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
-        info!("[WorkSessionService] Updating member function for session: {}", session_id);
+        info!(
+            "[WorkSessionService] Updating member function for session: {}",
+            session_id
+        );
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
@@ -490,33 +597,46 @@ impl WorkSessionService {
 
         let user_city_id = extract_city_id_from_claims(&claims)?;
 
-        check_policy(&claims, POLICY_UPDATE_WORK_SESSIONS, user_city_id, &policies)?;
+        check_policy(
+            &claims,
+            POLICY_UPDATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
 
-        let session = self.work_session_repository
+        let session = self
+            .work_session_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
 
         if session.created_by_user_id != requesting_user_id {
-            return Err(AppError::Forbidden("Only the session creator can update member functions".to_string()));
+            return Err(AppError::Forbidden(
+                "Only the session creator can update member functions".to_string(),
+            ));
         }
 
         if !session.is_active {
-            return Err(AppError::BadRequest("Cannot update members of inactive session".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot update members of inactive session".to_string(),
+            ));
         }
 
-        let current_members = self.work_session_repository
+        let current_members = self
+            .work_session_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AppError::NotFound(
-                    "Session members not found".to_string()
-                ),
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound("Session members not found".to_string())
+                }
                 _ => AppError::InternalServerError,
             })?;
 
         if !current_members.iter().any(|m| m.user_id == user_id) {
-            return Err(AppError::NotFound("User is not a member of this session".to_string()));
+            return Err(AppError::NotFound(
+                "User is not a member of this session".to_string(),
+            ));
         }
 
         let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
@@ -531,9 +651,10 @@ impl WorkSessionService {
             .collect();
 
         WorkSessionValidator::validate_team_functions(&members_with_functions)
-            .map_err(|e| AppError::BadRequest(e))?;
+            .map_err(AppError::BadRequest)?;
 
-        match self.work_session_repository
+        match self
+            .work_session_repository
             .update_member_function(session_id, user_id, new_function.clone())
             .await
         {
@@ -542,7 +663,10 @@ impl WorkSessionService {
                 Ok(ApiResponse::success("Member function updated successfully").into_response())
             }
             Err(e) => {
-                error!("[WorkSessionService] Failed to update member function: {:?}", e);
+                error!(
+                    "[WorkSessionService] Failed to update member function: {:?}",
+                    e
+                );
                 Err(AppError::InternalServerError)
             }
         }
@@ -556,11 +680,14 @@ impl WorkSessionService {
         let mut city_id: Option<Uuid> = None;
 
         for user_id in user_ids {
-            let user = self.user_repository
+            let user = self
+                .user_repository
                 .get_user_by_id(*user_id)
                 .await
                 .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => AppError::NotFound(format!("User {} not found", user_id)),
+                    sqlx::Error::RowNotFound => {
+                        AppError::NotFound(format!("User {} not found", user_id))
+                    }
                     _ => AppError::InternalServerError,
                 })?;
 
@@ -573,7 +700,7 @@ impl WorkSessionService {
                 Some(expected_city_id) => {
                     if user_city_id != expected_city_id {
                         return Err(AppError::BadRequest(
-                            "All team members must be from the same city".to_string()
+                            "All team members must be from the same city".to_string(),
                         ));
                     }
                 }

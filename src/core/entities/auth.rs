@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use sqlx::prelude::FromRow;
+use uuid::Uuid;
 
 use super::work_sessions::WorkSessionWithMembers;
 
@@ -33,7 +33,6 @@ pub struct CompleteUserData {
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {

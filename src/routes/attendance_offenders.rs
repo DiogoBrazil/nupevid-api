@@ -14,7 +14,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/{id}")
                     .route(web::get().to(attendance_offenders::get_attendance_offender_by_id))
                     .route(web::put().to(attendance_offenders::update_attendance_offender_by_id))
-                    .route(web::delete().to(attendance_offenders::delete_attendance_offender_by_id)),
+                    .route(
+                        web::delete().to(attendance_offenders::delete_attendance_offender_by_id),
+                    ),
             )
             .service(
                 web::resource("/{id}/members")
@@ -26,8 +28,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::delete().to(attendance_offenders::remove_attendance_member)),
             )
             .service(
-                web::resource("/by-offender/{offender_id}")
-                    .route(web::get().to(attendance_offenders::get_attendance_offenders_by_offender)),
+                web::resource("/by-offender/{offender_id}").route(
+                    web::get().to(attendance_offenders::get_attendance_offenders_by_offender),
+                ),
             )
             .service(
                 web::resource("/by-victim/{victim_id}")

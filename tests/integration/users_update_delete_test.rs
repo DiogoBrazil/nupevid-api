@@ -1,4 +1,4 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
@@ -45,8 +45,14 @@ async fn test_update_user_success() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status"].as_u64().unwrap(), 200);
-    assert_eq!(update_body["data"]["full_name"].as_str().unwrap(), update_data.full_name);
-    assert_eq!(update_body["data"]["email"].as_str().unwrap(), update_data.email);
+    assert_eq!(
+        update_body["data"]["full_name"].as_str().unwrap(),
+        update_data.full_name
+    );
+    assert_eq!(
+        update_body["data"]["email"].as_str().unwrap(),
+        update_data.email
+    );
 }
 
 #[actix_rt::test]
@@ -57,7 +63,8 @@ async fn non_root_cannot_access_or_modify_root_user() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     // Create ROOT user in DB
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
     let root_user_payload = serde_json::json!({
         "rank": "CEL PM",
         "registration": "100000888",
@@ -67,8 +74,13 @@ async fn non_root_cannot_access_or_modify_root_user() {
         "password": "Secret123!"
     });
     let root_create = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&root_user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&root_user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let root_resp = test::call_service(&app, root_create).await;
     let root_body: serde_json::Value = test::read_body_json(root_resp).await;
     let root_id: Uuid = root_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -76,7 +88,11 @@ async fn non_root_cannot_access_or_modify_root_user() {
     // Non-root token
     let claims_user = ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
-        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        exp: (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize)
+            + 3600,
         rank: "CAP PM".to_string(),
         registration: "100009990".to_string(),
         full_name: "City Admin".to_string(),
@@ -89,7 +105,10 @@ async fn non_root_cannot_access_or_modify_root_user() {
     // Get by id -> FORBIDDEN
     let get_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", root_id)),
-        &config, &non_root_token).to_request();
+        &config,
+        &non_root_token,
+    )
+    .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
 
@@ -102,15 +121,23 @@ async fn non_root_cannot_access_or_modify_root_user() {
         "email": "root.two@test.com"
     });
     let upd_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/users/{}", root_id)).set_json(&upd_payload),
-        &config, &non_root_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/users/{}", root_id))
+            .set_json(&upd_payload),
+        &config,
+        &non_root_token,
+    )
+    .to_request();
     let upd_resp = test::call_service(&app, upd_req).await;
     assert_eq!(upd_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
 
     // Delete -> FORBIDDEN
     let del_req = test_helpers::with_auth_headers(
         test::TestRequest::delete().uri(&format!("/api/v1/users/{}", root_id)),
-        &config, &non_root_token).to_request();
+        &config,
+        &non_root_token,
+    )
+    .to_request();
     let del_resp = test::call_service(&app, del_req).await;
     assert_eq!(del_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
 }
@@ -198,7 +225,12 @@ async fn test_update_user_duplicate_email() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("already in use"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already in use")
+    );
 }
 
 #[actix_rt::test]
@@ -255,8 +287,18 @@ async fn test_update_user_duplicate_registration() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("registration"));
-    assert!(update_body["message"].as_str().unwrap().contains("already exists"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("registration")
+    );
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already exists")
+    );
 }
 
 #[actix_rt::test]

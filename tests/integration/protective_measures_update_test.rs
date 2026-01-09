@@ -1,10 +1,15 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
-fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, offender_id: Uuid, status: &str) -> serde_json::Value {
+fn build_measure_payload(
+    victim_id: Uuid,
+    court_district_id: Uuid,
+    offender_id: Uuid,
+    status: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
@@ -80,8 +85,14 @@ async fn update_protective_measure_success() {
     assert_eq!(update_resp.status(), StatusCode::OK);
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(update_body["data"]["process_number"].as_str().unwrap(), "99999-99.2025.8.26.0000");
-    assert_eq!(update_body["data"]["judicial_authority"].as_str().unwrap(), "Juiz B Atualizado");
+    assert_eq!(
+        update_body["data"]["process_number"].as_str().unwrap(),
+        "99999-99.2025.8.26.0000"
+    );
+    assert_eq!(
+        update_body["data"]["judicial_authority"].as_str().unwrap(),
+        "Juiz B Atualizado"
+    );
     assert_eq!(update_body["data"]["status"].as_str().unwrap(), "Revoked");
 }
 
@@ -156,7 +167,12 @@ async fn cannot_update_to_active_when_victim_already_has_active_measure() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("already has an active protective measure"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already has an active protective measure")
+    );
 }
 
 #[actix_rt::test]
@@ -358,7 +374,12 @@ async fn update_measure_with_empty_judicial_authority_fails() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("judicial_authority"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("judicial_authority")
+    );
 }
 
 #[actix_rt::test]

@@ -1,4 +1,4 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -44,7 +44,9 @@ pub async fn get_all_victims(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all victims");
-    victim_service.get_all_victims(query.into_inner(), req).await
+    victim_service
+        .get_all_victims(query.into_inner(), req)
+        .await
 }
 
 pub async fn search_victims(
@@ -54,7 +56,9 @@ pub async fn search_victims(
 ) -> Result<HttpResponse, AppError> {
     let query = query.into_inner();
     info!("[Controller] Received request to search victims");
-    victim_service.search_victims(query.name, query.cpf, req).await
+    victim_service
+        .search_victims(query.name, query.cpf, req)
+        .await
 }
 
 pub async fn update_victim_by_id(
@@ -93,7 +97,10 @@ pub async fn add_phone_to_victim(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let victim_id = path.into_inner();
-    info!("[Controller] Received request to add phone to victim {}", victim_id);
+    info!(
+        "[Controller] Received request to add phone to victim {}",
+        victim_id
+    );
     victim_service
         .create_phone(victim_id, phone_data.into_inner(), req)
         .await
@@ -129,7 +136,10 @@ pub async fn add_address_to_victim(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let victim_id = path.into_inner();
-    info!("[Controller] Received request to add address to victim {}", victim_id);
+    info!(
+        "[Controller] Received request to add address to victim {}",
+        victim_id
+    );
     victim_service
         .create_address(victim_id, address_data.into_inner(), req)
         .await
@@ -142,7 +152,10 @@ pub async fn update_victim_address(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (_victim_id, address_id) = path.into_inner();
-    info!("[Controller] Received request to update address {}", address_id);
+    info!(
+        "[Controller] Received request to update address {}",
+        address_id
+    );
     victim_service
         .update_address(address_id, address_data.into_inner(), req)
         .await
@@ -154,6 +167,9 @@ pub async fn delete_victim_address(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (_victim_id, address_id) = path.into_inner();
-    info!("[Controller] Received request to delete address {}", address_id);
+    info!(
+        "[Controller] Received request to delete address {}",
+        address_id
+    );
     victim_service.delete_address(address_id, req).await
 }

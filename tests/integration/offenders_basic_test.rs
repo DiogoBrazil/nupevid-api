@@ -226,7 +226,12 @@ async fn create_offender_with_invalid_cpf_format_fails() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
     let body: Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("cpf must match the format"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cpf must match the format")
+    );
 }
 
 #[actix_rt::test]
@@ -266,7 +271,12 @@ async fn create_offender_with_invalid_cpf_digits_fails() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
     let body: Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("cpf has invalid check digits"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cpf has invalid check digits")
+    );
 }
 
 #[actix_rt::test]
@@ -424,7 +434,8 @@ async fn test_get_offenders_by_victim_id() {
     let offender3_id = db_fixtures::insert_offender(&pool, "Offender 3", city_id).await;
 
     db_fixtures::insert_protective_measure(&pool, victim1_id, offender1_id, city_id, "Valid").await;
-    db_fixtures::insert_protective_measure(&pool, victim1_id, offender2_id, city_id, "Revoked").await;
+    db_fixtures::insert_protective_measure(&pool, victim1_id, offender2_id, city_id, "Revoked")
+        .await;
     db_fixtures::insert_protective_measure(&pool, victim2_id, offender3_id, city_id, "Valid").await;
 
     let claims = test_helpers::build_root_claims();
@@ -584,5 +595,10 @@ async fn create_offender_without_city_id_and_without_residential_or_work_address
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("no Residential or Work address provided"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("no Residential or Work address provided")
+    );
 }

@@ -1,25 +1,29 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::contracts::repository::victims::VictimRepository;
 
-use crate::core::entities::victims::{AddressData, AddressType, CreateVictim, PhoneData, UpdateVictim};
-use crate::repositories::victims::PgVictimRepository;
+use crate::core::entities::victims::{
+    AddressData, AddressType, CreateVictim, PhoneData, UpdateVictim,
+};
 use crate::repositories::users::PgUserRepository;
+use crate::repositories::victims::PgVictimRepository;
 
 use crate::utils::{
-    errors::AppError,
-    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults},
     db_error_mapper::map_constraint,
-    pagination::{PaginationParams, normalize_pagination}
+    errors::AppError,
+    pagination::{PaginationParams, normalize_pagination},
+    responses::{ApiResponse, PaginatedResponse},
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
 };
 use crate::validators::{
+    common::{
+        POLICY_CREATE_VICTIMS, POLICY_DELETE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS,
+    },
     cpf_validator::validate_cpf,
-    common::{POLICY_CREATE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS, POLICY_DELETE_VICTIMS},
-    victim_validator::VictimValidator
+    victim_validator::VictimValidator,
 };
 
 pub struct VictimService {
@@ -33,8 +37,14 @@ enum VictimSearchCriteria {
 }
 
 impl VictimService {
-    pub fn new(victim_repository: web::Data<PgVictimRepository>, user_repository: web::Data<PgUserRepository>) -> Self {
-        Self { victim_repository, user_repository }
+    pub fn new(
+        victim_repository: web::Data<PgVictimRepository>,
+        user_repository: web::Data<PgUserRepository>,
+    ) -> Self {
+        Self {
+            victim_repository,
+            user_repository,
+        }
     }
 
     fn derive_city_id_from_addresses(addresses: &Option<Vec<AddressData>>) -> Option<Uuid> {
@@ -125,7 +135,8 @@ impl VictimService {
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
         let mut victim = victim;
-        let city_id = Self::resolve_city_id(&victim.addresses, victim.city_id, "Error adding victim")?;
+        let city_id =
+            Self::resolve_city_id(&victim.addresses, victim.city_id, "Error adding victim")?;
         victim.city_id = Some(city_id);
 
         let (has_special_needs, special_needs_type) =
@@ -143,7 +154,10 @@ impl VictimService {
             victim.cpf = Some(normalized);
         }
 
-        info!("[VictimService] Starting victim creation: {}", victim.full_name);
+        info!(
+            "[VictimService] Starting victim creation: {}",
+            victim.full_name
+        );
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
@@ -172,10 +186,16 @@ impl VictimService {
                             "A victim with this CPF already exists.".to_string(),
                         ));
                     }
-                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
-                        ("fk_victims_city", "Error adding victim: city_id not found"),
-                        ("fk_victim_addresses_city", "Error adding victim: address city_id not found"),
-                    ]) {
+                    if let Some(app_err) = map_constraint(
+                        db_err.constraint(),
+                        &[
+                            ("fk_victims_city", "Error adding victim: city_id not found"),
+                            (
+                                "fk_victim_addresses_city",
+                                "Error adding victim: address city_id not found",
+                            ),
+                        ],
+                    ) {
                         return Err(app_err);
                     }
                 }
@@ -199,8 +219,14 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
-                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-                check_policy(&claims, POLICY_READ_VICTIMS, victim_with_address.city_id, &policies)?;
+                let policies =
+                    get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+                check_policy(
+                    &claims,
+                    POLICY_READ_VICTIMS,
+                    victim_with_address.city_id,
+                    &policies,
+                )?;
 
                 info!("[VictimService] Victim with id {} found successfully", id);
                 Ok(ApiResponse::success(victim_with_address).into_response())
@@ -234,7 +260,8 @@ impl VictimService {
         let pagination = normalize_pagination(&params);
         let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies);
 
-        let total_items = self.victim_repository
+        let total_items = self
+            .victim_repository
             .count_victims(allowed_cities.as_deref())
             .await
             .map_err(|e| {
@@ -242,7 +269,8 @@ impl VictimService {
                 AppError::InternalServerError
             })?;
 
-        let victims_list = self.victim_repository
+        let victims_list = self
+            .victim_repository
             .get_victims_paginated(
                 allowed_cities.as_deref(),
                 pagination.page_size,
@@ -263,7 +291,8 @@ impl VictimService {
             pagination.page,
             pagination.page_size,
             total_items,
-        ).into_response())
+        )
+        .into_response())
     }
 
     pub async fn search_victims(
@@ -283,9 +312,7 @@ impl VictimService {
             VictimSearchCriteria::Name(name) => {
                 self.victim_repository.get_victims_by_name(&name).await
             }
-            VictimSearchCriteria::Cpf(cpf) => {
-                self.victim_repository.get_victims_by_cpf(&cpf).await
-            }
+            VictimSearchCriteria::Cpf(cpf) => self.victim_repository.get_victims_by_cpf(&cpf).await,
         };
 
         let victims = if let Some(allowed_cities) =
@@ -293,8 +320,10 @@ impl VictimService {
         {
             match victims {
                 Ok(list) => {
-                    let filtered: Vec<_> =
-                        list.into_iter().filter(|v| allowed_cities.contains(&v.city_id)).collect();
+                    let filtered: Vec<_> = list
+                        .into_iter()
+                        .filter(|v| allowed_cities.contains(&v.city_id))
+                        .collect();
                     Ok(filtered)
                 }
                 Err(e) => Err(e),
@@ -329,7 +358,8 @@ impl VictimService {
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let mut data = data;
-        let city_id = Self::resolve_city_id(&data.addresses, data.city_id, "Error updating victim")?;
+        let city_id =
+            Self::resolve_city_id(&data.addresses, data.city_id, "Error updating victim")?;
         data.city_id = Some(city_id);
 
         let (has_special_needs, special_needs_type) =
@@ -353,7 +383,12 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                check_policy(&claims, POLICY_UPDATE_VICTIMS, existing_victim.city_id, &policies)?;
+                check_policy(
+                    &claims,
+                    POLICY_UPDATE_VICTIMS,
+                    existing_victim.city_id,
+                    &policies,
+                )?;
             }
             Err(sqlx::Error::RowNotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -385,18 +420,24 @@ impl VictimService {
                 )))
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e {
-                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
-                        ("fk_victims_city", "Error updating victim: city_id not found"),
-                        ("fk_victim_addresses_city", "Error updating victim: address city_id not found"),
-                    ]) {
-                        return Err(app_err);
-                    }
+                if let sqlx::Error::Database(db_err) = &e
+                    && let Some(app_err) = map_constraint(
+                        db_err.constraint(),
+                        &[
+                            (
+                                "fk_victims_city",
+                                "Error updating victim: city_id not found",
+                            ),
+                            (
+                                "fk_victim_addresses_city",
+                                "Error updating victim: address city_id not found",
+                            ),
+                        ],
+                    )
+                {
+                    return Err(app_err);
                 }
-                error!(
-                    "[VictimService] Error updating victim in database: {:?}",
-                    e
-                );
+                error!("[VictimService] Error updating victim in database: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }
@@ -416,7 +457,8 @@ impl VictimService {
 
         match self.victim_repository.get_victim_by_id(id).await {
             Ok(victim) => {
-                let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+                let policies =
+                    get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_DELETE_VICTIMS, victim.city_id, &policies)?;
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -437,7 +479,10 @@ impl VictimService {
                 Ok(ApiResponse::success(deleted_victim).into_response())
             }
             Err(sqlx::Error::RowNotFound) => {
-                info!("[VictimService] Victim with id {} not found for deletion", id);
+                info!(
+                    "[VictimService] Victim with id {} not found for deletion",
+                    id
+                );
                 Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     id
@@ -474,7 +519,11 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.create_phone(victim_id, phone_data).await {
+        match self
+            .victim_repository
+            .create_phone(victim_id, phone_data)
+            .await
+        {
             Ok(phone) => Ok(ApiResponse::created(phone).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
@@ -493,17 +542,22 @@ impl VictimService {
 
         match self.victim_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
-                match self.victim_repository.get_victim_by_id(phone.victim_id).await {
+                match self
+                    .victim_repository
+                    .get_victim_by_id(phone.victim_id)
+                    .await
+                {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
-                                format!("Victim with id '{}' not found", phone.victim_id)
-                            )),
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
+                                "Victim with id '{}' not found",
+                                phone.victim_id
+                            ))),
                             _ => Err(AppError::InternalServerError),
-                        }
+                        };
                     }
                 }
             }
@@ -516,13 +570,21 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.update_phone_by_id(phone_id, phone_data).await {
+        match self
+            .victim_repository
+            .update_phone_by_id(phone_id, phone_data)
+            .await
+        {
             Ok(phone) => Ok(ApiResponse::success(phone).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
 
-    pub async fn delete_phone(&self, phone_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn delete_phone(
+        &self,
+        phone_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Deleting phone: {}", phone_id);
 
         let claims = extract_claims(&req)?;
@@ -530,17 +592,22 @@ impl VictimService {
 
         match self.victim_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
-                match self.victim_repository.get_victim_by_id(phone.victim_id).await {
+                match self
+                    .victim_repository
+                    .get_victim_by_id(phone.victim_id)
+                    .await
+                {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
-                                format!("Victim with id '{}' not found", phone.victim_id)
-                            )),
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
+                                "Victim with id '{}' not found",
+                                phone.victim_id
+                            ))),
                             _ => Err(AppError::InternalServerError),
-                        }
+                        };
                     }
                 }
             }
@@ -583,7 +650,11 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.create_address(victim_id, address_data).await {
+        match self
+            .victim_repository
+            .create_address(victim_id, address_data)
+            .await
+        {
             Ok(address) => Ok(ApiResponse::created(address).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
@@ -602,17 +673,22 @@ impl VictimService {
 
         match self.victim_repository.get_address_by_id(address_id).await {
             Ok(address) => {
-                match self.victim_repository.get_victim_by_id(address.victim_id).await {
+                match self
+                    .victim_repository
+                    .get_victim_by_id(address.victim_id)
+                    .await
+                {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
-                                format!("Victim with id '{}' not found", address.victim_id)
-                            )),
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
+                                "Victim with id '{}' not found",
+                                address.victim_id
+                            ))),
                             _ => Err(AppError::InternalServerError),
-                        }
+                        };
                     }
                 }
             }
@@ -625,13 +701,21 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.update_address_by_id(address_id, address_data).await {
+        match self
+            .victim_repository
+            .update_address_by_id(address_id, address_data)
+            .await
+        {
             Ok(address) => Ok(ApiResponse::success(address).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
 
-    pub async fn delete_address(&self, address_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn delete_address(
+        &self,
+        address_id: Uuid,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Deleting address: {}", address_id);
 
         let claims = extract_claims(&req)?;
@@ -639,17 +723,22 @@ impl VictimService {
 
         match self.victim_repository.get_address_by_id(address_id).await {
             Ok(address) => {
-                match self.victim_repository.get_victim_by_id(address.victim_id).await {
+                match self
+                    .victim_repository
+                    .get_victim_by_id(address.victim_id)
+                    .await
+                {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
-                                format!("Victim with id '{}' not found", address.victim_id)
-                            )),
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
+                                "Victim with id '{}' not found",
+                                address.victim_id
+                            ))),
                             _ => Err(AppError::InternalServerError),
-                        }
+                        };
                     }
                 }
             }
@@ -662,10 +751,13 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.delete_address_by_id(address_id).await {
+        match self
+            .victim_repository
+            .delete_address_by_id(address_id)
+            .await
+        {
             Ok(address) => Ok(ApiResponse::success(address).into_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
-
 }

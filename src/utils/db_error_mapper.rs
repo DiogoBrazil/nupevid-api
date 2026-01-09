@@ -1,9 +1,6 @@
 use crate::utils::errors::AppError;
 
-pub fn map_constraint(
-    constraint: Option<&str>,
-    mappings: &[(&str, &str)],
-) -> Option<AppError> {
+pub fn map_constraint(constraint: Option<&str>, mappings: &[(&str, &str)]) -> Option<AppError> {
     let constraint = constraint?;
     for (key, message) in mappings {
         if constraint == *key {

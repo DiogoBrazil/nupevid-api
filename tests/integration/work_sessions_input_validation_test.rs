@@ -1,6 +1,6 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 5 - Test 1: Create session with empty description (allowed since optional)
 #[actix_rt::test]
@@ -12,7 +12,8 @@ async fn create_session_with_empty_description() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "200001", "user@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "200001", "user@test.com", "CITY_USER", Some(city)).await;
 
     let mut claims = test_helpers::build_city_user_claims(city);
     claims.id = user_id.to_string();
@@ -47,7 +48,8 @@ async fn create_session_with_null_description() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "200002", "user@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "200002", "user@test.com", "CITY_USER", Some(city)).await;
 
     let mut claims = test_helpers::build_city_user_claims(city);
     claims.id = user_id.to_string();
@@ -82,8 +84,16 @@ async fn add_member_with_invalid_function() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "200003", "creator@test.com", "CITY_ADMIN", Some(city)).await;
-    let member_id = db_fixtures::insert_user(&pool, "200004", "member@test.com", "CITY_USER", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "200003",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "200004", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -139,8 +149,11 @@ async fn create_session_with_invalid_member_function() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "200005", "creator@test.com", "CITY_USER", Some(city)).await;
-    let member_id = db_fixtures::insert_user(&pool, "200006", "member@test.com", "CITY_USER", Some(city)).await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "200005", "creator@test.com", "CITY_USER", Some(city))
+            .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "200006", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -180,7 +193,8 @@ async fn create_session_with_very_long_description() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let user_id = db_fixtures::insert_user(&pool, "200007", "user@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "200007", "user@test.com", "CITY_USER", Some(city)).await;
 
     let mut claims = test_helpers::build_city_user_claims(city);
     claims.id = user_id.to_string();

@@ -319,9 +319,11 @@ async fn delete_victim_soft_delete_and_not_listed() {
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
     let victims = list_body["data"].as_array().unwrap();
-    assert!(victims
-        .iter()
-        .all(|v| v["id"].as_str().unwrap() != victim_id));
+    assert!(
+        victims
+            .iter()
+            .all(|v| v["id"].as_str().unwrap() != victim_id)
+    );
 }
 
 #[actix_rt::test]
@@ -382,7 +384,10 @@ async fn create_victim_with_address_in_single_request() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
 
     // Verify victim data
-    assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Vitima Com Endereco");
+    assert_eq!(
+        body["data"]["full_name"].as_str().unwrap(),
+        "Vitima Com Endereco"
+    );
     assert_eq!(body["data"]["cpf"].as_str().unwrap(), "529.982.247-25");
 
     // Verify address data is included (now as array)
@@ -436,7 +441,10 @@ async fn get_victim_returns_address_when_exists() {
     let body: serde_json::Value = test::read_body_json(get_resp).await;
     assert!(body["data"]["addresses"].is_array());
     assert_eq!(body["data"]["addresses"].as_array().unwrap().len(), 1);
-    assert_eq!(body["data"]["addresses"][0]["street"].as_str().unwrap(), "Rua Teste");
+    assert_eq!(
+        body["data"]["addresses"][0]["street"].as_str().unwrap(),
+        "Rua Teste"
+    );
 }
 
 #[actix_rt::test]
@@ -468,7 +476,10 @@ async fn update_victim_can_add_or_update_address() {
 
     // Verify no address initially (now empty array)
     assert!(create_body["data"]["addresses"].is_array());
-    assert_eq!(create_body["data"]["addresses"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        create_body["data"]["addresses"].as_array().unwrap().len(),
+        0
+    );
 
     // Update victim adding address
     let update_payload = serde_json::json!({
@@ -509,11 +520,27 @@ async fn update_victim_can_add_or_update_address() {
     assert_eq!(update_resp.status(), StatusCode::OK);
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(update_body["data"]["full_name"].as_str().unwrap(), "Vitima Update Renamed");
+    assert_eq!(
+        update_body["data"]["full_name"].as_str().unwrap(),
+        "Vitima Update Renamed"
+    );
     assert!(update_body["data"]["addresses"].is_array());
-    assert_eq!(update_body["data"]["addresses"].as_array().unwrap().len(), 1);
-    assert_eq!(update_body["data"]["addresses"][0]["street"].as_str().unwrap(), "Nova Rua");
-    assert_eq!(update_body["data"]["addresses"][0]["city_id"].as_str().unwrap(), city.to_string());
+    assert_eq!(
+        update_body["data"]["addresses"].as_array().unwrap().len(),
+        1
+    );
+    assert_eq!(
+        update_body["data"]["addresses"][0]["street"]
+            .as_str()
+            .unwrap(),
+        "Nova Rua"
+    );
+    assert_eq!(
+        update_body["data"]["addresses"][0]["city_id"]
+            .as_str()
+            .unwrap(),
+        city.to_string()
+    );
 }
 
 #[actix_rt::test]

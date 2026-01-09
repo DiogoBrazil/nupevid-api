@@ -1,4 +1,4 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
@@ -13,8 +13,13 @@ pub async fn create_extension(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let protective_measure_id = path.into_inner();
-    info!("[Controller] Creating extension for protective measure: {}", protective_measure_id);
-    service.create_extension(protective_measure_id, body.into_inner(), req).await
+    info!(
+        "[Controller] Creating extension for protective measure: {}",
+        protective_measure_id
+    );
+    service
+        .create_extension(protective_measure_id, body.into_inner(), req)
+        .await
 }
 
 pub async fn get_extension_by_id(
@@ -33,8 +38,13 @@ pub async fn get_extensions_by_measure(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let protective_measure_id = path.into_inner();
-    info!("[Controller] Getting extensions for protective measure: {}", protective_measure_id);
-    service.get_extensions_by_measure(protective_measure_id, req).await
+    info!(
+        "[Controller] Getting extensions for protective measure: {}",
+        protective_measure_id
+    );
+    service
+        .get_extensions_by_measure(protective_measure_id, req)
+        .await
 }
 
 pub async fn update_extension_by_id(
@@ -45,7 +55,9 @@ pub async fn update_extension_by_id(
 ) -> Result<HttpResponse, AppError> {
     let (_protective_measure_id, extension_id) = path.into_inner();
     info!("[Controller] Updating extension with ID: {}", extension_id);
-    service.update_extension_by_id(extension_id, body.into_inner(), req).await
+    service
+        .update_extension_by_id(extension_id, body.into_inner(), req)
+        .await
 }
 
 pub async fn delete_extension_by_id(

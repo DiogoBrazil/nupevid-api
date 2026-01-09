@@ -1,7 +1,7 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 1 - Test 1: Create victim attendance without active session should fail
 #[actix_rt::test]
@@ -14,7 +14,8 @@ async fn create_victim_attendance_without_active_session_fails() {
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
-    let user_id = db_fixtures::insert_user(&pool, "100001", "user@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100001", "user@test.com", "CITY_USER", Some(city)).await;
 
     // Create JWT token but NO work session
     let mut user_claims = test_helpers::build_city_user_claims(city);
@@ -68,7 +69,8 @@ async fn create_offender_attendance_without_active_session_fails() {
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Offender", city).await;
-    let user_id = db_fixtures::insert_user(&pool, "100002", "user2@test.com", "CITY_USER", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100002", "user2@test.com", "CITY_USER", Some(city)).await;
 
     // Create JWT token but NO work session
     let mut user_claims = test_helpers::build_city_user_claims(city);
@@ -115,11 +117,26 @@ async fn attendance_tracks_all_session_members() {
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
-    
+
     // Create 3 users (use CITY_ADMIN for commander to have create_attendances permission)
-    let commander_id = db_fixtures::insert_user(&pool, "100003", "commander@test.com", "CITY_ADMIN", Some(city)).await;
-    let driver_id = db_fixtures::insert_user(&pool, "100004", "driver@test.com", "CITY_USER", Some(city)).await;
-    let patroller_id = db_fixtures::insert_user(&pool, "100005", "patroller@test.com", "CITY_USER", Some(city)).await;
+    let commander_id = db_fixtures::insert_user(
+        &pool,
+        "100003",
+        "commander@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+    let driver_id =
+        db_fixtures::insert_user(&pool, "100004", "driver@test.com", "CITY_USER", Some(city)).await;
+    let patroller_id = db_fixtures::insert_user(
+        &pool,
+        "100005",
+        "patroller@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
 
     let mut commander_claims = test_helpers::build_city_admin_claims(city);
     commander_claims.id = commander_id.to_string();
@@ -154,7 +171,10 @@ async fn attendance_tracks_all_session_members() {
     let status = session_resp.status();
     let session_body: serde_json::Value = test::read_body_json(session_resp).await;
     if status != StatusCode::CREATED {
-        eprintln!("Session creation failed with status {}: {:?}", status, session_body);
+        eprintln!(
+            "Session creation failed with status {}: {:?}",
+            status, session_body
+        );
     }
     assert_eq!(status, StatusCode::CREATED);
     let session_id = session_body["data"]["id"].as_str().unwrap();
@@ -194,21 +214,27 @@ async fn attendance_tracks_all_session_members() {
     let att_status = attendance_resp.status();
     let attendance_body: serde_json::Value = test::read_body_json(attendance_resp).await;
     if att_status != StatusCode::CREATED {
-        eprintln!("Attendance creation failed with status {}: {:?}", att_status, attendance_body);
+        eprintln!(
+            "Attendance creation failed with status {}: {:?}",
+            att_status, attendance_body
+        );
     }
     assert_eq!(att_status, StatusCode::CREATED);
     let attendance_id = attendance_body["data"]["id"].as_str().unwrap();
 
     // Verify all 3 members are tracked (Commander + Driver + Patroller)
     let member_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM attendance_victim_members WHERE attendance_victim_id = $1"
+        "SELECT COUNT(*) FROM attendance_victim_members WHERE attendance_victim_id = $1",
     )
     .bind(uuid::Uuid::parse_str(attendance_id).unwrap())
     .fetch_one(&pool)
     .await
     .expect("Failed to count attendance members");
 
-    assert_eq!(member_count, 3, "Should track all session members (Commander + Driver + Patroller)");
+    assert_eq!(
+        member_count, 3,
+        "Should track all session members (Commander + Driver + Patroller)"
+    );
 
     // Verify session_id is tracked
     let tracked_sessions: Vec<uuid::Uuid> = sqlx::query_scalar(

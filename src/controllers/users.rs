@@ -1,4 +1,4 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
@@ -35,7 +35,9 @@ pub async fn update_user_by_id(
         "[Controller] Received request to update user with id: {}",
         user_id
     );
-    service.update_user_by_id(data.into_inner(), user_id, req).await
+    service
+        .update_user_by_id(data.into_inner(), user_id, req)
+        .await
 }
 
 pub async fn get_user_by_id(
@@ -109,7 +111,10 @@ pub async fn append_user_policy_cities(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (user_id, policy) = path.into_inner();
-    info!("[Controller] Append cities to user policy '{}' for user: {}", policy, user_id);
+    info!(
+        "[Controller] Append cities to user policy '{}' for user: {}",
+        policy, user_id
+    );
     service
         .append_user_policy_cities(user_id, &policy, &body.city_ids, req)
         .await
@@ -122,7 +127,10 @@ pub async fn remove_user_policy_cities(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (user_id, policy) = path.into_inner();
-    info!("[Controller] Remove cities from user policy '{}' for user: {}", policy, user_id);
+    info!(
+        "[Controller] Remove cities from user policy '{}' for user: {}",
+        policy, user_id
+    );
     service
         .remove_user_policy_cities(user_id, &policy, &body.city_ids, req)
         .await

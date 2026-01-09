@@ -1,7 +1,7 @@
 use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 #[actix_rt::test]
 async fn create_victim_with_empty_full_name_fails() {
@@ -90,7 +90,12 @@ async fn create_victim_with_invalid_cpf_format_fails() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("cpf must match the format"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cpf must match the format")
+    );
 }
 
 #[actix_rt::test]
@@ -135,7 +140,12 @@ async fn create_victim_with_invalid_cpf_digits_fails() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("cpf has invalid check digits"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cpf has invalid check digits")
+    );
 }
 
 #[actix_rt::test]
@@ -210,7 +220,12 @@ async fn create_victim_with_duplicate_cpf_fails() {
     let resp2 = test::call_service(&app, req2).await;
     assert_eq!(resp2.status(), StatusCode::CONFLICT);
     let body: serde_json::Value = test::read_body_json(resp2).await;
-    assert!(body["message"].as_str().unwrap().contains("A victim with this CPF already exists"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("A victim with this CPF already exists")
+    );
 }
 
 #[actix_rt::test]
@@ -369,7 +384,12 @@ async fn create_victim_without_city_id_and_without_residential_or_work_address_f
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("no Residential or Work address provided"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("no Residential or Work address provided")
+    );
 }
 
 #[actix_rt::test]

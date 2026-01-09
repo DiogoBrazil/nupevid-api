@@ -1,10 +1,10 @@
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
+};
+use chrono::NaiveDate;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::NaiveDate;
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-    Argon2,
-};
 
 /// Insert a test city into the database and return its id.
 pub async fn insert_city(pool: &PgPool, name: &str) -> Uuid {
@@ -142,7 +142,13 @@ pub async fn insert_protective_measure(
 }
 
 /// Insert a test user associated with the given city and return its id.
-pub async fn insert_user(pool: &PgPool, registration: &str, email: &str, profile: &str, city_id: Option<Uuid>) -> Uuid {
+pub async fn insert_user(
+    pool: &PgPool,
+    registration: &str,
+    email: &str,
+    profile: &str,
+    city_id: Option<Uuid>,
+) -> Uuid {
     use nupevid_api::validators::common::generate_default_policies;
 
     let id = Uuid::new_v4();

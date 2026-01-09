@@ -7,8 +7,12 @@ mod tests {
         let hasher = Argon2PasswordHasher::new();
         let password = "my_secret_password";
 
-        let hash1 = hasher.hash_password(password).expect("Failed to hash password");
-        let hash2 = hasher.hash_password(password).expect("Failed to hash password");
+        let hash1 = hasher
+            .hash_password(password)
+            .expect("Failed to hash password");
+        let hash2 = hasher
+            .hash_password(password)
+            .expect("Failed to hash password");
 
         // Due to salt, same password should generate different hashes
         assert_ne!(hash1, hash2);
@@ -21,10 +25,17 @@ mod tests {
         let hasher = Argon2PasswordHasher::new();
         let password = "correct_password";
 
-        let hash = hasher.hash_password(password).expect("Failed to hash password");
-        let result = hasher.verify_password(&hash, password).expect("Failed to verify password");
+        let hash = hasher
+            .hash_password(password)
+            .expect("Failed to hash password");
+        let result = hasher
+            .verify_password(&hash, password)
+            .expect("Failed to verify password");
 
-        assert!(result, "Password verification should succeed with correct password");
+        assert!(
+            result,
+            "Password verification should succeed with correct password"
+        );
     }
 
     #[test]
@@ -33,10 +44,17 @@ mod tests {
         let password = "correct_password";
         let wrong_password = "wrong_password";
 
-        let hash = hasher.hash_password(password).expect("Failed to hash password");
-        let result = hasher.verify_password(&hash, wrong_password).expect("Failed to verify password");
+        let hash = hasher
+            .hash_password(password)
+            .expect("Failed to hash password");
+        let result = hasher
+            .verify_password(&hash, wrong_password)
+            .expect("Failed to verify password");
 
-        assert!(!result, "Password verification should fail with incorrect password");
+        assert!(
+            !result,
+            "Password verification should fail with incorrect password"
+        );
     }
 
     #[test]
@@ -44,8 +62,12 @@ mod tests {
         let hasher = Argon2PasswordHasher::new();
         let password = "";
 
-        let hash = hasher.hash_password(password).expect("Failed to hash empty password");
-        let result = hasher.verify_password(&hash, password).expect("Failed to verify empty password");
+        let hash = hasher
+            .hash_password(password)
+            .expect("Failed to hash empty password");
+        let result = hasher
+            .verify_password(&hash, password)
+            .expect("Failed to verify empty password");
 
         assert!(result, "Empty password should verify correctly");
     }
@@ -55,10 +77,17 @@ mod tests {
         let hasher = Argon2PasswordHasher::new();
         let password = "P@ssw0rd!#$%^&*()";
 
-        let hash = hasher.hash_password(password).expect("Failed to hash password with special chars");
-        let result = hasher.verify_password(&hash, password).expect("Failed to verify password");
+        let hash = hasher
+            .hash_password(password)
+            .expect("Failed to hash password with special chars");
+        let result = hasher
+            .verify_password(&hash, password)
+            .expect("Failed to verify password");
 
-        assert!(result, "Password with special characters should verify correctly");
+        assert!(
+            result,
+            "Password with special characters should verify correctly"
+        );
     }
 
     #[test]
@@ -66,8 +95,12 @@ mod tests {
         let hasher = Argon2PasswordHasher::new();
         let password = "cabo@123";
 
-        let hash = hasher.hash_password(password).expect("Failed to hash unicode password");
-        let result = hasher.verify_password(&hash, password).expect("Failed to verify unicode password");
+        let hash = hasher
+            .hash_password(password)
+            .expect("Failed to hash unicode password");
+        let result = hasher
+            .verify_password(&hash, password)
+            .expect("Failed to verify unicode password");
 
         assert!(result, "Unicode password should hash and verify correctly");
     }

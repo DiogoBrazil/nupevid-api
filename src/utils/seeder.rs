@@ -1,9 +1,9 @@
-use log::{info, error};
-use sqlx::PgPool;
-use crate::core::entities::users::CreateUser;
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
-use crate::repositories::users::PgUserRepository;
 use crate::core::contracts::repository::users::UserRepository;
+use crate::core::entities::users::CreateUser;
+use crate::repositories::users::PgUserRepository;
+use log::{error, info};
+use sqlx::PgPool;
 
 pub async fn seed_admin_user(pool: &PgPool, hasher: &dyn PasswordHasherPort) {
     let repo = PgUserRepository::new(pool.clone());

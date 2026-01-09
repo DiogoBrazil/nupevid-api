@@ -1,11 +1,9 @@
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::core::entities::offenders::{
-    AddressData, CreateOffender, PhoneData, UpdateOffender,
-};
+use crate::core::entities::offenders::{AddressData, CreateOffender, PhoneData, UpdateOffender};
 use crate::services::offenders::OffenderService;
 use crate::utils::errors::AppError;
 use crate::utils::pagination::PaginationParams;
@@ -46,7 +44,9 @@ pub async fn get_all_offenders(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all offenders");
-    offender_service.get_all_offenders(query.into_inner(), req).await
+    offender_service
+        .get_all_offenders(query.into_inner(), req)
+        .await
 }
 
 pub async fn search_offenders(
@@ -102,7 +102,9 @@ pub async fn delete_offender_by_id(
         "[Controller] Received request to delete offender with id: {}",
         offender_id
     );
-    offender_service.delete_offender_by_id(offender_id, req).await
+    offender_service
+        .delete_offender_by_id(offender_id, req)
+        .await
 }
 
 pub async fn add_phone_to_offender(
@@ -128,10 +130,7 @@ pub async fn update_offender_phone(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (_offender_id, phone_id) = path.into_inner();
-    info!(
-        "[Controller] Received request to update phone {}",
-        phone_id
-    );
+    info!("[Controller] Received request to update phone {}", phone_id);
     offender_service
         .update_phone(phone_id, phone_data.into_inner(), req)
         .await
@@ -143,10 +142,7 @@ pub async fn delete_offender_phone(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (_offender_id, phone_id) = path.into_inner();
-    info!(
-        "[Controller] Received request to delete phone {}",
-        phone_id
-    );
+    info!("[Controller] Received request to delete phone {}", phone_id);
     offender_service.delete_phone(phone_id, req).await
 }
 

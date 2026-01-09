@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse, HttpRequest};
+use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
@@ -22,7 +22,10 @@ pub async fn get_city_by_id(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
-    info!("[Controller] Received request to get city with id: {}", city_id);
+    info!(
+        "[Controller] Received request to get city with id: {}",
+        city_id
+    );
     city_service.get_city_by_id(city_id, req).await
 }
 
@@ -42,8 +45,13 @@ pub async fn update_city_by_id(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
-    info!("[Controller] Received request to update city with id: {}", city_id);
-    city_service.update_city_by_id(city_data.into_inner(), city_id, req).await
+    info!(
+        "[Controller] Received request to update city with id: {}",
+        city_id
+    );
+    city_service
+        .update_city_by_id(city_data.into_inner(), city_id, req)
+        .await
 }
 
 pub async fn delete_city_by_id(
@@ -52,6 +60,9 @@ pub async fn delete_city_by_id(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
-    info!("[Controller] Received request to delete city with id: {}", city_id);
+    info!(
+        "[Controller] Received request to delete city with id: {}",
+        city_id
+    );
     city_service.delete_city_by_id(city_id, req).await
 }

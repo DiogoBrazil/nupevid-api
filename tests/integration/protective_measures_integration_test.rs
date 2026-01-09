@@ -1,10 +1,15 @@
-use actix_web::{test, http::StatusCode};
-use chrono::{NaiveDate};
+use actix_web::{http::StatusCode, test};
+use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
-fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, offender_id: Uuid, status: &str) -> serde_json::Value {
+fn build_measure_payload(
+    victim_id: Uuid,
+    court_district_id: Uuid,
+    offender_id: Uuid,
+    status: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
@@ -51,7 +56,10 @@ async fn create_protective_measure_success_for_victim_in_own_city() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 201);
-    assert_eq!(body["data"]["victim_id"].as_str().unwrap(), victim_id.to_string());
+    assert_eq!(
+        body["data"]["victim_id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -97,7 +105,12 @@ async fn cannot_create_second_active_measure_for_same_victim() {
 
     let body: serde_json::Value = test::read_body_json(resp2).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("already has an active protective measure"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already has an active protective measure")
+    );
 }
 
 #[actix_rt::test]
@@ -159,8 +172,7 @@ async fn list_measures_by_victim_success() {
     assert_eq!(create_resp.status(), StatusCode::CREATED);
 
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/victim/{}", victim_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/victim/{}", victim_id)),
         &config,
         &admin_token,
     )
@@ -234,8 +246,7 @@ async fn delete_protective_measure_soft_delete() {
     let measure_id = body["data"]["id"].as_str().unwrap();
 
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/protective-measures/{}", measure_id)),
+        test::TestRequest::delete().uri(&format!("/api/v1/protective-measures/{}", measure_id)),
         &config,
         &admin_token,
     )
@@ -245,8 +256,7 @@ async fn delete_protective_measure_soft_delete() {
 
     // GET by id should be 404
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/{}", measure_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/{}", measure_id)),
         &config,
         &admin_token,
     )

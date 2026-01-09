@@ -1,10 +1,15 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
-fn build_measure_payload(victim_id: Uuid, court_district_id: Uuid, offender_id: Uuid, status: &str) -> serde_json::Value {
+fn build_measure_payload(
+    victim_id: Uuid,
+    court_district_id: Uuid,
+    offender_id: Uuid,
+    status: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
@@ -57,7 +62,7 @@ async fn test_protective_measure_includes_extensions() {
     .to_request();
     let create_pm_resp = test::call_service(&app, create_pm_req).await;
     assert_eq!(create_pm_resp.status(), StatusCode::CREATED);
-    
+
     let pm_body: serde_json::Value = test::read_body_json(create_pm_resp).await;
     let pm_id = pm_body["data"]["id"].as_str().unwrap();
 
@@ -76,56 +81,56 @@ async fn test_protective_measure_includes_extensions() {
 
     // 4. Get Measure By ID - Should include extensions
     let get_pm_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/{}", pm_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/{}", pm_id)),
         &config,
         &admin_token,
     )
     .to_request();
     let get_pm_resp = test::call_service(&app, get_pm_req).await;
     assert_eq!(get_pm_resp.status(), StatusCode::OK);
-    
+
     let get_pm_body: serde_json::Value = test::read_body_json(get_pm_resp).await;
     let measure = &get_pm_body["data"];
-    
-    assert!(measure.get("extensions").is_some(), "Response should have 'extensions' field");
+
+    assert!(
+        measure.get("extensions").is_some(),
+        "Response should have 'extensions' field"
+    );
     let extensions = measure["extensions"].as_array().unwrap();
     assert_eq!(extensions.len(), 1, "Should have 1 extension");
     assert_eq!(extensions[0]["extension_number"].as_i64().unwrap(), 1);
 
     // 5. List Measures - Should include extensions
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/protective-measures"),
+        test::TestRequest::get().uri("/api/v1/protective-measures"),
         &config,
         &admin_token,
     )
     .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
-    
+
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
     let list = list_body["data"].as_array().unwrap();
     assert_eq!(list.len(), 1);
-    
+
     assert!(list[0].get("extensions").is_some());
     assert_eq!(list[0]["extensions"].as_array().unwrap().len(), 1);
 
     // 6. List by Victim - Should include extensions
     let victim_list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/victim/{}", victim_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/victim/{}", victim_id)),
         &config,
         &admin_token,
     )
     .to_request();
     let victim_list_resp = test::call_service(&app, victim_list_req).await;
     assert_eq!(victim_list_resp.status(), StatusCode::OK);
-    
+
     let victim_list_body: serde_json::Value = test::read_body_json(victim_list_resp).await;
     let v_list = victim_list_body["data"].as_array().unwrap();
     assert_eq!(v_list.len(), 1);
-    
+
     assert!(v_list[0].get("extensions").is_some());
     assert_eq!(v_list[0]["extensions"].as_array().unwrap().len(), 1);
 }
@@ -323,8 +328,10 @@ async fn test_city_user_can_read_extension_in_own_city() {
     let user_token = test_helpers::generate_jwt(&user_claims, &config.jwt_secret);
 
     let get_ext_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures/{}/extensions/{}",
+            pm_id, ext_id
+        )),
         &config,
         &user_token,
     )
@@ -381,8 +388,10 @@ async fn test_city_user_cannot_read_extension_from_other_city() {
     let user_a_token = test_helpers::generate_jwt(&user_a_claims, &config.jwt_secret);
 
     let get_ext_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures/{}/extensions/{}",
+            pm_id, ext_id
+        )),
         &config,
         &user_a_token,
     )
@@ -436,8 +445,7 @@ async fn test_city_user_can_list_extensions_in_own_city() {
     let user_token = test_helpers::generate_jwt(&user_claims, &config.jwt_secret);
 
     let list_ext_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions", pm_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/{}/extensions", pm_id)),
         &config,
         &user_token,
     )
@@ -497,7 +505,10 @@ async fn test_city_admin_can_update_extension_in_own_city() {
     let update_payload = build_extension_payload(2);
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id))
+            .uri(&format!(
+                "/api/v1/protective-measures/{}/extensions/{}",
+                pm_id, ext_id
+            ))
             .set_json(&update_payload),
         &config,
         &admin_token,
@@ -557,7 +568,10 @@ async fn test_city_admin_cannot_update_extension_in_other_city() {
     let update_payload = build_extension_payload(2);
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id))
+            .uri(&format!(
+                "/api/v1/protective-measures/{}/extensions/{}",
+                pm_id, ext_id
+            ))
             .set_json(&update_payload),
         &config,
         &admin_a_token,
@@ -616,7 +630,10 @@ async fn test_city_user_cannot_update_extension() {
     let update_payload = build_extension_payload(2);
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id))
+            .uri(&format!(
+                "/api/v1/protective-measures/{}/extensions/{}",
+                pm_id, ext_id
+            ))
             .set_json(&update_payload),
         &config,
         &user_token,
@@ -672,8 +689,10 @@ async fn test_city_admin_can_delete_extension_in_own_city() {
 
     // Delete extension - should succeed
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/protective-measures/{}/extensions/{}",
+            pm_id, ext_id
+        )),
         &config,
         &admin_token,
     )
@@ -730,8 +749,10 @@ async fn test_city_admin_cannot_delete_extension_in_other_city() {
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/protective-measures/{}/extensions/{}",
+            pm_id, ext_id
+        )),
         &config,
         &admin_a_token,
     )
@@ -787,8 +808,10 @@ async fn test_city_user_cannot_delete_extension() {
     let user_token = test_helpers::generate_jwt(&user_claims, &config.jwt_secret);
 
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/protective-measures/{}/extensions/{}", pm_id, ext_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/protective-measures/{}/extensions/{}",
+            pm_id, ext_id
+        )),
         &config,
         &user_token,
     )

@@ -1,9 +1,9 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
 use crate::common::test_helpers;
-use uuid::Uuid;
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 fn new_city_payload(name: &str) -> serde_json::Value {
     serde_json::json!({
@@ -26,8 +26,13 @@ async fn non_root_cannot_create_city() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let base_city_payload = new_city_payload("PORTO VELHO");
     let base_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&base_city_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&base_city_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let base_resp = test::call_service(&app, base_req).await;
     assert!(base_resp.status().is_success());
     let base_body: serde_json::Value = test::read_body_json(base_resp).await;
@@ -38,15 +43,24 @@ async fn non_root_cannot_create_city() {
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
     let admin_create_payload = new_city_payload("ARIQUEMES");
     let admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&admin_create_payload),
-        &config, &admin_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&admin_create_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, admin_req).await;
     assert_eq!(admin_resp.status(), StatusCode::FORBIDDEN);
 
     // CITY_USER tenta criar cidade -> FORBIDDEN
     let claims_user = ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
-        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        exp: (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize)
+            + 3600,
         rank: "CB PM".to_string(),
         registration: "100009999".to_string(),
         full_name: "Any User".to_string(),
@@ -57,8 +71,13 @@ async fn non_root_cannot_create_city() {
     let user_token = test_helpers::generate_jwt(&claims_user, &config.jwt_secret);
     let user_create_payload = new_city_payload("JI-PARANÁ");
     let user_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&user_create_payload),
-        &config, &user_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&user_create_payload),
+        &config,
+        &user_token,
+    )
+    .to_request();
     let user_resp = test::call_service(&app, user_req).await;
     assert_eq!(user_resp.status(), StatusCode::FORBIDDEN);
 }
@@ -76,7 +95,9 @@ async fn city_admin_cannot_update_or_delete_cities() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
     let city_payload = new_city_payload("PORTO VELHO");
     let create_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_payload),
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city_payload),
         &config,
         &root_token,
     )
@@ -97,7 +118,9 @@ async fn city_admin_cannot_update_or_delete_cities() {
         "battalion": "2ºBPM",
     });
     let update_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/cities/{}", city_id)).set_json(&update_payload),
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/cities/{}", city_id))
+            .set_json(&update_payload),
         &config,
         &admin_token,
     )
@@ -130,14 +153,24 @@ async fn city_admin_cannot_update_or_delete_any_city() {
     let city_a_payload = new_city_payload("PORTO VELHO");
     let city_b_payload = new_city_payload("ARIQUEMES");
     let create_a = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_a_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city_a_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_a = test::call_service(&app, create_a).await;
     let body_a: serde_json::Value = test::read_body_json(resp_a).await;
     let city_a: Uuid = body_a["data"]["id"].as_str().unwrap().parse().unwrap();
     let create_b = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_b_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city_b_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let resp_b = test::call_service(&app, create_b).await;
     let body_b: serde_json::Value = test::read_body_json(resp_b).await;
     let city_b: Uuid = body_b["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -153,14 +186,22 @@ async fn city_admin_cannot_update_or_delete_any_city() {
     });
 
     let update_req = test_helpers::with_auth_headers(
-        test::TestRequest::put().uri(&format!("/api/v1/cities/{}", city_b)).set_json(&update_payload),
-        &config, &admin_a_token).to_request();
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/cities/{}", city_b))
+            .set_json(&update_payload),
+        &config,
+        &admin_a_token,
+    )
+    .to_request();
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 
     let delete_req = test_helpers::with_auth_headers(
         test::TestRequest::delete().uri(&format!("/api/v1/cities/{}", city_b)),
-        &config, &admin_a_token).to_request();
+        &config,
+        &admin_a_token,
+    )
+    .to_request();
     let delete_resp = test::call_service(&app, delete_req).await;
     assert_eq!(delete_resp.status(), StatusCode::FORBIDDEN);
 }
@@ -260,7 +301,12 @@ async fn create_city_invalid_name_returns_bad_request() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("invalid city name"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("invalid city name")
+    );
 }
 
 #[actix_rt::test]
@@ -294,7 +340,12 @@ async fn create_city_invalid_battalion_returns_bad_request() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("invalid battalion"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("invalid battalion")
+    );
 }
 
 #[actix_rt::test]
@@ -328,7 +379,12 @@ async fn create_city_missing_fields_returns_bad_request() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("cannot be empty"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be empty")
+    );
 }
 
 #[actix_rt::test]
@@ -425,8 +481,7 @@ async fn get_city_by_id_success() {
     let city_id = create_body["data"]["id"].as_str().unwrap();
 
     let get_req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/cities/{}", city_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/cities/{}", city_id)),
         &config,
         &token,
     )
@@ -453,8 +508,7 @@ async fn get_city_by_id_not_found_returns_404() {
 
     let random_id = uuid::Uuid::new_v4();
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!("/api/v1/cities/{}", random_id)),
+        test::TestRequest::get().uri(&format!("/api/v1/cities/{}", random_id)),
         &config,
         &token,
     )
@@ -563,7 +617,12 @@ async fn update_city_invalid_state_returns_bad_request() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("invalid state"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("invalid state")
+    );
 }
 
 #[actix_rt::test]
@@ -594,7 +653,12 @@ async fn update_city_not_found_returns_404() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 404);
-    assert!(update_body["message"].as_str().unwrap().contains("not found"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("not found")
+    );
 }
 
 #[actix_rt::test]
@@ -624,8 +688,7 @@ async fn delete_city_success_performs_soft_delete() {
     let city_id = create_body["data"]["id"].as_str().unwrap();
 
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/cities/{}", city_id)),
+        test::TestRequest::delete().uri(&format!("/api/v1/cities/{}", city_id)),
         &config,
         &token,
     )
@@ -662,8 +725,7 @@ async fn delete_city_not_found_returns_404() {
 
     let random_id = uuid::Uuid::new_v4();
     let delete_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/cities/{}", random_id)),
+        test::TestRequest::delete().uri(&format!("/api/v1/cities/{}", random_id)),
         &config,
         &token,
     )
@@ -674,7 +736,12 @@ async fn delete_city_not_found_returns_404() {
 
     let delete_body: serde_json::Value = test::read_body_json(delete_resp).await;
     assert_eq!(delete_body["status_code"].as_u64().unwrap(), 404);
-    assert!(delete_body["message"].as_str().unwrap().contains("not found"));
+    assert!(
+        delete_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("not found")
+    );
 }
 
 #[actix_rt::test]
@@ -783,8 +850,18 @@ async fn update_city_to_duplicate_name_and_battalion_returns_bad_request() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("already exists"));
-    assert!(update_body["message"].as_str().unwrap().contains("PORTO VELHO"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already exists")
+    );
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("PORTO VELHO")
+    );
     assert!(update_body["message"].as_str().unwrap().contains("1ºBPM"));
 }
 

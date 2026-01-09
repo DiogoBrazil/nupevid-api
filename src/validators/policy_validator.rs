@@ -1,7 +1,7 @@
-use crate::utils::errors::AppError;
-use crate::validators::common::*;
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::entities::users::PermissionPolicies;
+use crate::utils::errors::AppError;
+use crate::validators::common::*;
 use uuid::Uuid;
 
 pub struct PolicyValidator;
@@ -10,9 +10,10 @@ impl PolicyValidator {
     pub fn validate_policy_names(policies: &PermissionPolicies) -> Result<(), AppError> {
         for policy_name in policies.keys() {
             if !is_valid_policy(policy_name) {
-                return Err(AppError::BadRequest(
-                    format!("Invalid policy name '{}'. Valid policies are: {:?}", policy_name, VALID_POLICIES)
-                ));
+                return Err(AppError::BadRequest(format!(
+                    "Invalid policy name '{}'. Valid policies are: {:?}",
+                    policy_name, VALID_POLICIES
+                )));
             }
         }
         Ok(())
@@ -31,7 +32,7 @@ impl PolicyValidator {
         if claims.profile == PROFILE_CITY_USER {
             if !policies.is_empty() {
                 return Err(AppError::Forbidden(
-                    "CITY_USER profile is not allowed to assign permission policies".to_string()
+                    "CITY_USER profile is not allowed to assign permission policies".to_string(),
                 ));
             }
             return Ok(());
@@ -41,7 +42,8 @@ impl PolicyValidator {
             if target_profile != PROFILE_CITY_USER {
                 if !policies.is_empty() {
                     return Err(AppError::Forbidden(
-                        "CITY_ADMIN can only assign permission policies to CITY_USER profiles".to_string()
+                        "CITY_ADMIN can only assign permission policies to CITY_USER profiles"
+                            .to_string(),
                     ));
                 }
                 return Ok(());
@@ -50,18 +52,19 @@ impl PolicyValidator {
             for (policy_name, city_ids) in policies.iter() {
                 for city_id in city_ids {
                     let mut has_policy = false;
-                    if let Some(pjson) = claims_policies_json {
-                        if let Some(arr) = pjson.get(policy_name).and_then(|v| v.as_array()) {
-                            has_policy = arr.iter()
-                                .filter_map(|v| v.as_str())
-                                .any(|cid| Uuid::parse_str(cid).ok() == Some(*city_id));
-                        }
+                    if let Some(pjson) = claims_policies_json
+                        && let Some(arr) = pjson.get(policy_name).and_then(|v| v.as_array())
+                    {
+                        has_policy = arr
+                            .iter()
+                            .filter_map(|v| v.as_str())
+                            .any(|cid| Uuid::parse_str(cid).ok() == Some(*city_id));
                     }
                     if !has_policy {
-                        return Err(AppError::Forbidden(
-                            format!("CITY_ADMIN cannot assign policy '{}' for city '{}' that they do not possess",
-                                policy_name, city_id)
-                        ));
+                        return Err(AppError::Forbidden(format!(
+                            "CITY_ADMIN cannot assign policy '{}' for city '{}' that they do not possess",
+                            policy_name, city_id
+                        )));
                     }
                 }
             }
@@ -74,9 +77,10 @@ impl PolicyValidator {
     pub fn validate_policies_are_assignable(policies: &PermissionPolicies) -> Result<(), AppError> {
         for policy_name in policies.keys() {
             if !is_assignable_policy(policy_name) {
-                return Err(AppError::Forbidden(
-                    format!("Policy '{}' cannot be assigned as it is reserved for ROOT users", policy_name)
-                ));
+                return Err(AppError::Forbidden(format!(
+                    "Policy '{}' cannot be assigned as it is reserved for ROOT users",
+                    policy_name
+                )));
             }
         }
         Ok(())
@@ -86,8 +90,8 @@ impl PolicyValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use serde_json::json;
+    use std::collections::HashMap;
 
     fn create_test_claims(profile: &str, user_id: Uuid) -> ClaimsToUserToken {
         ClaimsToUserToken {
@@ -119,7 +123,12 @@ mod tests {
 
         let result = PolicyValidator::validate_policy_names(&policies);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid policy name"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid policy name")
+        );
     }
 
     #[test]
@@ -132,7 +141,7 @@ mod tests {
             &claims,
             PROFILE_CITY_ADMIN,
             &policies,
-            None
+            None,
         );
         assert!(result.is_ok());
     }
@@ -147,10 +156,15 @@ mod tests {
             &claims,
             PROFILE_CITY_USER,
             &policies,
-            None
+            None,
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("CITY_USER profile is not allowed"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("CITY_USER profile is not allowed")
+        );
     }
 
     #[test]
@@ -163,10 +177,15 @@ mod tests {
             &claims,
             PROFILE_CITY_ADMIN,
             &policies,
-            None
+            None,
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("can only assign permission policies to CITY_USER"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("can only assign permission policies to CITY_USER")
+        );
     }
 
     #[test]
@@ -185,7 +204,7 @@ mod tests {
             &claims,
             PROFILE_CITY_USER,
             &policies,
-            Some(&policies_json)
+            Some(&policies_json),
         );
         assert!(result.is_ok());
     }
@@ -204,10 +223,15 @@ mod tests {
             &claims,
             PROFILE_CITY_USER,
             &policies,
-            Some(&policies_json)
+            Some(&policies_json),
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot assign policy"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("cannot assign policy")
+        );
     }
 
     #[test]
@@ -226,6 +250,11 @@ mod tests {
 
         let result = PolicyValidator::validate_policies_are_assignable(&policies);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("reserved for ROOT"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("reserved for ROOT")
+        );
     }
 }

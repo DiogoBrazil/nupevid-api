@@ -1,6 +1,6 @@
 use crate::utils::errors::AppError;
-use regex::Regex;
 use lazy_static::lazy_static;
+use regex::Regex;
 
 // Profile constants
 pub const PROFILE_ROOT: &str = "ROOT";
@@ -235,8 +235,9 @@ pub const VALID_RANKS: [&str; 14] = [
     "SD PM",
 ];
 
-lazy_static!{
-    static ref EMAIL_VALIDATION_REGEX: Regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+lazy_static! {
+    static ref EMAIL_VALIDATION_REGEX: Regex =
+        Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
 }
 
 pub fn is_valid_email(email: &str) -> bool {
@@ -270,19 +271,20 @@ pub fn is_valid_registration(registration: &str) -> bool {
 }
 
 pub fn is_public_route(path: &str) -> bool {
-    let public_routes = [
-        "/api/v1/auth/login",
-        "/api/swagger",
-    ];
-    public_routes.iter().any(|route | path.starts_with(route))
+    let public_routes = ["/api/v1/auth/login", "/api/swagger"];
+    public_routes.iter().any(|route| path.starts_with(route))
 }
 
-pub fn validate_required_fields(validations: &[(&str, bool)], error_prefix: &str) -> Result<(), AppError> {
+pub fn validate_required_fields(
+    validations: &[(&str, bool)],
+    error_prefix: &str,
+) -> Result<(), AppError> {
     for (field_name, is_empty) in validations {
         if *is_empty {
-            return Err(AppError::BadRequest(
-                format!("{}: {} cannot be empty", error_prefix, field_name)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "{}: {} cannot be empty",
+                error_prefix, field_name
+            )));
         }
     }
     Ok(())
@@ -296,7 +298,10 @@ pub fn is_assignable_policy(policy: &str) -> bool {
     !NON_ASSIGNABLE_POLICIES.contains(&policy)
 }
 
-pub fn generate_default_policies(profile: &str, city_id: Option<uuid::Uuid>) -> std::collections::HashMap<String, Vec<uuid::Uuid>> {
+pub fn generate_default_policies(
+    profile: &str,
+    city_id: Option<uuid::Uuid>,
+) -> std::collections::HashMap<String, Vec<uuid::Uuid>> {
     use std::collections::HashMap;
 
     let mut policies: HashMap<String, Vec<uuid::Uuid>> = HashMap::new();

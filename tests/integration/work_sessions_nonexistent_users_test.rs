@@ -1,7 +1,7 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 6 - Test 1: Create session with non-existent member
 #[actix_rt::test]
@@ -13,7 +13,9 @@ async fn create_session_with_nonexistent_member() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "300001", "creator@test.com", "CITY_USER", Some(city)).await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "300001", "creator@test.com", "CITY_USER", Some(city))
+            .await;
 
     let mut claims = test_helpers::build_city_user_claims(city);
     claims.id = creator_id.to_string();
@@ -57,7 +59,14 @@ async fn add_nonexistent_member_to_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "300002", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "300002",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -114,7 +123,14 @@ async fn update_members_with_nonexistent_user() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "300003", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "300003",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -179,7 +195,14 @@ async fn remove_nonexistent_member_from_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(&pool, "300004", "creator@test.com", "CITY_ADMIN", Some(city)).await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "300004",
+        "creator@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -208,8 +231,10 @@ async fn remove_nonexistent_member_from_session() {
     let nonexistent_user_id = Uuid::new_v4();
 
     let remove_req = test_helpers::with_auth_headers(
-        test::TestRequest::delete()
-            .uri(&format!("/api/v1/work-sessions/{}/members/{}", session_id, nonexistent_user_id)),
+        test::TestRequest::delete().uri(&format!(
+            "/api/v1/work-sessions/{}/members/{}",
+            session_id, nonexistent_user_id
+        )),
         &config,
         &creator_token,
     )

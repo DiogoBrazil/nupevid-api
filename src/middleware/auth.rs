@@ -1,12 +1,15 @@
-use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    error::ErrorUnauthorized, Error, HttpMessage, web, http::Method,
-};
-use futures::future::{err, ok, Ready, LocalBoxFuture};
-use jsonwebtoken::{decode, DecodingKey, Validation};
-use crate::core::entities::auth::ClaimsToUserToken;
 use crate::config::config_env::Config;
+use crate::core::entities::auth::ClaimsToUserToken;
 use crate::validators::common::is_public_route;
+use actix_web::{
+    Error, HttpMessage,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    error::ErrorUnauthorized,
+    http::Method,
+    web,
+};
+use futures::future::{LocalBoxFuture, Ready, err, ok};
+use jsonwebtoken::{DecodingKey, Validation, decode};
 
 pub struct AuthMiddleware;
 
@@ -44,7 +47,6 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-
         if req.method() == Method::OPTIONS {
             return Box::pin(self.service.call(req));
         }
@@ -87,8 +89,14 @@ impl<S> AuthMiddlewareService<S> {
         }
     }
 
-    fn verify_jwt_token(&self, req: &ServiceRequest, config: &Config) -> Result<ClaimsToUserToken, Error> {
-        let auth_header = req.headers().get("Authorization")
+    fn verify_jwt_token(
+        &self,
+        req: &ServiceRequest,
+        config: &Config,
+    ) -> Result<ClaimsToUserToken, Error> {
+        let auth_header = req
+            .headers()
+            .get("Authorization")
             .and_then(|h| h.to_str().ok())
             .unwrap_or_default();
 

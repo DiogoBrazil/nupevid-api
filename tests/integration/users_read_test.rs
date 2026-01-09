@@ -1,4 +1,4 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
@@ -80,7 +80,8 @@ async fn non_root_list_users_should_not_include_root() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     // Create a ROOT user in DB and a CITY_USER
-    let root_token = test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
     let root_user_payload = serde_json::json!({
         "rank": "CEL PM",
         "registration": "100000777",
@@ -90,15 +91,26 @@ async fn non_root_list_users_should_not_include_root() {
         "password": "Secret123!"
     });
     let create_root_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&root_user_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&root_user_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let _ = test::call_service(&app, create_root_req).await;
 
     // Create a city to bind CITY_USER
-    let city_payload = serde_json::json!({"name": "PORTO VELHO", "state": "RO", "battalion": "1ºBPM"});
+    let city_payload =
+        serde_json::json!({"name": "PORTO VELHO", "state": "RO", "battalion": "1ºBPM"});
     let create_city_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let city_resp = test::call_service(&app, create_city_req).await;
     let city_body: serde_json::Value = test::read_body_json(city_resp).await;
     let city_id: Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -106,22 +118,31 @@ async fn non_root_list_users_should_not_include_root() {
     // Create a CITY_USER
     let city_user_payload = fixtures::valid_create_user();
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&serde_json::json!({
-            "rank": city_user_payload.rank,
-            "registration": city_user_payload.registration,
-            "full_name": city_user_payload.full_name,
-            "profile": "CITY_USER",
-            "email": city_user_payload.email,
-            "password": city_user_payload.password,
-            "city_id": city_id
-        })),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&serde_json::json!({
+                "rank": city_user_payload.rank,
+                "registration": city_user_payload.registration,
+                "full_name": city_user_payload.full_name,
+                "profile": "CITY_USER",
+                "email": city_user_payload.email,
+                "password": city_user_payload.password,
+                "city_id": city_id
+            })),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let _ = test::call_service(&app, req).await;
 
     // Non-root token (CITY_USER)
     let claims_user = ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
-        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        exp: (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize)
+            + 3600,
         rank: "CB PM".to_string(),
         registration: "100009991".to_string(),
         full_name: "Any User".to_string(),
@@ -133,7 +154,11 @@ async fn non_root_list_users_should_not_include_root() {
 
     // List users as non-root -> must not include ROOT
     let list_req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri("/api/v1/users"), &config, &non_root_token).to_request();
+        test::TestRequest::get().uri("/api/v1/users"),
+        &config,
+        &non_root_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
     let list_body: serde_json::Value = test::read_body_json(list_resp).await;
@@ -240,18 +265,30 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create two cities
-    let city1_payload = serde_json::json!({"name": "PORTO VELHO", "state": "RO", "battalion": "1ºBPM"});
+    let city1_payload =
+        serde_json::json!({"name": "PORTO VELHO", "state": "RO", "battalion": "1ºBPM"});
     let create_city1_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city1_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city1_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let city1_resp = test::call_service(&app, create_city1_req).await;
     let city1_body: serde_json::Value = test::read_body_json(city1_resp).await;
     let city1_id: Uuid = city1_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
-    let city2_payload = serde_json::json!({"name": "JI-PARANÁ", "state": "RO", "battalion": "2ºBPM"});
+    let city2_payload =
+        serde_json::json!({"name": "JI-PARANÁ", "state": "RO", "battalion": "2ºBPM"});
     let create_city2_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/cities").set_json(&city2_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/cities")
+            .set_json(&city2_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let city2_resp = test::call_service(&app, create_city2_req).await;
     let city2_body: serde_json::Value = test::read_body_json(city2_resp).await;
     let city2_id: Uuid = city2_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -267,8 +304,13 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
         "city_id": city1_id
     });
     let create_admin_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&city_admin_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&city_admin_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     let admin_resp = test::call_service(&app, create_admin_req).await;
     let admin_body: serde_json::Value = test::read_body_json(admin_resp).await;
     let admin_id: Uuid = admin_body["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -284,8 +326,13 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
         "city_id": city1_id
     });
     let create_user1_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_city1_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_city1_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     test::call_service(&app, create_user1_req).await;
 
     // Create CITY_USER in city2 (should NOT be visible to CITY_ADMIN from city1)
@@ -299,14 +346,23 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
         "city_id": city2_id
     });
     let create_user2_req = test_helpers::with_auth_headers(
-        test::TestRequest::post().uri("/api/v1/users").set_json(&user_city2_payload),
-        &config, &root_token).to_request();
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&user_city2_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
     test::call_service(&app, create_user2_req).await;
 
     // Create token for CITY_ADMIN with read_users permission only for city1
     let admin_claims = ClaimsToUserToken {
         id: admin_id.to_string(),
-        exp: (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize) + 3600,
+        exp: (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize)
+            + 3600,
         rank: "MAJ PM".to_string(),
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
@@ -319,7 +375,10 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
     // Get all users as CITY_ADMIN
     let list_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri("/api/v1/users"),
-        &config, &admin_token).to_request();
+        &config,
+        &admin_token,
+    )
+    .to_request();
     let list_resp = test::call_service(&app, list_req).await;
     assert_eq!(list_resp.status(), StatusCode::OK);
 
@@ -328,12 +387,23 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
 
     // CITY_ADMIN should only see users from city1
     // Expected: 2 users (the admin itself + user from city1)
-    assert_eq!(users.len(), 2, "CITY_ADMIN should only see users from permitted cities");
+    assert_eq!(
+        users.len(),
+        2,
+        "CITY_ADMIN should only see users from permitted cities"
+    );
 
     // Verify all returned users belong to city1
     for user in users {
         let user_city_id: Uuid = user["city_id"].as_str().unwrap().parse().unwrap();
-        assert_eq!(user_city_id, city1_id, "All returned users should belong to city1");
-        assert_ne!(user["email"].as_str().unwrap(), "user.city2@test.com", "User from city2 should not be visible");
+        assert_eq!(
+            user_city_id, city1_id,
+            "All returned users should belong to city1"
+        );
+        assert_ne!(
+            user["email"].as_str().unwrap(),
+            "user.city2@test.com",
+            "User from city2 should not be visible"
+        );
     }
 }

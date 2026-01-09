@@ -63,7 +63,7 @@ impl PgVictimRepository {
             .bind(&address.street)
             .bind(&address.number)
             .bind(&address.district)
-            .bind(&address.city_id)
+            .bind(address.city_id)
             .bind(&address.zip_code)
             .bind(&address.complement)
             .bind(&address.address_type)
@@ -126,17 +126,17 @@ impl VictimRepository for PgVictimRepository {
             .bind(victim_id)
             .bind(&victim.full_name)
             .bind(&victim.cpf)
-            .bind(&victim.birth_date)
+            .bind(victim.birth_date)
             .bind(victim.city_id)
             .bind(&victim.education_level)
             .bind(&victim.occupation)
             .bind(&victim.has_children)
-            .bind(&victim.children_count)
-            .bind(&victim.has_special_needs)
+            .bind(victim.children_count)
+            .bind(victim.has_special_needs)
             .bind(&victim.special_needs_type)
-            .bind(&victim.uses_alcohol)
-            .bind(&victim.uses_drugs)
-            .bind(&victim.has_psychiatric_issues)
+            .bind(victim.uses_alcohol)
+            .bind(victim.uses_drugs)
+            .bind(victim.has_psychiatric_issues)
             .bind(&victim.psychiatric_issues_type)
             .fetch_one(&mut *tx)
             .await?;
@@ -157,10 +157,14 @@ impl VictimRepository for PgVictimRepository {
         let mut created_addresses = Vec::new();
         if let Some(addresses) = &victim.addresses {
             for addr_data in addresses {
-                let created_addr = Self::create_address_internal(&mut tx, victim_id, addr_data).await?;
+                let created_addr =
+                    Self::create_address_internal(&mut tx, victim_id, addr_data).await?;
                 created_addresses.push(created_addr);
             }
-            info!("[Repository] Created {} address(es)", created_addresses.len());
+            info!(
+                "[Repository] Created {} address(es)",
+                created_addresses.len()
+            );
         }
 
         tx.commit().await?;
@@ -184,8 +188,12 @@ impl VictimRepository for PgVictimRepository {
         let phones = self.get_phones_by_victim_id(id).await?;
         let addresses = self.get_addresses_by_victim_id(id).await?;
 
-        info!("[Repository] Victim {} found with {} phone(s) and {} address(es)",
-              id, phones.len(), addresses.len());
+        info!(
+            "[Repository] Victim {} found with {} phone(s) and {} address(es)",
+            id,
+            phones.len(),
+            addresses.len()
+        );
 
         Ok(victim.with_details(phones, addresses))
     }
@@ -210,7 +218,10 @@ impl VictimRepository for PgVictimRepository {
         Ok(result)
     }
 
-    async fn get_victims_by_city(&self, city_id: Uuid) -> Result<Vec<VictimWithDetails>, sqlx::Error> {
+    async fn get_victims_by_city(
+        &self,
+        city_id: Uuid,
+    ) -> Result<Vec<VictimWithDetails>, sqlx::Error> {
         info!("[Repository] Fetching victims for city: {}", city_id);
 
         let victims: Vec<Victim> = sqlx::query_as(VictimsQueries::GET_VICTIMS_BY_CITY)
@@ -244,17 +255,21 @@ impl VictimRepository for PgVictimRepository {
         info!("[Repository] Fetching victims paginated");
 
         let victims: Vec<Victim> = match allowed_cities {
-            Some(cities) => sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED_BY_CITIES)
-                .bind(cities)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
-            None => sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
         };
 
         let mut result = Vec::with_capacity(victims.len());
@@ -271,13 +286,17 @@ impl VictimRepository for PgVictimRepository {
 
     async fn count_victims(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
         let total: i64 = match allowed_cities {
-            Some(cities) => sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS_BY_CITIES)
-                .bind(cities)
-                .fetch_one(&self.pool)
-                .await?,
-            None => sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS)
-                .fetch_one(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS_BY_CITIES)
+                    .bind(cities)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
         };
         Ok(total)
     }
@@ -336,17 +355,17 @@ impl VictimRepository for PgVictimRepository {
             .bind(id)
             .bind(&data.full_name)
             .bind(&data.cpf)
-            .bind(&data.birth_date)
+            .bind(data.birth_date)
             .bind(data.city_id)
             .bind(&data.education_level)
             .bind(&data.occupation)
             .bind(&data.has_children)
-            .bind(&data.children_count)
-            .bind(&data.has_special_needs)
+            .bind(data.children_count)
+            .bind(data.has_special_needs)
             .bind(&data.special_needs_type)
-            .bind(&data.uses_alcohol)
-            .bind(&data.uses_drugs)
-            .bind(&data.has_psychiatric_issues)
+            .bind(data.uses_alcohol)
+            .bind(data.uses_drugs)
+            .bind(data.has_psychiatric_issues)
             .bind(&data.psychiatric_issues_type)
             .fetch_one(&mut *tx)
             .await?;
@@ -358,7 +377,11 @@ impl VictimRepository for PgVictimRepository {
                 let phone = Self::create_phone_internal(&mut tx, id, phone_data).await?;
                 updated_phones.push(phone);
             }
-            info!("[Repository] Updated {} phone(s) for victim: {}", phones.len(), id);
+            info!(
+                "[Repository] Updated {} phone(s) for victim: {}",
+                phones.len(),
+                id
+            );
         }
 
         Self::delete_addresses_by_victim_id(&mut tx, id).await?;
@@ -368,7 +391,11 @@ impl VictimRepository for PgVictimRepository {
                 let created_addr = Self::create_address_internal(&mut tx, id, addr_data).await?;
                 updated_addresses.push(created_addr);
             }
-            info!("[Repository] Updated {} address(es) for victim: {}", addresses.len(), id);
+            info!(
+                "[Repository] Updated {} address(es) for victim: {}",
+                addresses.len(),
+                id
+            );
         }
 
         tx.commit().await?;
@@ -408,7 +435,11 @@ impl VictimRepository for PgVictimRepository {
         Ok(deleted_victim.with_details(phones, addresses))
     }
 
-    async fn create_phone(&self, victim_id: Uuid, phone_data: PhoneData) -> Result<VictimPhone, sqlx::Error> {
+    async fn create_phone(
+        &self,
+        victim_id: Uuid,
+        phone_data: PhoneData,
+    ) -> Result<VictimPhone, sqlx::Error> {
         info!("[Repository] Creating phone for victim: {}", victim_id);
         let phone_id = Uuid::new_v4();
 
@@ -436,7 +467,11 @@ impl VictimRepository for PgVictimRepository {
         Ok(phone)
     }
 
-    async fn update_phone_by_id(&self, phone_id: Uuid, phone_data: PhoneData) -> Result<VictimPhone, sqlx::Error> {
+    async fn update_phone_by_id(
+        &self,
+        phone_id: Uuid,
+        phone_data: PhoneData,
+    ) -> Result<VictimPhone, sqlx::Error> {
         info!("[Repository] Updating phone: {}", phone_id);
 
         let phone: VictimPhone = sqlx::query_as(VictimPhonesQueries::UPDATE_VICTIM_PHONE_BY_ID)
@@ -462,7 +497,11 @@ impl VictimRepository for PgVictimRepository {
         Ok(phone)
     }
 
-    async fn create_address(&self, victim_id: Uuid, address_data: AddressData) -> Result<VictimAddress, sqlx::Error> {
+    async fn create_address(
+        &self,
+        victim_id: Uuid,
+        address_data: AddressData,
+    ) -> Result<VictimAddress, sqlx::Error> {
         info!("[Repository] Creating address for victim: {}", victim_id);
         let address_id = Uuid::new_v4();
 
@@ -472,7 +511,7 @@ impl VictimRepository for PgVictimRepository {
             .bind(&address_data.street)
             .bind(&address_data.number)
             .bind(&address_data.district)
-            .bind(&address_data.city_id)
+            .bind(address_data.city_id)
             .bind(&address_data.zip_code)
             .bind(&address_data.complement)
             .bind(&address_data.address_type)
@@ -486,29 +525,35 @@ impl VictimRepository for PgVictimRepository {
     async fn get_address_by_id(&self, address_id: Uuid) -> Result<VictimAddress, sqlx::Error> {
         info!("[Repository] Fetching address with id: {}", address_id);
 
-        let address: VictimAddress = sqlx::query_as(VictimAddressesQueries::GET_VICTIM_ADDRESS_BY_ID)
-            .bind(address_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let address: VictimAddress =
+            sqlx::query_as(VictimAddressesQueries::GET_VICTIM_ADDRESS_BY_ID)
+                .bind(address_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         info!("[Repository] Address {} found", address_id);
         Ok(address)
     }
 
-    async fn update_address_by_id(&self, address_id: Uuid, address_data: AddressData) -> Result<VictimAddress, sqlx::Error> {
+    async fn update_address_by_id(
+        &self,
+        address_id: Uuid,
+        address_data: AddressData,
+    ) -> Result<VictimAddress, sqlx::Error> {
         info!("[Repository] Updating address: {}", address_id);
 
-        let address: VictimAddress = sqlx::query_as(VictimAddressesQueries::UPDATE_VICTIM_ADDRESS_BY_ID)
-            .bind(address_id)
-            .bind(&address_data.street)
-            .bind(&address_data.number)
-            .bind(&address_data.district)
-            .bind(&address_data.city_id)
-            .bind(&address_data.zip_code)
-            .bind(&address_data.complement)
-            .bind(&address_data.address_type)
-            .fetch_one(&self.pool)
-            .await?;
+        let address: VictimAddress =
+            sqlx::query_as(VictimAddressesQueries::UPDATE_VICTIM_ADDRESS_BY_ID)
+                .bind(address_id)
+                .bind(&address_data.street)
+                .bind(&address_data.number)
+                .bind(&address_data.district)
+                .bind(address_data.city_id)
+                .bind(&address_data.zip_code)
+                .bind(&address_data.complement)
+                .bind(&address_data.address_type)
+                .fetch_one(&self.pool)
+                .await?;
 
         info!("[Repository] Address {} updated successfully", address_id);
         Ok(address)
@@ -517,12 +562,16 @@ impl VictimRepository for PgVictimRepository {
     async fn delete_address_by_id(&self, address_id: Uuid) -> Result<VictimAddress, sqlx::Error> {
         info!("[Repository] Soft deleting address: {}", address_id);
 
-        let address: VictimAddress = sqlx::query_as(VictimAddressesQueries::DELETE_VICTIM_ADDRESS_BY_ID)
-            .bind(address_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let address: VictimAddress =
+            sqlx::query_as(VictimAddressesQueries::DELETE_VICTIM_ADDRESS_BY_ID)
+                .bind(address_id)
+                .fetch_one(&self.pool)
+                .await?;
 
-        info!("[Repository] Address {} soft deleted successfully", address_id);
+        info!(
+            "[Repository] Address {} soft deleted successfully",
+            address_id
+        );
         Ok(address)
     }
 }

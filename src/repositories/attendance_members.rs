@@ -4,11 +4,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::config::querys::attendance_members::{
-    AttendanceVictimMembersQueries, AttendanceOffenderMembersQueries,
+    AttendanceOffenderMembersQueries, AttendanceVictimMembersQueries,
 };
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::entities::attendance_members::{
-    AttendanceVictimMember, AttendanceOffenderMember, AttendanceMemberWithDetails,
+    AttendanceMemberWithDetails, AttendanceOffenderMember, AttendanceVictimMember,
 };
 
 #[derive(Clone)]
@@ -37,13 +37,14 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
             user_id, attendance_id
         );
 
-        let member: AttendanceVictimMember = sqlx::query_as(AttendanceVictimMembersQueries::ADD_MEMBER)
-            .bind(member_id)
-            .bind(attendance_id)
-            .bind(user_id)
-            .bind(work_session_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let member: AttendanceVictimMember =
+            sqlx::query_as(AttendanceVictimMembersQueries::ADD_MEMBER)
+                .bind(member_id)
+                .bind(attendance_id)
+                .bind(user_id)
+                .bind(work_session_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(member)
     }
@@ -66,11 +67,12 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         attendance_id: Uuid,
         user_id: Uuid,
     ) -> Result<AttendanceVictimMember, sqlx::Error> {
-        let member: AttendanceVictimMember = sqlx::query_as(AttendanceVictimMembersQueries::REMOVE_MEMBER)
-            .bind(attendance_id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let member: AttendanceVictimMember =
+            sqlx::query_as(AttendanceVictimMembersQueries::REMOVE_MEMBER)
+                .bind(attendance_id)
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(member)
     }
@@ -88,13 +90,14 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
             user_id, attendance_id
         );
 
-        let member: AttendanceOffenderMember = sqlx::query_as(AttendanceOffenderMembersQueries::ADD_MEMBER)
-            .bind(member_id)
-            .bind(attendance_id)
-            .bind(user_id)
-            .bind(work_session_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let member: AttendanceOffenderMember =
+            sqlx::query_as(AttendanceOffenderMembersQueries::ADD_MEMBER)
+                .bind(member_id)
+                .bind(attendance_id)
+                .bind(user_id)
+                .bind(work_session_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(member)
     }
@@ -117,11 +120,12 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         attendance_id: Uuid,
         user_id: Uuid,
     ) -> Result<AttendanceOffenderMember, sqlx::Error> {
-        let member: AttendanceOffenderMember = sqlx::query_as(AttendanceOffenderMembersQueries::REMOVE_MEMBER)
-            .bind(attendance_id)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let member: AttendanceOffenderMember =
+            sqlx::query_as(AttendanceOffenderMembersQueries::REMOVE_MEMBER)
+                .bind(attendance_id)
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(member)
     }

@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::core::entities::work_sessions::{
-    CreateWorkSession, WorkSession, WorkSessionWithMembers, WorkSessionMemberWithDetails,
-};
 use crate::core::entities::work_session_members::{
-    WorkSessionMember, TeamMemberFunction, AddWorkSessionMember,
+    AddWorkSessionMember, TeamMemberFunction, WorkSessionMember,
+};
+use crate::core::entities::work_sessions::{
+    CreateWorkSession, WorkSession, WorkSessionMemberWithDetails, WorkSessionWithMembers,
 };
 
 #[async_trait]
@@ -24,25 +24,13 @@ pub trait WorkSessionRepository: Send + Sync {
         user_id: Uuid,
     ) -> Result<WorkSessionWithMembers, sqlx::Error>;
 
-    async fn get_active_session_by_user(
-        &self,
-        user_id: Uuid,
-    ) -> Result<WorkSession, sqlx::Error>;
+    async fn get_active_session_by_user(&self, user_id: Uuid) -> Result<WorkSession, sqlx::Error>;
 
-    async fn get_user_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<WorkSession, sqlx::Error>;
+    async fn get_user_active_session(&self, user_id: Uuid) -> Result<WorkSession, sqlx::Error>;
 
-    async fn is_user_in_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<bool, sqlx::Error>;
+    async fn is_user_in_active_session(&self, user_id: Uuid) -> Result<bool, sqlx::Error>;
 
-    async fn end_session(
-        &self,
-        session_id: Uuid,
-    ) -> Result<WorkSession, sqlx::Error>;
+    async fn end_session(&self, session_id: Uuid) -> Result<WorkSession, sqlx::Error>;
 
     async fn get_session_by_id(
         &self,

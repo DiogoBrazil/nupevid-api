@@ -1,4 +1,4 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 
 use crate::common::{fixtures, test_helpers};
 
@@ -144,7 +144,12 @@ async fn test_create_user_invalid_email() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("not a valid email"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("not a valid email")
+    );
 }
 
 #[actix_rt::test]
@@ -172,7 +177,12 @@ async fn test_create_user_invalid_registration() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("invalid registration"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("invalid registration")
+    );
     assert!(body["message"].as_str().unwrap().contains("1000"));
 }
 
@@ -201,7 +211,12 @@ async fn test_create_user_empty_fields() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(body["message"].as_str().unwrap().contains("cannot be empty"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be empty")
+    );
 }
 
 #[actix_rt::test]
@@ -257,7 +272,8 @@ async fn test_city_user_cannot_create_users() {
         exp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() as usize + 3600,
+            .as_secs() as usize
+            + 3600,
         rank: "SD PM".to_string(),
         registration: "100022000".to_string(),
         full_name: "City User".to_string(),
@@ -422,7 +438,8 @@ async fn test_city_admin_city_id_in_body_is_ignored() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    let city1_payload = serde_json::json!({ "name": "VILHENA", "state": "RO", "battalion": "1ºBPM" });
+    let city1_payload =
+        serde_json::json!({ "name": "VILHENA", "state": "RO", "battalion": "1ºBPM" });
     let create_city1_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
@@ -476,8 +493,14 @@ async fn test_city_admin_city_id_in_body_is_ignored() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     // Verify user was created in CITY_ADMIN's city (city1), NOT in city2 from body
-    assert_eq!(body["data"]["city_id"].as_str().unwrap(), city1_id.to_string());
-    assert_ne!(body["data"]["city_id"].as_str().unwrap(), city2_id.to_string());
+    assert_eq!(
+        body["data"]["city_id"].as_str().unwrap(),
+        city1_id.to_string()
+    );
+    assert_ne!(
+        body["data"]["city_id"].as_str().unwrap(),
+        city2_id.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -491,7 +514,8 @@ async fn test_city_admin_can_create_city_user_in_own_city() {
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    let city_payload = serde_json::json!({ "name": "GUAJARÁ-MIRIM", "state": "RO", "battalion": "1ºBPM" });
+    let city_payload =
+        serde_json::json!({ "name": "GUAJARÁ-MIRIM", "state": "RO", "battalion": "1ºBPM" });
     let create_city_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
@@ -531,8 +555,14 @@ async fn test_city_admin_can_create_city_user_in_own_city() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["email"].as_str().unwrap(), "new.city.user@test.com");
+    assert_eq!(
+        body["data"]["email"].as_str().unwrap(),
+        "new.city.user@test.com"
+    );
     assert_eq!(body["data"]["profile"].as_str().unwrap(), "CITY_USER");
     // Verify city_id was auto-filled from CITY_ADMIN's token
-    assert_eq!(body["data"]["city_id"].as_str().unwrap(), city_id.to_string());
+    assert_eq!(
+        body["data"]["city_id"].as_str().unwrap(),
+        city_id.to_string()
+    );
 }

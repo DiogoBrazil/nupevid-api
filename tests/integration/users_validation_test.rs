@@ -1,7 +1,7 @@
 use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
-use crate::common::{test_helpers, db_fixtures};
+use crate::common::{db_fixtures, test_helpers};
 
 #[actix_rt::test]
 async fn create_user_with_registration_exceeding_max_length() {
@@ -112,7 +112,12 @@ async fn create_city_admin_without_city_id_fails() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -149,7 +154,12 @@ async fn create_city_user_without_city_id_fails() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -190,7 +200,12 @@ async fn create_user_with_invalid_policy_name_fails() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body["message"].as_str().unwrap().contains("Invalid policy name"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid policy name")
+    );
 }
 
 #[actix_rt::test]
@@ -315,7 +330,12 @@ async fn update_user_with_invalid_email_fails() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("not a valid email"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("not a valid email")
+    );
 }
 
 #[actix_rt::test]
@@ -379,7 +399,12 @@ async fn update_city_admin_removing_city_id_fails() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("city_id is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("city_id is required")
+    );
 }
 
 #[actix_rt::test]
@@ -454,7 +479,12 @@ async fn update_password_with_empty_current_password_fails() {
     let password_resp = test::call_service(&app, password_req).await;
     assert_eq!(password_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(password_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("current_password is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("current_password is required")
+    );
 }
 
 #[actix_rt::test]
@@ -526,7 +556,12 @@ async fn update_password_with_empty_new_password_fails() {
     let password_resp = test::call_service(&app, password_req).await;
     assert_eq!(password_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(password_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("new_password is required"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("new_password is required")
+    );
 }
 
 #[actix_rt::test]
@@ -574,7 +609,10 @@ async fn append_invalid_policy_name_fails() {
 
     let append_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri(&format!("/api/v1/users/{}/policies/invalid_policy/cities", user_id))
+            .uri(&format!(
+                "/api/v1/users/{}/policies/invalid_policy/cities",
+                user_id
+            ))
             .set_json(&append_payload),
         &config,
         &root_token,
@@ -584,7 +622,12 @@ async fn append_invalid_policy_name_fails() {
     let append_resp = test::call_service(&app, append_req).await;
     assert_eq!(append_resp.status(), StatusCode::BAD_REQUEST);
     let body: serde_json::Value = test::read_body_json(append_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("Invalid policy name"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid policy name")
+    );
 }
 
 #[actix_rt::test]
@@ -608,7 +651,10 @@ async fn append_policy_to_nonexistent_user_returns_404() {
 
     let append_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri(&format!("/api/v1/users/{}/policies/read_victims/cities", random_user_id))
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                random_user_id
+            ))
             .set_json(&append_payload),
         &config,
         &root_token,
@@ -664,7 +710,10 @@ async fn append_policy_with_empty_city_ids_array() {
 
     let append_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri(&format!("/api/v1/users/{}/policies/read_victims/cities", user_id))
+            .uri(&format!(
+                "/api/v1/users/{}/policies/read_victims/cities",
+                user_id
+            ))
             .set_json(&append_payload),
         &config,
         &root_token,

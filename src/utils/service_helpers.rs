@@ -1,10 +1,10 @@
-use actix_web::{HttpRequest, HttpMessage};
+use actix_web::{HttpMessage, HttpRequest};
 use log::error;
-use uuid::Uuid;
 use serde_json::Value as JsonValue;
+use uuid::Uuid;
 
-use crate::core::entities::auth::ClaimsToUserToken;
 use crate::core::contracts::repository::users::UserRepository;
+use crate::core::entities::auth::ClaimsToUserToken;
 use crate::utils::errors::AppError;
 use crate::validators::common::{PROFILE_ROOT, generate_default_policies};
 
@@ -63,8 +63,7 @@ pub async fn get_user_policies_with_defaults<T: UserRepository>(
 
     match user_repository.get_user_policies_json_by_id(user_id).await {
         Ok(policies) => return Ok(policies),
-        Err(sqlx::Error::RowNotFound) => {
-        }
+        Err(sqlx::Error::RowNotFound) => {}
         Err(e) => {
             error!("[ServiceHelper] Failed to retrieve user policies: {:?}", e);
             return Err(AppError::InternalServerError);

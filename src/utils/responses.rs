@@ -40,16 +40,15 @@ impl<T: Serialize> PaginatedResponse<T> {
     }
 
     pub fn into_response(self) -> HttpResponse {
-        HttpResponse::build(self.status_code)
-            .json(json!({
-                "message": self.message,
-                "status": self.status_code.as_u16(),
-                "data": self.data,
-                "page": self.page,
-                "page_size": self.page_size,
-                "total_items": self.total_items,
-                "total_pages": self.total_pages
-            }))
+        HttpResponse::build(self.status_code).json(json!({
+            "message": self.message,
+            "status": self.status_code.as_u16(),
+            "data": self.data,
+            "page": self.page,
+            "page_size": self.page_size,
+            "total_items": self.total_items,
+            "total_pages": self.total_pages
+        }))
     }
 }
 impl<T: Serialize> ApiResponse<T> {
@@ -78,11 +77,10 @@ impl<T: Serialize> ApiResponse<T> {
     }
 
     pub fn into_response(self) -> HttpResponse {
-        HttpResponse::build(self.status_code)
-            .json(json!({
-                "message": self.message,
-                "status": self.status_code.as_u16(),
-                "data": self.data
-            }))
+        HttpResponse::build(self.status_code).json(json!({
+            "message": self.message,
+            "status": self.status_code.as_u16(),
+            "data": self.data
+        }))
     }
 }

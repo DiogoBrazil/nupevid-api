@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "has_children_enum", rename_all = "PascalCase")]
 pub enum HasChildren {

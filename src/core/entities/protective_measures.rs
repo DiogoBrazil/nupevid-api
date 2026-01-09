@@ -1,7 +1,7 @@
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
-use chrono::{DateTime, Utc, NaiveDate};
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "violence_type_enum", rename_all = "PascalCase")]
@@ -66,7 +66,10 @@ pub enum RelationshipToVictim {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "protective_measure_status_enum", rename_all = "PascalCase")]
+#[sqlx(
+    type_name = "protective_measure_status_enum",
+    rename_all = "PascalCase"
+)]
 pub enum ProtectiveMeasureStatus {
     Valid,
     Revoked,

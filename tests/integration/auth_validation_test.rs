@@ -90,7 +90,10 @@ async fn login_without_api_key_header_returns_unauthorized() {
         .to_request();
 
     let result = test::try_call_service(&app, req).await;
-    assert!(result.is_err(), "Expected unauthorized error without api_key");
+    assert!(
+        result.is_err(),
+        "Expected unauthorized error without api_key"
+    );
 }
 
 #[actix_rt::test]
@@ -113,5 +116,8 @@ async fn login_with_invalid_api_key_returns_unauthorized() {
         .to_request();
 
     let result = test::try_call_service(&app, req).await;
-    assert!(result.is_err(), "Expected unauthorized error with invalid api_key");
+    assert!(
+        result.is_err(),
+        "Expected unauthorized error with invalid api_key"
+    );
 }

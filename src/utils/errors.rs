@@ -1,4 +1,4 @@
-use actix_web::{error::ResponseError, HttpResponse, http::StatusCode};
+use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 use log::error;
 use serde_json::json;
 use thiserror::Error;
@@ -34,30 +34,25 @@ impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         error!("Error occurred: {}", self);
         let (status_code, error_type) = match self {
-            AppError::InternalServerError =>
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"),
-            AppError::BadRequest(_) =>
-                (StatusCode::BAD_REQUEST, "Bad Request"),
-            AppError::Unauthorized(_) =>
-                (StatusCode::UNAUTHORIZED, "Unauthorized"),
-            AppError::Forbidden(_) =>
-                (StatusCode::FORBIDDEN, "Forbidden"),
-            AppError::NotFound(_) =>
-                (StatusCode::NOT_FOUND, "Not Found"),
-            AppError::Conflict(_) =>
-                (StatusCode::CONFLICT, "Conflict"),
-            AppError::DatabaseError(_) =>
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-            AppError::InvalidMethodError(_) =>
-                (StatusCode::METHOD_NOT_ALLOWED, "Invalid Method Error"),
+            AppError::InternalServerError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+            }
+            AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "Bad Request"),
+            AppError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, "Unauthorized"),
+            AppError::Forbidden(_) => (StatusCode::FORBIDDEN, "Forbidden"),
+            AppError::NotFound(_) => (StatusCode::NOT_FOUND, "Not Found"),
+            AppError::Conflict(_) => (StatusCode::CONFLICT, "Conflict"),
+            AppError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
+            AppError::InvalidMethodError(_) => {
+                (StatusCode::METHOD_NOT_ALLOWED, "Invalid Method Error")
+            }
         };
 
-        HttpResponse::build(status_code)
-            .json(json!({
-                "error": error_type,
-                "message": self.to_string(),
-                "status_code": status_code.as_u16()
-            }))
+        HttpResponse::build(status_code).json(json!({
+            "error": error_type,
+            "message": self.to_string(),
+            "status_code": status_code.as_u16()
+        }))
     }
 
     fn status_code(&self) -> StatusCode {

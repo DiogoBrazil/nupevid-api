@@ -1,4 +1,4 @@
-use actix_web::{get, HttpResponse, Responder, web};
+use actix_web::{HttpResponse, Responder, get, web};
 use std::fs;
 
 /// Configure routes for swagger documentation
@@ -9,7 +9,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(get_swagger_yaml)
             .service(check_yaml)
             .service(get_swagger_simple)
-            .service(get_raw_yaml)
+            .service(get_raw_yaml),
     );
 }
 
@@ -22,14 +22,10 @@ async fn get_raw_yaml() -> impl Responder {
     info!("Requisição para /api/swagger/raw recebida");
 
     match fs::read_to_string(yaml_path) {
-        Ok(contents) => {
-            HttpResponse::Ok()
-                .content_type("text/plain; charset=utf-8")
-                .body(contents)
-        },
-        Err(e) => {
-            HttpResponse::NotFound().body(format!("Swagger YAML file not found: {}", e))
-        }
+        Ok(contents) => HttpResponse::Ok()
+            .content_type("text/plain; charset=utf-8")
+            .body(contents),
+        Err(e) => HttpResponse::NotFound().body(format!("Swagger YAML file not found: {}", e)),
     }
 }
 
@@ -71,15 +67,24 @@ async fn check_yaml() -> impl Responder {
 
     match std::fs::metadata(yaml_path) {
         Ok(metadata) => {
-            info!("Arquivo swagger.yaml existe, tamanho: {} bytes", metadata.len());
+            info!(
+                "Arquivo swagger.yaml existe, tamanho: {} bytes",
+                metadata.len()
+            );
             if let Ok(contents) = fs::read_to_string(yaml_path) {
-                info!("Primeiros 100 caracteres: {}", &contents[..100.min(contents.len())]);
-                HttpResponse::Ok().body(format!("Arquivo swagger.yaml existe, tamanho: {} bytes", metadata.len()))
+                info!(
+                    "Primeiros 100 caracteres: {}",
+                    &contents[..100.min(contents.len())]
+                );
+                HttpResponse::Ok().body(format!(
+                    "Arquivo swagger.yaml existe, tamanho: {} bytes",
+                    metadata.len()
+                ))
             } else {
                 info!("Erro ao ler o arquivo");
                 HttpResponse::InternalServerError().body("Erro ao ler o arquivo")
             }
-        },
+        }
         Err(e) => {
             info!("Erro ao acessar o arquivo: {}", e);
             HttpResponse::NotFound().body(format!("Arquivo não encontrado: {}", e))
@@ -181,12 +186,15 @@ async fn get_swagger_yaml() -> impl Responder {
 
     match fs::read_to_string(yaml_path) {
         Ok(contents) => {
-            info!("Arquivo swagger.yaml carregado com sucesso, enviando {} bytes", contents.len());
+            info!(
+                "Arquivo swagger.yaml carregado com sucesso, enviando {} bytes",
+                contents.len()
+            );
             HttpResponse::Ok()
                 .content_type("application/x-yaml")
                 .insert_header(("Access-Control-Allow-Origin", "*"))
                 .body(contents)
-        },
+        }
         Err(e) => {
             info!("Erro ao ler o arquivo swagger.yaml: {}", e);
             HttpResponse::NotFound().body(format!("Swagger YAML file not found: {}", e))

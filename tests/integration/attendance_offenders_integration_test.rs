@@ -21,7 +21,11 @@ fn build_attendance_offender_payload(offender_id: Uuid, victim_id: Uuid) -> serd
     })
 }
 
-fn build_attendance_offender_payload_with_address(offender_id: Uuid, victim_id: Uuid, city_id: Uuid) -> serde_json::Value {
+fn build_attendance_offender_payload_with_address(
+    offender_id: Uuid,
+    victim_id: Uuid,
+    city_id: Uuid,
+) -> serde_json::Value {
     serde_json::json!({
         "offender_id": offender_id,
         "victim_id": victim_id,
@@ -58,7 +62,8 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100001", "admin@test.com", "CITY_ADMIN", Some(city)).await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -89,7 +94,10 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
         victim_id.to_string()
     );
     assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), true);
-    assert_eq!(body["data"]["violence_aggravator"].as_str().unwrap(), "AlcoholUse");
+    assert_eq!(
+        body["data"]["violence_aggravator"].as_str().unwrap(),
+        "AlcoholUse"
+    );
 }
 
 #[actix_rt::test]
@@ -105,7 +113,9 @@ async fn create_attendance_offender_with_address() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100002", "admin2@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100002", "admin2@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -128,9 +138,18 @@ async fn create_attendance_offender_with_address() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 201);
     assert!(body["data"]["address"].is_object());
-    assert_eq!(body["data"]["address"]["street"].as_str().unwrap(), "Rua Atendimento Agressor");
-    assert_eq!(body["data"]["violence_aggravator"].as_str().unwrap(), "Other");
-    assert_eq!(body["data"]["violence_aggravator_other"].as_str().unwrap(), "Ciúmes excessivos");
+    assert_eq!(
+        body["data"]["address"]["street"].as_str().unwrap(),
+        "Rua Atendimento Agressor"
+    );
+    assert_eq!(
+        body["data"]["violence_aggravator"].as_str().unwrap(),
+        "Other"
+    );
+    assert_eq!(
+        body["data"]["violence_aggravator_other"].as_str().unwrap(),
+        "Ciúmes excessivos"
+    );
 }
 
 #[actix_rt::test]
@@ -179,7 +198,8 @@ async fn list_attendance_offenders_filtered_by_city() {
     let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
 
     // Create ROOT user with work session
-    let root_user_id = db_fixtures::insert_user(&pool, "100003", "root@test.com", "ROOT", None).await;
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100003", "root@test.com", "ROOT", None).await;
     test_helpers::create_work_session_for_user(&pool, root_user_id).await;
 
     let mut root_claims = test_helpers::build_root_claims();
@@ -217,7 +237,10 @@ async fn list_attendance_offenders_filtered_by_city() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
     assert_eq!(data.len(), 1);
-    assert_eq!(data[0]["offender_id"].as_str().unwrap(), offender_a.to_string());
+    assert_eq!(
+        data[0]["offender_id"].as_str().unwrap(),
+        offender_a.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -233,7 +256,9 @@ async fn get_attendance_offender_by_id() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100004", "admin4@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100004", "admin4@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -267,7 +292,10 @@ async fn get_attendance_offender_by_id() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["id"].as_str().unwrap(), attendance_id);
-    assert_eq!(body["data"]["offender_id"].as_str().unwrap(), offender_id.to_string());
+    assert_eq!(
+        body["data"]["offender_id"].as_str().unwrap(),
+        offender_id.to_string()
+    );
 }
 
 #[actix_rt::test]
@@ -283,7 +311,9 @@ async fn update_attendance_offender() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100005", "admin5@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100005", "admin5@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -322,7 +352,10 @@ async fn update_attendance_offender() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["description"].as_str().unwrap(), "Descrição atualizada");
+    assert_eq!(
+        body["data"]["description"].as_str().unwrap(),
+        "Descrição atualizada"
+    );
     assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), false);
 }
 
@@ -339,7 +372,9 @@ async fn delete_attendance_offender() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100006", "admin6@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100006", "admin6@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -396,7 +431,9 @@ async fn get_attendance_offenders_by_offender_id() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100007", "admin7@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100007", "admin7@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -419,7 +456,10 @@ async fn get_attendance_offenders_by_offender_id() {
 
     // Get by offender ID
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendance-offenders/by-offender/{}", offender_id)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-offenders/by-offender/{}",
+            offender_id
+        )),
         &config,
         &admin_token,
     )
@@ -446,7 +486,9 @@ async fn get_attendance_offenders_by_victim_id() {
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
     // Create user with work session
-    let user_id = db_fixtures::insert_user(&pool, "100008", "admin8@test.com", "CITY_ADMIN", Some(city)).await;
+    let user_id =
+        db_fixtures::insert_user(&pool, "100008", "admin8@test.com", "CITY_ADMIN", Some(city))
+            .await;
     test_helpers::create_work_session_for_user(&pool, user_id).await;
 
     let mut admin_claims = test_helpers::build_city_admin_claims(city);
@@ -469,7 +511,10 @@ async fn get_attendance_offenders_by_victim_id() {
 
     // Get by victim ID
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!("/api/v1/attendance-offenders/by-victim/{}", victim_id)),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-offenders/by-victim/{}",
+            victim_id
+        )),
         &config,
         &admin_token,
     )
@@ -497,7 +542,14 @@ async fn create_attendance_offender_without_active_session_fails() {
 
     // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
     // CITY_ADMIN has the necessary policies, so we can test the work session requirement
-    let user_id = db_fixtures::insert_user(&pool, "100199", "admin@test.com", "CITY_ADMIN", Some(city_id)).await;
+    let user_id = db_fixtures::insert_user(
+        &pool,
+        "100199",
+        "admin@test.com",
+        "CITY_ADMIN",
+        Some(city_id),
+    )
+    .await;
 
     // DO NOT create work session here - that's the whole point of this test
     // test_helpers::create_work_session_for_user(&pool, user_id).await; // ← OMITTED

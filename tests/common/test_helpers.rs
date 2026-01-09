@@ -1,5 +1,5 @@
-use actix_web::{dev::Service, test, web, App, Error};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use actix_web::{App, Error, dev::Service, test, web};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use nupevid_api::adapters::{
     password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator,
 };
@@ -7,30 +7,19 @@ use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
-    attendance_offenders::PgAttendanceOffenderRepository,
-    attendance_victims::PgAttendanceVictimRepository,
     attendance_members::PgAttendanceMemberRepository,
-    auth::PgAuthRepository,
-    cities::PgCityRepository,
-    extensions::PgExtensionRepository,
-    offenders::PgOffenderRepository,
-    protective_measures::PgProtectiveMeasureRepository,
-    users::PgUserRepository,
-    victims::PgVictimRepository,
-    work_sessions::PgWorkSessionRepository,
+    attendance_offenders::PgAttendanceOffenderRepository,
+    attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
+    cities::PgCityRepository, extensions::PgExtensionRepository, offenders::PgOffenderRepository,
+    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
-    attendance_offenders::AttendanceOffenderService,
-    attendance_victims::AttendanceVictimService,
-    auth::AuthService,
-    cities::CityService,
-    extensions::ExtensionService,
-    offenders::OffenderService,
-    protective_measures::ProtectiveMeasureService,
-    users::UserService,
-    victims::VictimService,
-    work_sessions::WorkSessionService,
+    attendance_offenders::AttendanceOffenderService, attendance_victims::AttendanceVictimService,
+    auth::AuthService, cities::CityService, extensions::ExtensionService,
+    offenders::OffenderService, protective_measures::ProtectiveMeasureService, users::UserService,
+    victims::VictimService, work_sessions::WorkSessionService,
 };
 use sqlx::PgPool;
 use std::env;
@@ -123,10 +112,12 @@ pub async fn create_full_test_app(
         web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
     let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
     let attendance_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
-    let attendance_offender_repository = web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
+    let attendance_offender_repository =
+        web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
     let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
     let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
-    let attendance_member_repository = web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
+    let attendance_member_repository =
+        web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
 
     // Shared config
     let config_data = web::Data::new(config.clone());
@@ -143,8 +134,14 @@ pub async fn create_full_test_app(
         password_hasher.clone(),
         token_generator.clone(),
     ));
-    let city_service = web::Data::new(CityService::new(city_repository.clone(), user_repository.clone()));
-    let victim_service = web::Data::new(VictimService::new(victim_repository.clone(), user_repository.clone()));
+    let city_service = web::Data::new(CityService::new(
+        city_repository.clone(),
+        user_repository.clone(),
+    ));
+    let victim_service = web::Data::new(VictimService::new(
+        victim_repository.clone(),
+        user_repository.clone(),
+    ));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
         protective_measure_repository.clone(),
         victim_repository.clone(),
@@ -272,7 +269,11 @@ pub fn generate_jwt(claims: &ClaimsToUserToken, secret: &str) -> String {
 }
 
 /// Convenience helper to add api_key and Authorization headers to a TestRequest.
-pub fn with_auth_headers(req: test::TestRequest, config: &Config, token: &str) -> test::TestRequest {
+pub fn with_auth_headers(
+    req: test::TestRequest,
+    config: &Config,
+    token: &str,
+) -> test::TestRequest {
     req.insert_header(("api_key", config.api_key.clone()))
         .insert_header(("Authorization", format!("Bearer {}", token)))
 }
@@ -284,7 +285,7 @@ pub async fn create_work_session_for_user(pool: &PgPool, user_id: Uuid) -> Uuid 
 
     // Create work session
     sqlx::query(
-        "INSERT INTO work_sessions (id, created_by_user_id, description) VALUES ($1, $2, $3)"
+        "INSERT INTO work_sessions (id, created_by_user_id, description) VALUES ($1, $2, $3)",
     )
     .bind(session_id)
     .bind(user_id)

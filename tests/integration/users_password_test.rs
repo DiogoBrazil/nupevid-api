@@ -1,4 +1,4 @@
-use actix_web::{test, http::StatusCode};
+use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
@@ -130,7 +130,12 @@ async fn test_update_password_incorrect_current() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("incorrect"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("incorrect")
+    );
 }
 
 #[actix_rt::test]
@@ -187,7 +192,12 @@ async fn test_update_password_other_user_forbidden() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status_code"].as_u64().unwrap(), 403);
-    assert!(body["message"].as_str().unwrap().contains("only change your own password"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("only change your own password")
+    );
 }
 
 #[actix_rt::test]
@@ -248,7 +258,12 @@ async fn test_update_password_empty_fields() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("required"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("required")
+    );
 }
 
 #[actix_rt::test]
@@ -324,5 +339,10 @@ async fn test_non_root_must_provide_current_password() {
 
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(update_body["status_code"].as_u64().unwrap(), 400);
-    assert!(update_body["message"].as_str().unwrap().contains("current_password is required"));
+    assert!(
+        update_body["message"]
+            .as_str()
+            .unwrap()
+            .contains("current_password is required")
+    );
 }

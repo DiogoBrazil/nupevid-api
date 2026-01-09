@@ -3,11 +3,13 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::attendance_offenders::{AttendanceOffenderAddressesQueries, AttendanceOffendersQueries};
+use crate::config::querys::attendance_offenders::{
+    AttendanceOffenderAddressesQueries, AttendanceOffendersQueries,
+};
 use crate::core::contracts::repository::attendance_offenders::AttendanceOffenderRepository;
 use crate::core::entities::attendance_offenders::{
-    AttendanceOffender, AttendanceOffenderAddress, AttendanceOffenderWithAddress, CreateAttendanceOffender,
-    UpdateAttendanceOffender,
+    AttendanceOffender, AttendanceOffenderAddress, AttendanceOffenderWithAddress,
+    CreateAttendanceOffender, UpdateAttendanceOffender,
 };
 use crate::core::entities::attendance_victims::AttendanceAddressData;
 
@@ -25,11 +27,12 @@ impl PgAttendanceOffenderRepository {
         &self,
         attendance_id: Uuid,
     ) -> Result<Option<AttendanceOffenderAddress>, sqlx::Error> {
-        let address: Option<AttendanceOffenderAddress> =
-            sqlx::query_as(AttendanceOffenderAddressesQueries::GET_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID)
-                .bind(attendance_id)
-                .fetch_optional(&self.pool)
-                .await?;
+        let address: Option<AttendanceOffenderAddress> = sqlx::query_as(
+            AttendanceOffenderAddressesQueries::GET_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID,
+        )
+        .bind(attendance_id)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(address)
     }
 
@@ -47,7 +50,7 @@ impl PgAttendanceOffenderRepository {
                 .bind(&address.street)
                 .bind(&address.number)
                 .bind(&address.district)
-                .bind(&address.city_id)
+                .bind(address.city_id)
                 .bind(&address.zip_code)
                 .bind(&address.complement)
                 .fetch_one(&mut **tx)
@@ -60,11 +63,12 @@ impl PgAttendanceOffenderRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         attendance_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result: (bool,) =
-            sqlx::query_as(AttendanceOffenderAddressesQueries::CHECK_ADDRESS_EXISTS_FOR_ATTENDANCE_OFFENDER)
-                .bind(attendance_id)
-                .fetch_one(&mut **tx)
-                .await?;
+        let result: (bool,) = sqlx::query_as(
+            AttendanceOffenderAddressesQueries::CHECK_ADDRESS_EXISTS_FOR_ATTENDANCE_OFFENDER,
+        )
+        .bind(attendance_id)
+        .fetch_one(&mut **tx)
+        .await?;
         Ok(result.0)
     }
 
@@ -73,17 +77,18 @@ impl PgAttendanceOffenderRepository {
         attendance_id: Uuid,
         address: &AttendanceAddressData,
     ) -> Result<AttendanceOffenderAddress, sqlx::Error> {
-        let updated: AttendanceOffenderAddress =
-            sqlx::query_as(AttendanceOffenderAddressesQueries::UPDATE_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID)
-                .bind(attendance_id)
-                .bind(&address.street)
-                .bind(&address.number)
-                .bind(&address.district)
-                .bind(&address.city_id)
-                .bind(&address.zip_code)
-                .bind(&address.complement)
-                .fetch_one(&mut **tx)
-                .await?;
+        let updated: AttendanceOffenderAddress = sqlx::query_as(
+            AttendanceOffenderAddressesQueries::UPDATE_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID,
+        )
+        .bind(attendance_id)
+        .bind(&address.street)
+        .bind(&address.number)
+        .bind(&address.district)
+        .bind(address.city_id)
+        .bind(&address.zip_code)
+        .bind(&address.complement)
+        .fetch_one(&mut **tx)
+        .await?;
 
         Ok(updated)
     }
@@ -104,21 +109,22 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
 
         let mut tx = self.pool.begin().await?;
 
-        let attendance_created: AttendanceOffender = sqlx::query_as(AttendanceOffendersQueries::CREATE_ATTENDANCE_OFFENDER)
-            .bind(attendance_id)
-            .bind(&attendance.offender_id)
-            .bind(&attendance.victim_id)
-            .bind(&attendance.protective_measure_id)
-            .bind(&attendance.was_offender_present)
-            .bind(&attendance.attendance_date)
-            .bind(&attendance.attendance_time)
-            .bind(&attendance.is_remote)
-            .bind(&attendance.assaults_children)
-            .bind(&attendance.violence_aggravator)
-            .bind(&attendance.violence_aggravator_other)
-            .bind(&attendance.description)
-            .fetch_one(&mut *tx)
-            .await?;
+        let attendance_created: AttendanceOffender =
+            sqlx::query_as(AttendanceOffendersQueries::CREATE_ATTENDANCE_OFFENDER)
+                .bind(attendance_id)
+                .bind(attendance.offender_id)
+                .bind(attendance.victim_id)
+                .bind(attendance.protective_measure_id)
+                .bind(attendance.was_offender_present)
+                .bind(attendance.attendance_date)
+                .bind(attendance.attendance_time)
+                .bind(attendance.is_remote)
+                .bind(attendance.assaults_children)
+                .bind(&attendance.violence_aggravator)
+                .bind(&attendance.violence_aggravator_other)
+                .bind(&attendance.description)
+                .fetch_one(&mut *tx)
+                .await?;
 
         info!("[Repository] Attendance offender inserted, now creating address if provided");
 
@@ -141,13 +147,17 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         Ok(attendance_created.with_address(address))
     }
 
-    async fn get_attendance_offender_by_id(&self, id: Uuid) -> Result<AttendanceOffenderWithAddress, sqlx::Error> {
+    async fn get_attendance_offender_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<AttendanceOffenderWithAddress, sqlx::Error> {
         info!("[Repository] Fetching attendance offender with id: {}", id);
 
-        let attendance: AttendanceOffender = sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDER_BY_ID)
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await?;
+        let attendance: AttendanceOffender =
+            sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDER_BY_ID)
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await?;
 
         let address = self.get_address_by_attendance_id(id).await?;
 
@@ -160,12 +170,15 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         Ok(attendance.with_address(address))
     }
 
-    async fn get_all_attendance_offenders(&self) -> Result<Vec<AttendanceOffenderWithAddress>, sqlx::Error> {
+    async fn get_all_attendance_offenders(
+        &self,
+    ) -> Result<Vec<AttendanceOffenderWithAddress>, sqlx::Error> {
         info!("[Repository] Fetching all attendance offenders");
 
-        let attendances: Vec<AttendanceOffender> = sqlx::query_as(AttendanceOffendersQueries::GET_ALL_ATTENDANCE_OFFENDERS)
-            .fetch_all(&self.pool)
-            .await?;
+        let attendances: Vec<AttendanceOffender> =
+            sqlx::query_as(AttendanceOffendersQueries::GET_ALL_ATTENDANCE_OFFENDERS)
+                .fetch_all(&self.pool)
+                .await?;
 
         let mut result = Vec::with_capacity(attendances.len());
 
@@ -188,17 +201,21 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         info!("[Repository] Fetching attendance offenders paginated");
 
         let attendances: Vec<AttendanceOffender> = match allowed_cities {
-            Some(cities) => sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES)
-                .bind(cities)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
-            None => sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
         };
 
         let mut result = Vec::with_capacity(attendances.len());
@@ -211,15 +228,22 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         Ok(result)
     }
 
-    async fn count_attendance_offenders(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+    async fn count_attendance_offenders(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+    ) -> Result<i64, sqlx::Error> {
         let total: i64 = match allowed_cities {
-            Some(cities) => sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS_BY_CITIES)
-                .bind(cities)
-                .fetch_one(&self.pool)
-                .await?,
-            None => sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS)
-                .fetch_one(&self.pool)
-                .await?,
+            Some(cities) => {
+                sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS_BY_CITIES)
+                    .bind(cities)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
         };
         Ok(total)
     }
@@ -228,7 +252,10 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         &self,
         offender_id: Uuid,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, sqlx::Error> {
-        info!("[Repository] Fetching attendance offenders for offender: {}", offender_id);
+        info!(
+            "[Repository] Fetching attendance offenders for offender: {}",
+            offender_id
+        );
 
         let attendances: Vec<AttendanceOffender> =
             sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER)
@@ -256,7 +283,10 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         &self,
         victim_id: Uuid,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, sqlx::Error> {
-        info!("[Repository] Fetching attendance offenders for victim: {}", victim_id);
+        info!(
+            "[Repository] Fetching attendance offenders for victim: {}",
+            victim_id
+        );
 
         let attendances: Vec<AttendanceOffender> =
             sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM)
@@ -295,14 +325,14 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         let attendance_updated: AttendanceOffender =
             sqlx::query_as(AttendanceOffendersQueries::UPDATE_ATTENDANCE_OFFENDER_BY_ID)
                 .bind(id)
-                .bind(&data.offender_id)
-                .bind(&data.victim_id)
-                .bind(&data.protective_measure_id)
-                .bind(&data.was_offender_present)
-                .bind(&data.attendance_date)
-                .bind(&data.attendance_time)
-                .bind(&data.is_remote)
-                .bind(&data.assaults_children)
+                .bind(data.offender_id)
+                .bind(data.victim_id)
+                .bind(data.protective_measure_id)
+                .bind(data.was_offender_present)
+                .bind(data.attendance_date)
+                .bind(data.attendance_time)
+                .bind(data.is_remote)
+                .bind(data.assaults_children)
                 .bind(&data.violence_aggravator)
                 .bind(&data.violence_aggravator_other)
                 .bind(&data.description)
@@ -347,7 +377,10 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         Ok(attendance_updated.with_address(final_address))
     }
 
-    async fn delete_attendance_offender_by_id(&self, id: Uuid) -> Result<AttendanceOffenderWithAddress, sqlx::Error> {
+    async fn delete_attendance_offender_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<AttendanceOffenderWithAddress, sqlx::Error> {
         info!(
             "[Repository] Starting transaction to soft delete attendance offender: {}",
             id
@@ -357,11 +390,12 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
 
         let mut tx = self.pool.begin().await?;
 
-        let _: Option<AttendanceOffenderAddress> =
-            sqlx::query_as(AttendanceOffenderAddressesQueries::DELETE_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID)
-                .bind(id)
-                .fetch_optional(&mut *tx)
-                .await?;
+        let _: Option<AttendanceOffenderAddress> = sqlx::query_as(
+            AttendanceOffenderAddressesQueries::DELETE_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?;
 
         let deleted_attendance: AttendanceOffender =
             sqlx::query_as(AttendanceOffendersQueries::DELETE_ATTENDANCE_OFFENDER_BY_ID)
