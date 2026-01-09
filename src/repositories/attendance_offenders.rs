@@ -179,6 +179,51 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         Ok(result)
     }
 
+    async fn get_attendance_offenders_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<AttendanceOffenderWithAddress>, sqlx::Error> {
+        info!("[Repository] Fetching attendance offenders paginated");
+
+        let attendances: Vec<AttendanceOffender> = match allowed_cities {
+            Some(cities) => sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES)
+                .bind(cities)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        let mut result = Vec::with_capacity(attendances.len());
+
+        for attendance in attendances {
+            let address = self.get_address_by_attendance_id(attendance.id).await?;
+            result.push(attendance.with_address(address));
+        }
+
+        Ok(result)
+    }
+
+    async fn count_attendance_offenders(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let total: i64 = match allowed_cities {
+            Some(cities) => sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS_BY_CITIES)
+                .bind(cities)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(AttendanceOffendersQueries::COUNT_ATTENDANCE_OFFENDERS)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+        Ok(total)
+    }
+
     async fn get_attendance_offenders_by_offender(
         &self,
         offender_id: Uuid,

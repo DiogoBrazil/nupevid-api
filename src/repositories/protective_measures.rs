@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use log::info;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::core::{
@@ -22,6 +22,69 @@ impl PgProtectiveMeasureRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    pub async fn begin_tx(&self) -> Result<Transaction<'_, Postgres>, sqlx::Error> {
+        self.pool.begin().await
+    }
+
+    pub async fn create_protective_measure_with_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        measure: &CreateProtectiveMeasure,
+    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+        let id: Uuid = Uuid::new_v4();
+
+        let measure_created: ProtectiveMeasure = sqlx::query_as(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
+            .bind(id)
+            .bind(&measure.process_number)
+            .bind(&measure.sei_process_number)
+            .bind(&measure.occurrence_report_number)
+            .bind(measure.issued_at)
+            .bind(measure.valid_until)
+            .bind(&measure.judicial_authority)
+            .bind(measure.court_district_id)
+            .bind(measure.distance_meters)
+            .bind(measure.status.clone())
+            .bind(measure.violence_types.clone())
+            .bind(measure.relationship_to_victim.clone())
+            .bind(measure.assaults_children)
+            .bind(measure.was_drunk_during_assault)
+            .bind(measure.victim_id)
+            .bind(measure.offender_id)
+            .fetch_one(&mut **tx)
+            .await?;
+
+        Ok(measure_created)
+    }
+
+    pub async fn update_protective_measure_by_id_with_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        data: &UpdateProtectiveMeasure,
+        id: Uuid,
+    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+        let measure_updated: ProtectiveMeasure = sqlx::query_as(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
+            .bind(id)
+            .bind(&data.process_number)
+            .bind(&data.sei_process_number)
+            .bind(&data.occurrence_report_number)
+            .bind(data.issued_at)
+            .bind(data.valid_until)
+            .bind(&data.judicial_authority)
+            .bind(data.court_district_id)
+            .bind(data.distance_meters)
+            .bind(data.status.clone())
+            .bind(data.violence_types.clone())
+            .bind(data.relationship_to_victim.clone())
+            .bind(data.assaults_children)
+            .bind(data.was_drunk_during_assault)
+            .bind(data.victim_id)
+            .bind(data.offender_id)
+            .fetch_one(&mut **tx)
+            .await?;
+
+        Ok(measure_updated)
+    }
 }
 
 #[async_trait]
@@ -41,7 +104,11 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(measure.judicial_authority)
             .bind(measure.court_district_id)
             .bind(measure.distance_meters)
-            .bind(measure.is_active)
+            .bind(measure.status)
+            .bind(measure.violence_types)
+            .bind(measure.relationship_to_victim)
+            .bind(measure.assaults_children)
+            .bind(measure.was_drunk_during_assault)
             .bind(measure.victim_id)
             .bind(measure.offender_id)
             .fetch_one(&self.pool)
@@ -75,6 +142,47 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
         info!("[Repository] Found {} protective measures in database", measures.len());
 
         Ok(measures)
+    }
+
+    async fn get_protective_measures_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ProtectiveMeasure>, sqlx::Error> {
+        info!("[Repository] Executing SQL query to get paginated protective measures");
+
+        let measures: Vec<ProtectiveMeasure> = match allowed_cities {
+            Some(city_ids) => sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES)
+                .bind(city_ids)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        info!("[Repository] Found {} protective measures in database", measures.len());
+
+        Ok(measures)
+    }
+
+    async fn count_protective_measures(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let count: i64 = match allowed_cities {
+            Some(city_ids) => sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES_BY_CITIES)
+                .bind(city_ids)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+
+        Ok(count)
     }
 
     async fn get_protective_measures_by_victim(&self, victim_id: Uuid) -> Result<Vec<ProtectiveMeasure>, sqlx::Error> {
@@ -117,7 +225,11 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
             .bind(data.judicial_authority)
             .bind(data.court_district_id)
             .bind(data.distance_meters)
-            .bind(data.is_active)
+            .bind(data.status)
+            .bind(data.violence_types)
+            .bind(data.relationship_to_victim)
+            .bind(data.assaults_children)
+            .bind(data.was_drunk_during_assault)
             .bind(data.victim_id)
             .bind(data.offender_id)
             .fetch_one(&self.pool)

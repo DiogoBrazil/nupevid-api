@@ -4,13 +4,12 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::config::querys::offenders::{
-    OffenderAddressesQueries, OffenderPhonesQueries, OffenderWorkAddressesQueries,
-    OffendersQueries,
+    OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
 };
 use crate::core::contracts::repository::offenders::OffenderRepository;
 use crate::core::entities::offenders::{
     AddressData, CreateOffender, Offender, OffenderAddress, OffenderPhone, OffenderWithDetails,
-    OffenderWorkAddress, PhoneData, UpdateOffender, WorkAddressData,
+    PhoneData, UpdateOffender,
 };
 
 #[derive(Clone)]
@@ -70,6 +69,7 @@ impl PgOffenderRepository {
                 .bind(&address.city_id)
                 .bind(&address.zip_code)
                 .bind(&address.complement)
+                .bind(&address.address_type)
                 .fetch_one(&mut **tx)
                 .await?;
 
@@ -85,42 +85,6 @@ impl PgOffenderRepository {
                 .bind(offender_id)
                 .fetch_all(&mut **tx)
                 .await?;
-        Ok(())
-    }
-
-    async fn create_work_address_internal(
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        offender_id: Uuid,
-        work_address: &WorkAddressData,
-    ) -> Result<OffenderWorkAddress, sqlx::Error> {
-        let work_address_id = Uuid::new_v4();
-
-        let created: OffenderWorkAddress =
-            sqlx::query_as(OffenderWorkAddressesQueries::CREATE_OFFENDER_WORK_ADDRESS)
-                .bind(work_address_id)
-                .bind(offender_id)
-                .bind(&work_address.street)
-                .bind(&work_address.number)
-                .bind(&work_address.district)
-                .bind(&work_address.city_id)
-                .bind(&work_address.zip_code)
-                .bind(&work_address.complement)
-                .fetch_one(&mut **tx)
-                .await?;
-
-        Ok(created)
-    }
-
-    async fn delete_work_addresses_by_offender_id(
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        offender_id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        let _: Vec<OffenderWorkAddress> = sqlx::query_as(
-            OffenderWorkAddressesQueries::DELETE_OFFENDER_WORK_ADDRESSES_BY_OFFENDER_ID,
-        )
-        .bind(offender_id)
-        .fetch_all(&mut **tx)
-        .await?;
         Ok(())
     }
 
@@ -147,19 +111,6 @@ impl PgOffenderRepository {
                 .await?;
         Ok(addresses)
     }
-
-    async fn get_work_addresses_by_offender_id(
-        &self,
-        offender_id: Uuid,
-    ) -> Result<Vec<OffenderWorkAddress>, sqlx::Error> {
-        let work_addresses: Vec<OffenderWorkAddress> = sqlx::query_as(
-            OffenderWorkAddressesQueries::GET_OFFENDER_WORK_ADDRESSES_BY_OFFENDER_ID,
-        )
-        .bind(offender_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(work_addresses)
-    }
 }
 
 #[async_trait]
@@ -182,21 +133,16 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(&offender.full_name)
             .bind(&offender.cpf)
             .bind(&offender.birth_date)
-            .bind(&offender.city_id)
-            .bind(&offender.victim_id)
+            .bind(offender.city_id)
             .bind(&offender.imprisoned)
             .bind(&offender.occupation)
-            .bind(&offender.workplace)
             .bind(&offender.is_public_security_agent)
             .bind(&offender.security_force)
-            .bind(&offender.relationship_to_victim)
             .bind(&offender.uses_alcohol)
             .bind(&offender.uses_drugs)
             .bind(&offender.has_psychiatric_issues)
             .bind(&offender.psychiatric_issues_type)
-            .bind(&offender.was_drunk_during_assault)
             .bind(&offender.education_level)
-            .bind(&offender.assaults_children)
             .bind(&offender.observation)
             .fetch_one(&mut *tx)
             .await?;
@@ -227,22 +173,6 @@ impl OffenderRepository for PgOffenderRepository {
             );
         }
 
-        info!("[Repository] Now creating work addresses if provided");
-
-        let mut created_work_addresses = Vec::new();
-        if let Some(work_addresses) = &offender.work_addresses {
-            for work_addr_data in work_addresses {
-                let created_work_addr =
-                    Self::create_work_address_internal(&mut tx, offender_id, work_addr_data)
-                        .await?;
-                created_work_addresses.push(created_work_addr);
-            }
-            info!(
-                "[Repository] Created {} work address(es)",
-                created_work_addresses.len()
-            );
-        }
-
         tx.commit().await?;
 
         info!(
@@ -250,11 +180,7 @@ impl OffenderRepository for PgOffenderRepository {
             offender_id
         );
 
-        Ok(offender_created.with_details(
-            created_phones,
-            created_addresses,
-            created_work_addresses,
-        ))
+        Ok(offender_created.with_details(created_phones, created_addresses))
     }
 
     async fn get_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, sqlx::Error> {
@@ -267,17 +193,15 @@ impl OffenderRepository for PgOffenderRepository {
 
         let phones = self.get_phones_by_offender_id(id).await?;
         let addresses = self.get_addresses_by_offender_id(id).await?;
-        let work_addresses = self.get_work_addresses_by_offender_id(id).await?;
 
         info!(
-            "[Repository] Offender {} found with {} phone(s), {} address(es), and {} work address(es)",
+            "[Repository] Offender {} found with {} phone(s) and {} address(es)",
             id,
             phones.len(),
             addresses.len(),
-            work_addresses.len()
         );
 
-        Ok(offender.with_details(phones, addresses, work_addresses))
+        Ok(offender.with_details(phones, addresses))
     }
 
     async fn get_all_offenders(&self) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
@@ -292,8 +216,7 @@ impl OffenderRepository for PgOffenderRepository {
         for offender in offenders {
             let phones = self.get_phones_by_offender_id(offender.id).await?;
             let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            let work_addresses = self.get_work_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses, work_addresses));
+            result.push(offender.with_details(phones, addresses));
         }
 
         info!("[Repository] Found {} offenders", result.len());
@@ -317,8 +240,7 @@ impl OffenderRepository for PgOffenderRepository {
         for offender in offenders {
             let phones = self.get_phones_by_offender_id(offender.id).await?;
             let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            let work_addresses = self.get_work_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses, work_addresses));
+            result.push(offender.with_details(phones, addresses));
         }
 
         info!(
@@ -327,6 +249,47 @@ impl OffenderRepository for PgOffenderRepository {
             city_id
         );
 
+        Ok(result)
+    }
+
+    async fn get_offenders_by_name(&self, name: &str) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        let pattern = format!("%{}%", name);
+        info!("[Repository] Fetching offenders by name pattern: {}", pattern);
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_NAME)
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders by name", result.len());
+        Ok(result)
+    }
+
+    async fn get_offenders_by_cpf(&self, cpf: &str) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders by cpf");
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_CPF)
+            .bind(cpf)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders by cpf", result.len());
         Ok(result)
     }
 
@@ -347,8 +310,7 @@ impl OffenderRepository for PgOffenderRepository {
         for offender in offenders {
             let phones = self.get_phones_by_offender_id(offender.id).await?;
             let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            let work_addresses = self.get_work_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses, work_addresses));
+            result.push(offender.with_details(phones, addresses));
         }
 
         info!(
@@ -358,6 +320,53 @@ impl OffenderRepository for PgOffenderRepository {
         );
 
         Ok(result)
+    }
+
+    async fn get_offenders_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders paginated");
+
+        let offenders: Vec<Offender> = match allowed_cities {
+            Some(cities) => sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
+                .bind(cities)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders (paged)", result.len());
+        Ok(result)
+    }
+
+    async fn count_offenders(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let total: i64 = match allowed_cities {
+            Some(cities) => sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS_BY_CITIES)
+                .bind(cities)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+        Ok(total)
     }
 
     async fn update_offender_by_id(
@@ -374,21 +383,16 @@ impl OffenderRepository for PgOffenderRepository {
             .bind(&data.full_name)
             .bind(&data.cpf)
             .bind(&data.birth_date)
-            .bind(&data.city_id)
-            .bind(&data.victim_id)
+            .bind(data.city_id)
             .bind(&data.imprisoned)
             .bind(&data.occupation)
-            .bind(&data.workplace)
             .bind(&data.is_public_security_agent)
             .bind(&data.security_force)
-            .bind(&data.relationship_to_victim)
             .bind(&data.uses_alcohol)
             .bind(&data.uses_drugs)
             .bind(&data.has_psychiatric_issues)
             .bind(&data.psychiatric_issues_type)
-            .bind(&data.was_drunk_during_assault)
             .bind(&data.education_level)
-            .bind(&data.assaults_children)
             .bind(&data.observation)
             .fetch_one(&mut *tx)
             .await?;
@@ -421,21 +425,6 @@ impl OffenderRepository for PgOffenderRepository {
             );
         }
 
-        Self::delete_work_addresses_by_offender_id(&mut tx, id).await?;
-        let mut updated_work_addresses = Vec::new();
-        if let Some(work_addresses) = &data.work_addresses {
-            for work_addr_data in work_addresses {
-                let created_work_addr =
-                    Self::create_work_address_internal(&mut tx, id, work_addr_data).await?;
-                updated_work_addresses.push(created_work_addr);
-            }
-            info!(
-                "[Repository] Updated {} work address(es) for offender: {}",
-                work_addresses.len(),
-                id
-            );
-        }
-
         tx.commit().await?;
 
         info!(
@@ -443,11 +432,7 @@ impl OffenderRepository for PgOffenderRepository {
             id
         );
 
-        Ok(offender_updated.with_details(
-            updated_phones,
-            updated_addresses,
-            updated_work_addresses,
-        ))
+        Ok(offender_updated.with_details(updated_phones, updated_addresses))
     }
 
     async fn delete_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, sqlx::Error> {
@@ -458,14 +443,11 @@ impl OffenderRepository for PgOffenderRepository {
 
         let phones = self.get_phones_by_offender_id(id).await?;
         let addresses = self.get_addresses_by_offender_id(id).await?;
-        let work_addresses = self.get_work_addresses_by_offender_id(id).await?;
 
         let mut tx = self.pool.begin().await?;
 
         Self::delete_phones_by_offender_id(&mut tx, id).await?;
         Self::delete_addresses_by_offender_id(&mut tx, id).await?;
-        Self::delete_work_addresses_by_offender_id(&mut tx, id).await?;
-
         let deleted_offender: Offender = sqlx::query_as(OffendersQueries::DELETE_OFFENDER_BY_ID)
             .bind(id)
             .fetch_one(&mut *tx)
@@ -478,7 +460,7 @@ impl OffenderRepository for PgOffenderRepository {
             id
         );
 
-        Ok(deleted_offender.with_details(phones, addresses, work_addresses))
+        Ok(deleted_offender.with_details(phones, addresses))
     }
 
     async fn create_phone(
@@ -566,6 +548,7 @@ impl OffenderRepository for PgOffenderRepository {
                 .bind(&address_data.city_id)
                 .bind(&address_data.zip_code)
                 .bind(&address_data.complement)
+                .bind(&address_data.address_type)
                 .fetch_one(&self.pool)
                 .await?;
 
@@ -602,6 +585,7 @@ impl OffenderRepository for PgOffenderRepository {
                 .bind(&address_data.city_id)
                 .bind(&address_data.zip_code)
                 .bind(&address_data.complement)
+                .bind(&address_data.address_type)
                 .fetch_one(&self.pool)
                 .await?;
 
@@ -622,101 +606,4 @@ impl OffenderRepository for PgOffenderRepository {
         Ok(address)
     }
 
-    async fn create_work_address(
-        &self,
-        offender_id: Uuid,
-        work_address_data: WorkAddressData,
-    ) -> Result<OffenderWorkAddress, sqlx::Error> {
-        info!(
-            "[Repository] Creating work address for offender: {}",
-            offender_id
-        );
-        let work_address_id = Uuid::new_v4();
-
-        let work_address: OffenderWorkAddress =
-            sqlx::query_as(OffenderWorkAddressesQueries::CREATE_OFFENDER_WORK_ADDRESS)
-                .bind(work_address_id)
-                .bind(offender_id)
-                .bind(&work_address_data.street)
-                .bind(&work_address_data.number)
-                .bind(&work_address_data.district)
-                .bind(&work_address_data.city_id)
-                .bind(&work_address_data.zip_code)
-                .bind(&work_address_data.complement)
-                .fetch_one(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Work address {} created successfully",
-            work_address_id
-        );
-        Ok(work_address)
-    }
-
-    async fn get_work_address_by_id(
-        &self,
-        work_address_id: Uuid,
-    ) -> Result<OffenderWorkAddress, sqlx::Error> {
-        info!(
-            "[Repository] Fetching work address with id: {}",
-            work_address_id
-        );
-
-        let work_address: OffenderWorkAddress =
-            sqlx::query_as(OffenderWorkAddressesQueries::GET_OFFENDER_WORK_ADDRESS_BY_ID)
-                .bind(work_address_id)
-                .fetch_one(&self.pool)
-                .await?;
-
-        info!("[Repository] Work address {} found", work_address_id);
-        Ok(work_address)
-    }
-
-    async fn update_work_address_by_id(
-        &self,
-        work_address_id: Uuid,
-        work_address_data: WorkAddressData,
-    ) -> Result<OffenderWorkAddress, sqlx::Error> {
-        info!("[Repository] Updating work address: {}", work_address_id);
-
-        let work_address: OffenderWorkAddress =
-            sqlx::query_as(OffenderWorkAddressesQueries::UPDATE_OFFENDER_WORK_ADDRESS_BY_ID)
-                .bind(work_address_id)
-                .bind(&work_address_data.street)
-                .bind(&work_address_data.number)
-                .bind(&work_address_data.district)
-                .bind(&work_address_data.city_id)
-                .bind(&work_address_data.zip_code)
-                .bind(&work_address_data.complement)
-                .fetch_one(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Work address {} updated successfully",
-            work_address_id
-        );
-        Ok(work_address)
-    }
-
-    async fn delete_work_address_by_id(
-        &self,
-        work_address_id: Uuid,
-    ) -> Result<OffenderWorkAddress, sqlx::Error> {
-        info!(
-            "[Repository] Soft deleting work address: {}",
-            work_address_id
-        );
-
-        let work_address: OffenderWorkAddress =
-            sqlx::query_as(OffenderWorkAddressesQueries::DELETE_OFFENDER_WORK_ADDRESS_BY_ID)
-                .bind(work_address_id)
-                .fetch_one(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Work address {} soft deleted successfully",
-            work_address_id
-        );
-        Ok(work_address)
-    }
 }

@@ -65,6 +65,47 @@ impl CityRepository for PgCityRepository {
         Ok(cities)
     }
 
+    async fn get_cities_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<City>, sqlx::Error> {
+        info!("[Repository] Executing SQL query to get paginated cities");
+
+        let cities: Vec<City> = match allowed_cities {
+            Some(city_ids) => sqlx::query_as(CitiesQueries::GET_CITIES_PAGED_BY_IDS)
+                .bind(city_ids)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(CitiesQueries::GET_CITIES_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        info!("[Repository] Found {} cities in database", cities.len());
+
+        Ok(cities)
+    }
+
+    async fn count_cities(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let count: i64 = match allowed_cities {
+            Some(city_ids) => sqlx::query_scalar(CitiesQueries::COUNT_CITIES_BY_IDS)
+                .bind(city_ids)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(CitiesQueries::COUNT_CITIES)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+
+        Ok(count)
+    }
+
     async fn update_city_by_id(&self, data: UpdateCity, id: Uuid) -> Result<City, sqlx::Error> {
         info!("[Repository] Executing SQL query to update city with ID: {}", id);
 

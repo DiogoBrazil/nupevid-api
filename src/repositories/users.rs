@@ -134,6 +134,56 @@ impl UserRepository for PgUserRepository {
         Ok(users)
     }
 
+    async fn get_users_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        exclude_root: bool,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+        info!("[Repository] Executing SQL query to get paginated users");
+
+        let users: Vec<UserDataCreatedWithoutPassword> = match allowed_cities {
+            Some(city_ids) => sqlx::query_as(UsersQueries::GET_USERS_PAGED_BY_CITIES)
+                .bind(city_ids)
+                .bind(exclude_root)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(UsersQueries::GET_USERS_PAGED)
+                .bind(exclude_root)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        info!("[Repository] Found {} users in database", users.len());
+
+        Ok(users)
+    }
+
+    async fn count_users(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        exclude_root: bool,
+    ) -> Result<i64, sqlx::Error> {
+        let count: i64 = match allowed_cities {
+            Some(city_ids) => sqlx::query_scalar(UsersQueries::COUNT_USERS_BY_CITIES)
+                .bind(city_ids)
+                .bind(exclude_root)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(UsersQueries::COUNT_USERS)
+                .bind(exclude_root)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+
+        Ok(count)
+    }
+
     async fn delete_user_by_id(&self, id: Uuid) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
         info!("[Repository] Executing SQL query to delete user with id: {}", id);
 
@@ -170,6 +220,26 @@ impl UserRepository for PgUserRepository {
             .await?;
 
         info!("[Repository] Password updated successfully for user with ID: {}", id);
+
+        Ok(updated_user)
+    }
+
+    async fn reset_user_password_by_id(
+        &self,
+        id: Uuid,
+        new_password: String,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+        info!("[Repository] Executing SQL query to reset password for user with id: {}", id);
+
+        let updated_user: UserDataCreatedWithoutPassword = sqlx::query_as(UsersQueries::RESET_USER_PASSWORD_BY_ID)
+            .bind(id)
+            .bind(new_password)
+            .bind(expires_at)
+            .fetch_one(&self.pool)
+            .await?;
+
+        info!("[Repository] Password reset successfully for user with ID: {}", id);
 
         Ok(updated_user)
     }

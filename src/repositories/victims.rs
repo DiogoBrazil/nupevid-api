@@ -66,6 +66,7 @@ impl PgVictimRepository {
             .bind(&address.city_id)
             .bind(&address.zip_code)
             .bind(&address.complement)
+            .bind(&address.address_type)
             .fetch_one(&mut **tx)
             .await?;
 
@@ -126,11 +127,9 @@ impl VictimRepository for PgVictimRepository {
             .bind(&victim.full_name)
             .bind(&victim.cpf)
             .bind(&victim.birth_date)
-            .bind(&victim.city_id)
+            .bind(victim.city_id)
             .bind(&victim.education_level)
             .bind(&victim.occupation)
-            .bind(&victim.workplace)
-            .bind(&victim.violence_type)
             .bind(&victim.has_children)
             .bind(&victim.children_count)
             .bind(&victim.has_special_needs)
@@ -236,6 +235,94 @@ impl VictimRepository for PgVictimRepository {
         Ok(result)
     }
 
+    async fn get_victims_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<VictimWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching victims paginated");
+
+        let victims: Vec<Victim> = match allowed_cities {
+            Some(cities) => sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED_BY_CITIES)
+                .bind(cities)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(VictimsQueries::GET_VICTIMS_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        let mut result = Vec::with_capacity(victims.len());
+
+        for victim in victims {
+            let phones = self.get_phones_by_victim_id(victim.id).await?;
+            let addresses = self.get_addresses_by_victim_id(victim.id).await?;
+            result.push(victim.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} victims (paged)", result.len());
+        Ok(result)
+    }
+
+    async fn count_victims(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let total: i64 = match allowed_cities {
+            Some(cities) => sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS_BY_CITIES)
+                .bind(cities)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(VictimsQueries::COUNT_VICTIMS)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+        Ok(total)
+    }
+
+    async fn get_victims_by_name(&self, name: &str) -> Result<Vec<VictimWithDetails>, sqlx::Error> {
+        let pattern = format!("%{}%", name);
+        info!("[Repository] Fetching victims by name pattern: {}", pattern);
+
+        let victims: Vec<Victim> = sqlx::query_as(VictimsQueries::GET_VICTIMS_BY_NAME)
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(victims.len());
+
+        for victim in victims {
+            let phones = self.get_phones_by_victim_id(victim.id).await?;
+            let addresses = self.get_addresses_by_victim_id(victim.id).await?;
+            result.push(victim.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} victims by name", result.len());
+        Ok(result)
+    }
+
+    async fn get_victims_by_cpf(&self, cpf: &str) -> Result<Vec<VictimWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching victims by cpf");
+
+        let victims: Vec<Victim> = sqlx::query_as(VictimsQueries::GET_VICTIMS_BY_CPF)
+            .bind(cpf)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(victims.len());
+
+        for victim in victims {
+            let phones = self.get_phones_by_victim_id(victim.id).await?;
+            let addresses = self.get_addresses_by_victim_id(victim.id).await?;
+            result.push(victim.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} victims by cpf", result.len());
+        Ok(result)
+    }
+
     async fn update_victim_by_id(
         &self,
         data: UpdateVictim,
@@ -250,11 +337,9 @@ impl VictimRepository for PgVictimRepository {
             .bind(&data.full_name)
             .bind(&data.cpf)
             .bind(&data.birth_date)
-            .bind(&data.city_id)
+            .bind(data.city_id)
             .bind(&data.education_level)
             .bind(&data.occupation)
-            .bind(&data.workplace)
-            .bind(&data.violence_type)
             .bind(&data.has_children)
             .bind(&data.children_count)
             .bind(&data.has_special_needs)
@@ -390,6 +475,7 @@ impl VictimRepository for PgVictimRepository {
             .bind(&address_data.city_id)
             .bind(&address_data.zip_code)
             .bind(&address_data.complement)
+            .bind(&address_data.address_type)
             .fetch_one(&self.pool)
             .await?;
 
@@ -420,6 +506,7 @@ impl VictimRepository for PgVictimRepository {
             .bind(&address_data.city_id)
             .bind(&address_data.zip_code)
             .bind(&address_data.complement)
+            .bind(&address_data.address_type)
             .fetch_one(&self.pool)
             .await?;
 

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use log::info;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::core::{
@@ -21,6 +21,45 @@ pub struct PgExtensionRepository {
 impl PgExtensionRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    pub async fn create_extension_with_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        protective_measure_id: Uuid,
+        extension: &CreateExtension,
+    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+        let id = Uuid::new_v4();
+
+        let extension_created: ProtectiveMeasureExtension = sqlx::query_as(ExtensionsQueries::CREATE_EXTENSION)
+            .bind(id)
+            .bind(protective_measure_id)
+            .bind(extension.extension_number)
+            .bind(extension.extension_date)
+            .bind(extension.new_valid_until)
+            .bind(&extension.notes)
+            .fetch_one(&mut **tx)
+            .await?;
+
+        Ok(extension_created)
+    }
+
+    pub async fn update_extension_by_id_with_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        data: &UpdateExtension,
+        id: Uuid,
+    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+        let extension_updated: ProtectiveMeasureExtension = sqlx::query_as(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
+            .bind(id)
+            .bind(data.extension_number)
+            .bind(data.extension_date)
+            .bind(data.new_valid_until)
+            .bind(&data.notes)
+            .fetch_one(&mut **tx)
+            .await?;
+
+        Ok(extension_updated)
     }
 }
 

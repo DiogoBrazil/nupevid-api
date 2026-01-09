@@ -184,6 +184,51 @@ impl AttendanceVictimRepository for PgAttendanceVictimRepository {
         Ok(result)
     }
 
+    async fn get_attendance_victims_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<AttendanceVictimWithAddress>, sqlx::Error> {
+        info!("[Repository] Fetching attendance victims paginated");
+
+        let attendances: Vec<AttendanceVictim> = match allowed_cities {
+            Some(cities) => sqlx::query_as(AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_PAGED_BY_CITIES)
+                .bind(cities)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+            None => sqlx::query_as(AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?,
+        };
+
+        let mut result = Vec::with_capacity(attendances.len());
+
+        for attendance in attendances {
+            let address = self.get_address_by_attendance_id(attendance.id).await?;
+            result.push(attendance.with_address(address));
+        }
+
+        Ok(result)
+    }
+
+    async fn count_attendance_victims(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let total: i64 = match allowed_cities {
+            Some(cities) => sqlx::query_scalar(AttendanceVictimsQueries::COUNT_ATTENDANCE_VICTIMS_BY_CITIES)
+                .bind(cities)
+                .fetch_one(&self.pool)
+                .await?,
+            None => sqlx::query_scalar(AttendanceVictimsQueries::COUNT_ATTENDANCE_VICTIMS)
+                .fetch_one(&self.pool)
+                .await?,
+        };
+        Ok(total)
+    }
+
     async fn get_attendance_victims_by_victim(
         &self,
         victim_id: Uuid,
