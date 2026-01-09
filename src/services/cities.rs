@@ -9,9 +9,10 @@ use crate::repositories::users::PgUserRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    pagination::{PaginationParams, normalize_pagination}
 };
 use crate::validators::{
     common::{PROFILE_ROOT, POLICY_READ_CITIES},
@@ -95,33 +96,41 @@ impl CityService {
         }
     }
 
-    pub async fn get_all_cities(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_cities(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[CityService] Starting process to get all cities");
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
-        match self.city_repository.get_all_cities().await {
-            Ok(cities) => {
-                if claims.profile == PROFILE_ROOT {
-                    info!("[CityService] Successfully retrieved {} cities (ROOT)", cities.len());
-                    return Ok(ApiResponse::success(cities).into_response());
-                }
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_CITIES, &policies);
 
-                let allowed = get_allowed_cities_for_policy(&claims, POLICY_READ_CITIES, &policies);
-                let filtered = if let Some(allowed_cities) = allowed {
-                    cities.into_iter().filter(|c| allowed_cities.contains(&c.id)).collect()
-                } else {
-                    cities
-                };
-                info!("[CityService] Successfully retrieved {} cities (filtered)", filtered.len());
-                Ok(ApiResponse::success(filtered).into_response())
-            }
-            Err(e) => {
-                error!("[CityService] Failed to retrieve cities: {:?}", e);
-                Err(AppError::InternalServerError)
-            }
-        }
+        let total_items = self.city_repository
+            .count_cities(allowed_cities.as_deref())
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let cities = self.city_repository
+            .get_cities_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        info!("[CityService] Successfully retrieved {} cities", cities.len());
+        Ok(PaginatedResponse::success(
+            cities,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        )
+        .into_response())
     }
 
     pub async fn update_city_by_id(&self, data: UpdateCity, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {

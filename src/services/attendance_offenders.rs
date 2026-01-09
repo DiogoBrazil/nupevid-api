@@ -24,9 +24,11 @@ use crate::repositories::attendance_members::PgAttendanceMemberRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    db_error_mapper::{map_constraint, map_unique_constraint},
+    pagination::{PaginationParams, normalize_pagination}
 };
 use crate::validators::common::{
     POLICY_CREATE_ATTENDANCES, POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES,
@@ -136,6 +138,16 @@ impl AttendanceOffenderService {
                 Ok(ApiResponse::created(attendance_with_address).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_attendance_offenders_offender", "Error adding attendance: offender_id not found"),
+                        ("fk_attendance_offenders_victim", "Error adding attendance: victim_id not found"),
+                        ("fk_attendance_offenders_protective_measure", "Error adding attendance: protective_measure_id not found"),
+                        ("fk_attendance_offender_addresses_city", "Error adding attendance: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!("[AttendanceOffenderService] Failed to create attendance offender: {:?}", e);
                 Err(AppError::InternalServerError)
             }
@@ -155,7 +167,12 @@ impl AttendanceOffenderService {
                     .offender_repository
                     .get_offender_by_id(attendance_with_address.offender_id)
                     .await
-                    .map_err(|_| AppError::InternalServerError)?;
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => AppError::NotFound(
+                            format!("Offender with id '{}' not found", attendance_with_address.offender_id)
+                        ),
+                        _ => AppError::InternalServerError,
+                    })?;
 
                 let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_READ_ATTENDANCES, offender.city_id, &policies)?;
@@ -169,33 +186,38 @@ impl AttendanceOffenderService {
         }
     }
 
-    pub async fn get_all_attendance_offenders(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_attendance_offenders(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        let attendances = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_ATTENDANCES, &policies) {
-            match self.attendance_offender_repository.get_all_attendance_offenders().await {
-                Ok(all) => {
-                    let mut filtered = Vec::new();
-                    for attendance in all {
-                        if let Ok(offender) = self.offender_repository.get_offender_by_id(attendance.offender_id).await {
-                            if allowed_cities.contains(&offender.city_id) {
-                                filtered.push(attendance);
-                            }
-                        }
-                    }
-                    Ok(filtered)
-                }
-                Err(e) => Err(e),
-            }
-        } else {
-            self.attendance_offender_repository.get_all_attendance_offenders().await
-        };
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_ATTENDANCES, &policies);
 
-        match attendances {
-            Ok(attendances_list) => Ok(ApiResponse::success(attendances_list).into_response()),
-            Err(_) => Err(AppError::InternalServerError),
-        }
+        let total_items = self.attendance_offender_repository
+            .count_attendance_offenders(allowed_cities.as_deref())
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let attendances_list = self.attendance_offender_repository
+            .get_attendance_offenders_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        Ok(PaginatedResponse::success(
+            attendances_list,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        )
+        .into_response())
     }
 
     pub async fn get_attendance_offenders_by_offender(
@@ -264,7 +286,12 @@ impl AttendanceOffenderService {
             .offender_repository
             .get_offender_by_id(existing.offender_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    format!("Offender with id '{}' not found", existing.offender_id)
+                ),
+                _ => AppError::InternalServerError,
+            })?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_UPDATE_ATTENDANCES, existing_offender.city_id, &policies)?;
@@ -307,7 +334,19 @@ impl AttendanceOffenderService {
             Err(sqlx::Error::RowNotFound) => {
                 Err(AppError::NotFound(format!("Attendance offender '{}' not found", id)))
             }
-            Err(_) => Err(AppError::InternalServerError),
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_attendance_offenders_offender", "Error updating attendance: offender_id not found"),
+                        ("fk_attendance_offenders_victim", "Error updating attendance: victim_id not found"),
+                        ("fk_attendance_offenders_protective_measure", "Error updating attendance: protective_measure_id not found"),
+                        ("fk_attendance_offender_addresses_city", "Error updating attendance: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
+                Err(AppError::InternalServerError)
+            }
         }
     }
 
@@ -334,7 +373,12 @@ impl AttendanceOffenderService {
             .offender_repository
             .get_offender_by_id(attendance.offender_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    format!("Offender with id '{}' not found", attendance.offender_id)
+                ),
+                _ => AppError::InternalServerError,
+            })?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_DELETE_ATTENDANCES, offender.city_id, &policies)?;
@@ -355,7 +399,6 @@ impl AttendanceOffenderService {
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
-        // Get attendance to verify access
         let attendance = self.attendance_offender_repository
             .get_attendance_offender_by_id(attendance_id)
             .await
@@ -428,6 +471,15 @@ impl AttendanceOffenderService {
                 Ok(ApiResponse::success("Member added successfully").into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() {
+                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
+                            ("attendance_offender_members_attendance_offender_id_user_id_key", "Member already added to attendance"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                }
                 error!("[AttendanceOffenderService] Failed to add member: {:?}", e);
                 Err(AppError::InternalServerError)
             }

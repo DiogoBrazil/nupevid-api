@@ -3,42 +3,120 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::contracts::repository::offenders::OffenderRepository;
-use crate::core::contracts::repository::victims::VictimRepository;
 
 use crate::core::entities::offenders::{
-    AddressData, CreateOffender, PhoneData, UpdateOffender, WorkAddressData,
+    AddressData, AddressType, CreateOffender, PhoneData, UpdateOffender,
 };
 use crate::repositories::offenders::PgOffenderRepository;
 use crate::repositories::users::PgUserRepository;
-use crate::repositories::victims::PgVictimRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    db_error_mapper::map_constraint,
+    pagination::{PaginationParams, normalize_pagination}
 };
 use crate::validators::{
+    cpf_validator::validate_cpf,
     common::{POLICY_CREATE_OFFENDERS, POLICY_READ_OFFENDERS, POLICY_UPDATE_OFFENDERS, POLICY_DELETE_OFFENDERS},
     offender_validator::OffenderValidator
 };
 
 pub struct OffenderService {
     offender_repository: web::Data<PgOffenderRepository>,
-    victim_repository: web::Data<PgVictimRepository>,
     user_repository: web::Data<PgUserRepository>,
+}
+
+enum OffenderSearchCriteria {
+    Name(String),
+    Cpf(String),
 }
 
 impl OffenderService {
     pub fn new(
         offender_repository: web::Data<PgOffenderRepository>,
-        victim_repository: web::Data<PgVictimRepository>,
         user_repository: web::Data<PgUserRepository>,
     ) -> Self {
         Self {
             offender_repository,
-            victim_repository,
             user_repository,
+        }
+    }
+
+    fn derive_city_id_from_addresses(addresses: &Option<Vec<AddressData>>) -> Option<Uuid> {
+        let addresses = addresses.as_ref()?;
+
+        for address in addresses {
+            if address.address_type == AddressType::Residential {
+                return Some(address.city_id);
+            }
+        }
+
+        for address in addresses {
+            if address.address_type == AddressType::Work {
+                return Some(address.city_id);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_city_id(
+        addresses: &Option<Vec<AddressData>>,
+        fallback_city_id: Option<Uuid>,
+        error_context: &str,
+    ) -> Result<Uuid, AppError> {
+        if let Some(city_id) = Self::derive_city_id_from_addresses(addresses) {
+            return Ok(city_id);
+        }
+
+        if let Some(city_id) = fallback_city_id {
+            return Ok(city_id);
+        }
+
+        Err(AppError::BadRequest(format!(
+            "{}: no Residential or Work address provided; please send city_id in the request body",
+            error_context
+        )))
+    }
+
+    fn parse_search_criteria(
+        name: Option<String>,
+        cpf: Option<String>,
+        error_context: &str,
+    ) -> Result<OffenderSearchCriteria, AppError> {
+        match (name, cpf) {
+            (Some(_), Some(_)) => Err(AppError::BadRequest(format!(
+                "{}: provide either 'name' or 'cpf', not both",
+                error_context
+            ))),
+            (None, None) => Err(AppError::BadRequest(format!(
+                "{}: query parameter 'name' or 'cpf' is required",
+                error_context
+            ))),
+            (Some(name), None) => {
+                let trimmed = name.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'name' cannot be empty",
+                        error_context
+                    )));
+                }
+                Ok(OffenderSearchCriteria::Name(trimmed.to_string()))
+            }
+            (None, Some(cpf)) => {
+                let trimmed = cpf.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'cpf' cannot be empty",
+                        error_context
+                    )));
+                }
+                let normalized = validate_cpf(trimmed, error_context)?;
+                Ok(OffenderSearchCriteria::Cpf(normalized))
+            }
         }
     }
 
@@ -47,6 +125,17 @@ impl OffenderService {
         offender: CreateOffender,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
+        let mut offender = offender;
+        let city_id =
+            Self::resolve_city_id(&offender.addresses, offender.city_id, "Error adding offender")?;
+        offender.city_id = Some(city_id);
+        offender.is_public_security_agent = offender.security_force.is_some();
+
+        if let Some(cpf) = offender.cpf.as_ref() {
+            let normalized = validate_cpf(cpf, "Error adding offender")?;
+            offender.cpf = Some(normalized);
+        }
+
         info!(
             "[OffenderService] Starting offender creation: {}",
             offender.full_name
@@ -58,25 +147,11 @@ impl OffenderService {
         check_policy(
             &claims,
             POLICY_CREATE_OFFENDERS,
-            offender.city_id,
+            city_id,
             &policies,
         )?;
 
         OffenderValidator::validate_required_fields(&offender.full_name, "Error adding offender")?;
-
-        match self.victim_repository.get_victim_by_id(offender.victim_id).await {
-            Ok(_) => {},
-            Err(sqlx::Error::RowNotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Victim with id '{}' not found",
-                    offender.victim_id
-                )));
-            }
-            Err(e) => {
-                error!("[OffenderService] Error checking victim: {:?}", e);
-                return Err(AppError::InternalServerError);
-            }
-        }
 
         info!("[OffenderService] Saving offender to database");
 
@@ -89,6 +164,14 @@ impl OffenderService {
                 Ok(ApiResponse::created(offender_with_details).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_offenders_city", "Error adding offender: city_id not found"),
+                        ("fk_offender_addresses_city", "Error adding offender: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!("[OffenderService] Failed to save offender: {:?}", e);
                 Err(AppError::InternalServerError)
             }
@@ -140,18 +223,78 @@ impl OffenderService {
         }
     }
 
-    pub async fn get_all_offenders(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_offenders(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[OffenderService] Starting process to get offenders");
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_OFFENDERS, &policies);
+
+        let total_items = self.offender_repository
+            .count_offenders(allowed_cities.as_deref())
+            .await
+            .map_err(|e| {
+                error!("[OffenderService] Failed to count offenders: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        let offenders_list = self.offender_repository
+            .get_offenders_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|e| {
+                error!("[OffenderService] Failed to retrieve offenders: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        info!(
+            "[OffenderService] Successfully retrieved {} offenders (paged)",
+            offenders_list.len()
+        );
+        Ok(PaginatedResponse::success(
+            offenders_list,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        ).into_response())
+    }
+
+    pub async fn search_offenders(
+        &self,
+        name: Option<String>,
+        cpf: Option<String>,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[OffenderService] Starting offender search");
+
+        let search = Self::parse_search_criteria(name, cpf, "Error searching offenders")?;
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+
+        let offenders = match search {
+            OffenderSearchCriteria::Name(name) => {
+                self.offender_repository.get_offenders_by_name(&name).await
+            }
+            OffenderSearchCriteria::Cpf(cpf) => {
+                self.offender_repository.get_offenders_by_cpf(&cpf).await
+            }
+        };
 
         let offenders = if let Some(allowed_cities) =
             get_allowed_cities_for_policy(&claims, POLICY_READ_OFFENDERS, &policies)
         {
-            match self.offender_repository.get_all_offenders().await {
-                Ok(all) => {
-                    let filtered: Vec<_> = all
+            match offenders {
+                Ok(list) => {
+                    let filtered: Vec<_> = list
                         .into_iter()
                         .filter(|o| allowed_cities.contains(&o.city_id))
                         .collect();
@@ -160,19 +303,19 @@ impl OffenderService {
                 Err(e) => Err(e),
             }
         } else {
-            self.offender_repository.get_all_offenders().await
+            offenders
         };
 
         match offenders {
             Ok(offenders_list) => {
                 info!(
-                    "[OffenderService] Successfully retrieved {} offenders",
+                    "[OffenderService] Successfully retrieved {} offenders from search",
                     offenders_list.len()
                 );
                 Ok(ApiResponse::success(offenders_list).into_response())
             }
             Err(e) => {
-                error!("[OffenderService] Failed to retrieve offenders: {:?}", e);
+                error!("[OffenderService] Failed to search offenders: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }
@@ -243,7 +386,17 @@ impl OffenderService {
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(&claims, POLICY_UPDATE_OFFENDERS, data.city_id, &policies)?;
+        let mut data = data;
+        let city_id = Self::resolve_city_id(&data.addresses, data.city_id, "Error updating offender")?;
+        data.city_id = Some(city_id);
+        data.is_public_security_agent = data.security_force.is_some();
+
+        if let Some(cpf) = data.cpf.as_ref() {
+            let normalized = validate_cpf(cpf, "Error updating offender")?;
+            data.cpf = Some(normalized);
+        }
+
+        check_policy(&claims, POLICY_UPDATE_OFFENDERS, city_id, &policies)?;
 
         OffenderValidator::validate_required_fields(&data.full_name, "Error updating offender")?;
 
@@ -256,21 +409,6 @@ impl OffenderService {
                     &policies,
                 )?;
 
-                if existing_offender.victim_id != data.victim_id {
-                    match self.victim_repository.get_victim_by_id(data.victim_id).await {
-                        Ok(_) => {},
-                        Err(sqlx::Error::RowNotFound) => {
-                            return Err(AppError::NotFound(format!(
-                                "Victim with id '{}' not found",
-                                data.victim_id
-                            )));
-                        }
-                        Err(e) => {
-                            error!("[OffenderService] Error checking victim: {:?}", e);
-                            return Err(AppError::InternalServerError);
-                        }
-                    }
-                }
             }
             Err(sqlx::Error::RowNotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -309,6 +447,14 @@ impl OffenderService {
                 )))
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_offenders_city", "Error updating offender: city_id not found"),
+                        ("fk_offender_addresses_city", "Error updating offender: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!(
                     "[OffenderService] Error updating offender in database: {:?}",
                     e
@@ -442,7 +588,14 @@ impl OffenderService {
                             &policies,
                         )?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Offender with id '{}' not found", phone.offender_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -489,7 +642,14 @@ impl OffenderService {
                             &policies,
                         )?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Offender with id '{}' not found", phone.offender_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -575,7 +735,14 @@ impl OffenderService {
                             &policies,
                         )?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Offender with id '{}' not found", address.offender_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -622,7 +789,14 @@ impl OffenderService {
                             &policies,
                         )?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Offender with id '{}' not found", address.offender_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -643,156 +817,4 @@ impl OffenderService {
             Err(_) => Err(AppError::InternalServerError),
         }
     }
-
-    pub async fn create_work_address(
-        &self,
-        offender_id: Uuid,
-        work_address_data: WorkAddressData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        info!(
-            "[OffenderService] Adding work address to offender: {}",
-            offender_id
-        );
-
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-
-        match self.offender_repository.get_offender_by_id(offender_id).await {
-            Ok(offender) => {
-                check_policy(
-                    &claims,
-                    POLICY_UPDATE_OFFENDERS,
-                    offender.city_id,
-                    &policies,
-                )?;
-            }
-            Err(sqlx::Error::RowNotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Offender with id '{}' not found",
-                    offender_id
-                )));
-            }
-            Err(_) => return Err(AppError::InternalServerError),
-        }
-
-        match self
-            .offender_repository
-            .create_work_address(offender_id, work_address_data)
-            .await
-        {
-            Ok(work_address) => Ok(ApiResponse::created(work_address).into_response()),
-            Err(_) => Err(AppError::InternalServerError),
-        }
-    }
-
-    pub async fn update_work_address(
-        &self,
-        work_address_id: Uuid,
-        work_address_data: WorkAddressData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        info!(
-            "[OffenderService] Updating work address: {}",
-            work_address_id
-        );
-
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-
-        match self
-            .offender_repository
-            .get_work_address_by_id(work_address_id)
-            .await
-        {
-            Ok(work_address) => {
-                match self
-                    .offender_repository
-                    .get_offender_by_id(work_address.offender_id)
-                    .await
-                {
-                    Ok(offender) => {
-                        check_policy(
-                            &claims,
-                            POLICY_UPDATE_OFFENDERS,
-                            offender.city_id,
-                            &policies,
-                        )?;
-                    }
-                    Err(_) => return Err(AppError::InternalServerError),
-                }
-            }
-            Err(sqlx::Error::RowNotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Work address with id '{}' not found",
-                    work_address_id
-                )));
-            }
-            Err(_) => return Err(AppError::InternalServerError),
-        }
-
-        match self
-            .offender_repository
-            .update_work_address_by_id(work_address_id, work_address_data)
-            .await
-        {
-            Ok(work_address) => Ok(ApiResponse::success(work_address).into_response()),
-            Err(_) => Err(AppError::InternalServerError),
-        }
-    }
-
-    pub async fn delete_work_address(
-        &self,
-        work_address_id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        info!(
-            "[OffenderService] Deleting work address: {}",
-            work_address_id
-        );
-
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-
-        match self
-            .offender_repository
-            .get_work_address_by_id(work_address_id)
-            .await
-        {
-            Ok(work_address) => {
-                match self
-                    .offender_repository
-                    .get_offender_by_id(work_address.offender_id)
-                    .await
-                {
-                    Ok(offender) => {
-                        check_policy(
-                            &claims,
-                            POLICY_UPDATE_OFFENDERS,
-                            offender.city_id,
-                            &policies,
-                        )?;
-                    }
-                    Err(_) => return Err(AppError::InternalServerError),
-                }
-            }
-            Err(sqlx::Error::RowNotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Work address with id '{}' not found",
-                    work_address_id
-                )));
-            }
-            Err(_) => return Err(AppError::InternalServerError),
-        }
-
-        match self
-            .offender_repository
-            .delete_work_address_by_id(work_address_id)
-            .await
-        {
-            Ok(work_address) => Ok(ApiResponse::success(work_address).into_response()),
-            Err(_) => Err(AppError::InternalServerError),
-        }
-    }
-
 }

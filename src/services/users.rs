@@ -2,15 +2,17 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 
-use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword, UserDataCreatedWithoutPassword};
+use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword, UserDataCreatedWithoutPassword, ResetUserPasswordResponse};
 use crate::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::repositories::users::PgUserRepository;
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, validate_user_creation_permission},
-    service_helpers::{extract_claims, extract_city_id_from_claims, get_user_policies_strict}
+    service_helpers::{extract_claims, extract_city_id_from_claims, get_user_policies_strict},
+    pagination::{PaginationParams, normalize_pagination},
+    db_error_mapper::map_constraint
 };
 use crate::validators::{
     common::{
@@ -38,29 +40,30 @@ impl UserService {
     }
 
     pub async fn create_user(&self, user: CreateUser, req: HttpRequest) -> Result<HttpResponse, AppError> {
-        info!("[UserService] Starting user creation for email: {}", user.email);
+        let mut user_with_city = user;
+        user_with_city.email = user_with_city.email.trim().to_lowercase();
+
+        info!("[UserService] Starting user creation for email: {}", user_with_city.email);
 
         let claims = extract_claims(&req)?;
 
-        validate_user_creation_permission(&claims.profile, &user.profile)?;
+        validate_user_creation_permission(&claims.profile, &user_with_city.profile)?;
 
-        if let Some(policies) = user.permission_policies.as_ref() {
+        if let Some(policies) = user_with_city.permission_policies.as_ref() {
             PolicyValidator::validate_policy_names(policies)?;
             let claims_policies_json = get_user_policies_strict(self.user_repository.as_ref(), &claims).await?;
-            PolicyValidator::validate_assignment_permission(&claims, &user.profile, policies, claims_policies_json.as_ref())?;
+            PolicyValidator::validate_assignment_permission(&claims, &user_with_city.profile, policies, claims_policies_json.as_ref())?;
         }
 
         UserValidator::validate_fields(
-            &user.rank,
-            &user.registration,
-            &user.full_name,
-            &user.profile,
-            &user.email,
-            Some(&user.password),
+            &user_with_city.rank,
+            &user_with_city.registration,
+            &user_with_city.full_name,
+            &user_with_city.profile,
+            &user_with_city.email,
+            Some(&user_with_city.password),
             "Error adding user: ",
         )?;
-
-        let mut user_with_city = user;
 
         if user_with_city.profile == PROFILE_CITY_ADMIN || user_with_city.profile == PROFILE_CITY_USER {
             if claims.profile == PROFILE_CITY_ADMIN {
@@ -154,6 +157,11 @@ impl UserService {
                             "Error adding user: registration already exists".to_string()
                         ));
                     }
+                    if let Some(app_err) = map_constraint(Some(constraint), &[
+                        ("fk_users_city", "Error adding user: city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
                 }
                 error!("[UserService] Database error while saving user: {:?}", db_err);
                 Err(AppError::InternalServerError)
@@ -169,6 +177,9 @@ impl UserService {
         info!("[UserService] Starting user updation for id: {}", id);
 
         let claims = extract_claims(&req)?;
+
+        let mut data = data;
+        data.email = data.email.trim().to_lowercase();
 
         if data.profile == PROFILE_ROOT && claims.profile != PROFILE_ROOT {
             return Err(AppError::Forbidden("Only ROOT can assign ROOT profile".to_string()));
@@ -270,6 +281,11 @@ impl UserService {
                             "Error updating user: registration already exists".to_string()
                         ));
                     }
+                    if let Some(app_err) = map_constraint(Some(constraint), &[
+                        ("fk_users_city", "Error updating user: city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
                 }
                 error!("[UserService] Database error while updating user: {:?}", db_err);
                 Err(AppError::InternalServerError)
@@ -313,60 +329,73 @@ impl UserService {
         }
     }
 
-    pub async fn get_all_users(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_users(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[UserService] Starting process to get all users");
 
         let claims = extract_claims(&req)?;
+        let pagination = normalize_pagination(&params);
 
-        match self.user_repository.get_all_users().await {
-            Ok(users) => {
-                let filtered = if claims.profile == PROFILE_ROOT {
-                    users
-                } else if claims.profile == PROFILE_CITY_ADMIN {
-                    let claims_policies = match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
-                        Some(p) => p,
-                        None => {
-                            info!("[UserService] No policies found for CITY_ADMIN");
-                            return Ok(ApiResponse::success(Vec::<UserDataCreatedWithoutPassword>::new()).into_response());
-                        }
-                    };
+        let (allowed_cities, exclude_root) = if claims.profile == PROFILE_ROOT {
+            (None, false)
+        } else if claims.profile == PROFILE_CITY_ADMIN {
+            let claims_policies = match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
+                Some(p) => p,
+                None => {
+                    info!("[UserService] No policies found for CITY_ADMIN");
+                    return Ok(PaginatedResponse::success(
+                        Vec::<UserDataCreatedWithoutPassword>::new(),
+                        pagination.page,
+                        pagination.page_size,
+                        0,
+                    )
+                    .into_response());
+                }
+            };
 
-                    let allowed_cities: Vec<Uuid> = claims_policies
-                        .get("read_users")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| v.as_str())
-                                .filter_map(|s| Uuid::parse_str(s).ok())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    info!("[UserService] CITY_ADMIN can read users from {} cities", allowed_cities.len());
-
-                    users.into_iter()
-                        .filter(|u| {
-                            if u.profile == PROFILE_ROOT {
-                                return false;
-                            }
-                            if let Some(user_city_id) = u.city_id {
-                                allowed_cities.contains(&user_city_id)
-                            } else {
-                                false
-                            }
-                        })
+            let allowed: Vec<Uuid> = claims_policies
+                .get("read_users")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter_map(|s| Uuid::parse_str(s).ok())
                         .collect()
-                } else {
-                    users.into_iter().filter(|u| u.profile != PROFILE_ROOT).collect()
-                };
-                info!("[UserService] Successfully retrieved {} users", filtered.len());
-                Ok(ApiResponse::success(filtered).into_response())
-            }
-            Err(e) => {
-                error!("[UserService] Failed to retrieve users: {:?}", e);
-                Err(AppError::InternalServerError)
-            }
-        }
+                })
+                .unwrap_or_default();
+
+            info!("[UserService] CITY_ADMIN can read users from {} cities", allowed.len());
+            (Some(allowed), true)
+        } else {
+            (None, true)
+        };
+
+        let total_items = self.user_repository
+            .count_users(allowed_cities.as_deref(), exclude_root)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let users = self.user_repository
+            .get_users_paginated(
+                allowed_cities.as_deref(),
+                exclude_root,
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        info!("[UserService] Successfully retrieved {} users", users.len());
+        Ok(PaginatedResponse::success(
+            users,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        )
+        .into_response())
     }
 
     pub async fn delete_user_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -420,55 +449,44 @@ impl UserService {
         let requester_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        if requester_id != id && claims.profile != PROFILE_ROOT {
+        if requester_id != id {
             error!("[UserService] User {} attempted to change password of user {}", requester_id, id);
             return Err(AppError::Forbidden("You can only change your own password".to_string()));
         }
 
-        if let Ok(existing) = self.user_repository.get_user_by_id(id).await {
-            if existing.profile == PROFILE_ROOT && claims.profile != PROFILE_ROOT {
-                return Err(AppError::Forbidden("Only ROOT can modify ROOT users".to_string()));
+        let current_pwd = data.current_password.as_ref()
+            .filter(|pwd| !pwd.is_empty())
+            .ok_or_else(|| AppError::BadRequest("Error updating password: current_password is required".to_string()))?;
+
+        info!("[UserService] Retrieving current password hash from database");
+
+        let stored_password_hash = match self.user_repository.get_user_password_by_id(id).await {
+            Ok(hash) => hash,
+            Err(sqlx::Error::RowNotFound) => {
+                info!("[UserService] User with id {} not found", id);
+                return Err(AppError::NotFound(format!("User with id '{}' not found", id)));
             }
+            Err(e) => {
+                error!("[UserService] Failed to retrieve user password: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        };
+
+        info!("[UserService] Verifying current password");
+
+        let password_matches = self.password_hasher
+            .verify_password(&stored_password_hash, current_pwd)
+            .map_err(|e| {
+                error!("[UserService] Failed to verify password: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        if !password_matches {
+            error!("[UserService] Current password is incorrect");
+            return Err(AppError::BadRequest("Error updating password: current password is incorrect".to_string()));
         }
 
-        if claims.profile != PROFILE_ROOT {
-            let current_pwd = data.current_password.as_ref()
-                .filter(|pwd| !pwd.is_empty())
-                .ok_or_else(|| AppError::BadRequest("Error updating password: current_password is required".to_string()))?;
-
-            info!("[UserService] Retrieving current password hash from database");
-
-            let stored_password_hash = match self.user_repository.get_user_password_by_id(id).await {
-                Ok(hash) => hash,
-                Err(sqlx::Error::RowNotFound) => {
-                    info!("[UserService] User with id {} not found", id);
-                    return Err(AppError::NotFound(format!("User with id '{}' not found", id)));
-                }
-                Err(e) => {
-                    error!("[UserService] Failed to retrieve user password: {:?}", e);
-                    return Err(AppError::InternalServerError);
-                }
-            };
-
-            info!("[UserService] Verifying current password");
-
-            let password_matches = self.password_hasher
-                .verify_password(&stored_password_hash, current_pwd)
-                .map_err(|e| {
-                    error!("[UserService] Failed to verify password: {:?}", e);
-                    AppError::InternalServerError
-                })?;
-
-            if !password_matches {
-                error!("[UserService] Current password is incorrect");
-                return Err(AppError::BadRequest("Error updating password: current password is incorrect".to_string()));
-            }
-
-            info!("[UserService] Current password verified with success.");
-
-        } else {
-            info!("[UserService] ROOT user changing password - skipping current password verification");
-        }
+        info!("[UserService] Current password verified with success.");
 
         if data.new_password.is_empty() {
             return Err(AppError::BadRequest("Error updating password: new_password is required".to_string()));
@@ -496,6 +514,65 @@ impl UserService {
             }
             Err(e) => {
                 error!("[UserService] Failed to update password: {:?}", e);
+                Err(AppError::InternalServerError)
+            }
+        }
+    }
+
+    pub async fn reset_user_password_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
+        info!("[UserService] Starting password reset for user with id: {}", id);
+
+        let claims = extract_claims(&req)?;
+
+        if claims.profile != PROFILE_ROOT && claims.profile != PROFILE_CITY_ADMIN {
+            return Err(AppError::Forbidden("Only ROOT or CITY_ADMIN can reset passwords".to_string()));
+        }
+
+        let target_user = match self.user_repository.get_user_by_id(id).await {
+            Ok(user) => user,
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!("User with id '{}' not found", id)));
+            }
+            Err(e) => {
+                error!("[UserService] Failed to retrieve user: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        };
+
+        if claims.profile == PROFILE_CITY_ADMIN {
+            let admin_city_id = extract_city_id_from_claims(&claims)?;
+            if target_user.city_id != Some(admin_city_id) {
+                return Err(AppError::Forbidden(
+                    "CITY_ADMIN can only reset passwords for users in the same city".to_string()
+                ));
+            }
+        }
+
+        let uuid_str = Uuid::new_v4().to_string();
+        let digits: String = uuid_str.chars().filter(|c| c.is_ascii_digit()).collect();
+        let raw_suffix = digits.chars().rev().take(6).collect::<String>().chars().rev().collect::<String>();
+        let suffix = format!("{:0>6}", raw_suffix);
+        let temporary_password = format!("prov{}", suffix);
+
+        let password_hash = self.password_hasher
+            .hash_password(&temporary_password)
+            .map_err(|e| {
+                error!("[UserService] Failed to hash temporary password: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
+
+        match self.user_repository.reset_user_password_by_id(id, password_hash, expires_at).await {
+            Ok(_) => {
+                info!("[UserService] Password reset successfully for user with id: {}", id);
+                Ok(ApiResponse::success(ResetUserPasswordResponse { temporary_password }).into_response())
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
+            }
+            Err(e) => {
+                error!("[UserService] Failed to reset password: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }

@@ -19,9 +19,11 @@ use crate::repositories::attendance_members::PgAttendanceMemberRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    db_error_mapper::{map_constraint, map_unique_constraint},
+    pagination::{PaginationParams, normalize_pagination}
 };
 use crate::validators::common::{
     POLICY_CREATE_ATTENDANCES, POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES,
@@ -106,6 +108,16 @@ impl AttendanceVictimService {
                 Ok(ApiResponse::created(attendance_with_address).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_attendances_victim", "Error adding attendance: victim_id not found"),
+                        ("fk_attendance_victims_offender", "Error adding attendance: offender_id not found"),
+                        ("fk_attendance_victims_protective_measure", "Error adding attendance: protective_measure_id not found"),
+                        ("fk_attendance_addresses_city", "Error adding attendance: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!("[AttendanceVictimService] Failed to create attendance victim: {:?}", e);
                 Err(AppError::InternalServerError)
             }
@@ -125,7 +137,12 @@ impl AttendanceVictimService {
                     .victim_repository
                     .get_victim_by_id(attendance_with_address.victim_id)
                     .await
-                    .map_err(|_| AppError::InternalServerError)?;
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => AppError::NotFound(
+                            format!("Victim with id '{}' not found", attendance_with_address.victim_id)
+                        ),
+                        _ => AppError::InternalServerError,
+                    })?;
                 let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
                 check_policy(&claims, POLICY_READ_ATTENDANCES, victim.city_id, &policies)?;
                 Ok(ApiResponse::success(attendance_with_address).into_response())
@@ -137,33 +154,37 @@ impl AttendanceVictimService {
         }
     }
 
-    pub async fn get_all_attendance_victims(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_attendance_victims(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         let claims = extract_claims(&req)?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        let attendances = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_ATTENDANCES, &policies) {
-            match self.attendance_victim_repository.get_all_attendance_victims().await {
-                Ok(all) => {
-                    let mut filtered = Vec::new();
-                    for attendance in all {
-                        if let Ok(victim) = self.victim_repository.get_victim_by_id(attendance.victim_id).await {
-                            if allowed_cities.contains(&victim.city_id) {
-                                filtered.push(attendance);
-                            }
-                        }
-                    }
-                    Ok(filtered)
-                }
-                Err(e) => Err(e),
-            }
-        } else {
-            self.attendance_victim_repository.get_all_attendance_victims().await
-        };
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_ATTENDANCES, &policies);
 
-        match attendances {
-            Ok(attendances_list) => Ok(ApiResponse::success(attendances_list).into_response()),
-            Err(_) => Err(AppError::InternalServerError),
-        }
+        let total_items = self.attendance_victim_repository
+            .count_attendance_victims(allowed_cities.as_deref())
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        let attendances_list = self.attendance_victim_repository
+            .get_attendance_victims_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        Ok(PaginatedResponse::success(
+            attendances_list,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        ).into_response())
     }
 
     pub async fn get_attendance_victims_by_victim(
@@ -210,7 +231,12 @@ impl AttendanceVictimService {
             .victim_repository
             .get_victim_by_id(existing.victim_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    format!("Victim with id '{}' not found", existing.victim_id)
+                ),
+                _ => AppError::InternalServerError,
+            })?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_UPDATE_ATTENDANCES, existing_victim.city_id, &policies)?;
 
@@ -230,7 +256,19 @@ impl AttendanceVictimService {
             Err(sqlx::Error::RowNotFound) => {
                 Err(AppError::NotFound(format!("Attendance victim '{}' not found", id)))
             }
-            Err(_) => Err(AppError::InternalServerError),
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_attendances_victim", "Error updating attendance: victim_id not found"),
+                        ("fk_attendance_victims_offender", "Error updating attendance: offender_id not found"),
+                        ("fk_attendance_victims_protective_measure", "Error updating attendance: protective_measure_id not found"),
+                        ("fk_attendance_addresses_city", "Error updating attendance: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
+                Err(AppError::InternalServerError)
+            }
         }
     }
 
@@ -257,7 +295,12 @@ impl AttendanceVictimService {
             .victim_repository
             .get_victim_by_id(attendance.victim_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    format!("Victim with id '{}' not found", attendance.victim_id)
+                ),
+                _ => AppError::InternalServerError,
+            })?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         check_policy(&claims, POLICY_DELETE_ATTENDANCES, victim.city_id, &policies)?;
 
@@ -349,6 +392,15 @@ impl AttendanceVictimService {
                 Ok(ApiResponse::success("Member added successfully").into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() {
+                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
+                            ("attendance_victim_members_attendance_victim_id_user_id_key", "Member already added to attendance"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                }
                 error!("[AttendanceVictimService] Failed to add member: {:?}", e);
                 Err(AppError::InternalServerError)
             }

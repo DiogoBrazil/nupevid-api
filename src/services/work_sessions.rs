@@ -9,9 +9,11 @@ use crate::core::contracts::repository::users::UserRepository;
 use crate::repositories::work_sessions::PgWorkSessionRepository;
 use crate::repositories::users::PgUserRepository;
 use crate::utils::errors::AppError;
-use crate::utils::responses::ApiResponse;
+use crate::utils::responses::{ApiResponse, PaginatedResponse};
 use crate::utils::service_helpers::{extract_claims, get_user_policies_with_defaults, extract_city_id_from_claims};
 use crate::utils::authorization::check_policy;
+use crate::utils::db_error_mapper::map_unique_constraint;
+use crate::utils::pagination::{PaginationParams, normalize_pagination};
 use crate::validators::common::{
     POLICY_CREATE_WORK_SESSIONS,
     POLICY_UPDATE_WORK_SESSIONS,
@@ -77,6 +79,16 @@ impl WorkSessionService {
                 Ok(ApiResponse::created(session).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() {
+                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
+                            ("unique_active_session_per_user", "User already has an active work session"),
+                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                }
                 error!("[WorkSessionService] Failed to create work session: {:?}", e);
                 Err(AppError::InternalServerError)
             }
@@ -101,7 +113,12 @@ impl WorkSessionService {
                 let with_members = self.work_session_repository
                     .get_session_by_id(session.id)
                     .await
-                    .map_err(|_| AppError::InternalServerError)?;
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => AppError::NotFound(
+                            "Work session not found".to_string()
+                        ),
+                        _ => AppError::InternalServerError,
+                    })?;
 
                 Ok(ApiResponse::success(with_members).into_response())
             }
@@ -174,12 +191,30 @@ impl WorkSessionService {
             }
         }
 
+        let pagination_params = PaginationParams {
+            page: query.page,
+            page_size: query.page_size,
+        };
+        let pagination = normalize_pagination(&pagination_params);
+
+        let total_items = self.work_session_repository
+            .count_sessions_filtered(
+                query.user_id,
+                query.start_date,
+                query.end_date,
+                query.city_id,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
         let sessions = self.work_session_repository
             .list_sessions_filtered(
                 query.user_id,
                 query.start_date,
                 query.end_date,
                 query.city_id,
+                pagination.page_size,
+                pagination.offset,
             )
             .await
             .map_err(|_| AppError::InternalServerError)?;
@@ -189,12 +224,23 @@ impl WorkSessionService {
             let members = self.work_session_repository
                 .get_session_members_with_details(session.id)
                 .await
-                .map_err(|_| AppError::InternalServerError)?;
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => AppError::NotFound(
+                        format!("Session members not found for session '{}'", session.id)
+                    ),
+                    _ => AppError::InternalServerError,
+                })?;
             sessions_with_members.push(session.with_members(members));
         }
 
         info!("[WorkSessionService] Found {} sessions", sessions_with_members.len());
-        Ok(ApiResponse::success(sessions_with_members).into_response())
+        Ok(PaginatedResponse::success(
+            sessions_with_members,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        )
+        .into_response())
     }
 
     pub async fn end_session(
@@ -267,7 +313,12 @@ impl WorkSessionService {
         let current_members = self.work_session_repository
             .get_session_members(session_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    "Session members not found".to_string()
+                ),
+                _ => AppError::InternalServerError,
+            })?;
 
         let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
             .iter()
@@ -286,7 +337,18 @@ impl WorkSessionService {
                 info!("[WorkSessionService] Member added to session");
                 Ok(ApiResponse::success(member).into_response())
             }
-            Err(_) => Err(AppError::InternalServerError),
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() {
+                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
+                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                }
+                Err(AppError::InternalServerError)
+            }
         }
     }
 
@@ -322,7 +384,12 @@ impl WorkSessionService {
         let current_members = self.work_session_repository
             .get_session_members(session_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    "Session members not found".to_string()
+                ),
+                _ => AppError::InternalServerError,
+            })?;
 
         WorkSessionValidator::can_remove_member(current_members.len())
             .map_err(|e| AppError::BadRequest(e))?;
@@ -391,7 +458,18 @@ impl WorkSessionService {
                 info!("[WorkSessionService] Session members updated");
                 Ok(ApiResponse::success(updated_session).into_response())
             }
-            Err(_) => Err(AppError::InternalServerError),
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.is_unique_violation() {
+                        if let Some(app_err) = map_unique_constraint(db_err.constraint(), &[
+                            ("work_session_members_work_session_id_user_id_key", "User already added to session"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                }
+                Err(AppError::InternalServerError)
+            }
         }
     }
 
@@ -430,7 +508,12 @@ impl WorkSessionService {
         let current_members = self.work_session_repository
             .get_session_members(session_id)
             .await
-            .map_err(|_| AppError::InternalServerError)?;
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => AppError::NotFound(
+                    "Session members not found".to_string()
+                ),
+                _ => AppError::InternalServerError,
+            })?;
 
         if !current_members.iter().any(|m| m.user_id == user_id) {
             return Err(AppError::NotFound("User is not a member of this session".to_string()));

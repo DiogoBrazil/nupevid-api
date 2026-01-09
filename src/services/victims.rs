@@ -4,17 +4,20 @@ use uuid::Uuid;
 
 use crate::core::contracts::repository::victims::VictimRepository;
 
-use crate::core::entities::victims::{AddressData, CreateVictim, PhoneData, UpdateVictim};
+use crate::core::entities::victims::{AddressData, AddressType, CreateVictim, PhoneData, UpdateVictim};
 use crate::repositories::victims::PgVictimRepository;
 use crate::repositories::users::PgUserRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    db_error_mapper::map_constraint,
+    pagination::{PaginationParams, normalize_pagination}
 };
 use crate::validators::{
+    cpf_validator::validate_cpf,
     common::{POLICY_CREATE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS, POLICY_DELETE_VICTIMS},
     victim_validator::VictimValidator
 };
@@ -24,9 +27,96 @@ pub struct VictimService {
     user_repository: web::Data<PgUserRepository>,
 }
 
+enum VictimSearchCriteria {
+    Name(String),
+    Cpf(String),
+}
+
 impl VictimService {
     pub fn new(victim_repository: web::Data<PgVictimRepository>, user_repository: web::Data<PgUserRepository>) -> Self {
         Self { victim_repository, user_repository }
+    }
+
+    fn derive_city_id_from_addresses(addresses: &Option<Vec<AddressData>>) -> Option<Uuid> {
+        let addresses = addresses.as_ref()?;
+
+        for address in addresses {
+            if address.address_type == AddressType::Residential {
+                return Some(address.city_id);
+            }
+        }
+
+        for address in addresses {
+            if address.address_type == AddressType::Work {
+                return Some(address.city_id);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_city_id(
+        addresses: &Option<Vec<AddressData>>,
+        fallback_city_id: Option<Uuid>,
+        error_context: &str,
+    ) -> Result<Uuid, AppError> {
+        if let Some(city_id) = Self::derive_city_id_from_addresses(addresses) {
+            return Ok(city_id);
+        }
+
+        if let Some(city_id) = fallback_city_id {
+            return Ok(city_id);
+        }
+
+        Err(AppError::BadRequest(format!(
+            "{}: no Residential or Work address provided; please send city_id in the request body",
+            error_context
+        )))
+    }
+
+    fn normalize_flag_from_list(values: &Option<Vec<String>>) -> (bool, Option<Vec<String>>) {
+        match values {
+            Some(list) if !list.is_empty() => (true, Some(list.clone())),
+            _ => (false, None),
+        }
+    }
+
+    fn parse_search_criteria(
+        name: Option<String>,
+        cpf: Option<String>,
+        error_context: &str,
+    ) -> Result<VictimSearchCriteria, AppError> {
+        match (name, cpf) {
+            (Some(_name), Some(_)) => Err(AppError::BadRequest(format!(
+                "{}: provide either 'name' or 'cpf', not both",
+                error_context
+            ))),
+            (None, None) => Err(AppError::BadRequest(format!(
+                "{}: query parameter 'name' or 'cpf' is required",
+                error_context
+            ))),
+            (Some(name), None) => {
+                let trimmed = name.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'name' cannot be empty",
+                        error_context
+                    )));
+                }
+                Ok(VictimSearchCriteria::Name(trimmed.to_string()))
+            }
+            (None, Some(cpf)) => {
+                let trimmed = cpf.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'cpf' cannot be empty",
+                        error_context
+                    )));
+                }
+                let normalized = validate_cpf(trimmed, error_context)?;
+                Ok(VictimSearchCriteria::Cpf(normalized))
+            }
+        }
     }
 
     pub async fn create_victim(
@@ -34,12 +124,31 @@ impl VictimService {
         victim: CreateVictim,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
+        let mut victim = victim;
+        let city_id = Self::resolve_city_id(&victim.addresses, victim.city_id, "Error adding victim")?;
+        victim.city_id = Some(city_id);
+
+        let (has_special_needs, special_needs_type) =
+            Self::normalize_flag_from_list(&victim.special_needs_type);
+        victim.has_special_needs = has_special_needs;
+        victim.special_needs_type = special_needs_type;
+
+        let (has_psychiatric_issues, psychiatric_issues_type) =
+            Self::normalize_flag_from_list(&victim.psychiatric_issues_type);
+        victim.has_psychiatric_issues = has_psychiatric_issues;
+        victim.psychiatric_issues_type = psychiatric_issues_type;
+
+        if let Some(cpf) = victim.cpf.as_ref() {
+            let normalized = validate_cpf(cpf, "Error adding victim")?;
+            victim.cpf = Some(normalized);
+        }
+
         info!("[VictimService] Starting victim creation: {}", victim.full_name);
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
 
-        check_policy(&claims, POLICY_CREATE_VICTIMS, victim.city_id, &policies)?;
+        check_policy(&claims, POLICY_CREATE_VICTIMS, city_id, &policies)?;
 
         VictimValidator::validate_required_fields(&victim.full_name, "Error adding victim")?;
 
@@ -55,9 +164,19 @@ impl VictimService {
             }
             Err(e) => {
                 if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.is_unique_violation() && db_err.constraint() == Some("idx_victims_cpf_unique") {
+                    if db_err.is_unique_violation()
+                        && db_err.constraint() == Some("idx_victims_cpf_unique")
+                    {
                         error!("[VictimService] Attempt to create victim with duplicate CPF");
-                        return Err(AppError::Conflict("A victim with this CPF already exists.".to_string()));
+                        return Err(AppError::Conflict(
+                            "A victim with this CPF already exists.".to_string(),
+                        ));
+                    }
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_victims_city", "Error adding victim: city_id not found"),
+                        ("fk_victim_addresses_city", "Error adding victim: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
                     }
                 }
                 error!("[VictimService] Failed to save victim: {:?}", e);
@@ -103,34 +222,97 @@ impl VictimService {
         }
     }
 
-    pub async fn get_all_victims(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_victims(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[VictimService] Starting process to get victims");
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies);
 
-        let victims = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies) {
-            match self.victim_repository.get_all_victims().await {
-                Ok(all) => {
-                    let filtered: Vec<_> = all.into_iter().filter(|v| allowed_cities.contains(&v.city_id)).collect();
+        let total_items = self.victim_repository
+            .count_victims(allowed_cities.as_deref())
+            .await
+            .map_err(|e| {
+                error!("[VictimService] Failed to count victims: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        let victims_list = self.victim_repository
+            .get_victims_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|e| {
+                error!("[VictimService] Failed to retrieve victims: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        info!(
+            "[VictimService] Successfully retrieved {} victims (paged)",
+            victims_list.len()
+        );
+        Ok(PaginatedResponse::success(
+            victims_list,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        ).into_response())
+    }
+
+    pub async fn search_victims(
+        &self,
+        name: Option<String>,
+        cpf: Option<String>,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[VictimService] Starting victim search");
+
+        let search = Self::parse_search_criteria(name, cpf, "Error searching victims")?;
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+
+        let victims = match search {
+            VictimSearchCriteria::Name(name) => {
+                self.victim_repository.get_victims_by_name(&name).await
+            }
+            VictimSearchCriteria::Cpf(cpf) => {
+                self.victim_repository.get_victims_by_cpf(&cpf).await
+            }
+        };
+
+        let victims = if let Some(allowed_cities) =
+            get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies)
+        {
+            match victims {
+                Ok(list) => {
+                    let filtered: Vec<_> =
+                        list.into_iter().filter(|v| allowed_cities.contains(&v.city_id)).collect();
                     Ok(filtered)
                 }
                 Err(e) => Err(e),
             }
         } else {
-            self.victim_repository.get_all_victims().await
+            victims
         };
 
         match victims {
             Ok(victims_list) => {
                 info!(
-                    "[VictimService] Successfully retrieved {} victims",
+                    "[VictimService] Successfully retrieved {} victims from search",
                     victims_list.len()
                 );
                 Ok(ApiResponse::success(victims_list).into_response())
             }
             Err(e) => {
-                error!("[VictimService] Failed to retrieve victims: {:?}", e);
+                error!("[VictimService] Failed to search victims: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }
@@ -146,7 +328,26 @@ impl VictimService {
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(&claims, POLICY_UPDATE_VICTIMS, data.city_id, &policies)?;
+        let mut data = data;
+        let city_id = Self::resolve_city_id(&data.addresses, data.city_id, "Error updating victim")?;
+        data.city_id = Some(city_id);
+
+        let (has_special_needs, special_needs_type) =
+            Self::normalize_flag_from_list(&data.special_needs_type);
+        data.has_special_needs = has_special_needs;
+        data.special_needs_type = special_needs_type;
+
+        let (has_psychiatric_issues, psychiatric_issues_type) =
+            Self::normalize_flag_from_list(&data.psychiatric_issues_type);
+        data.has_psychiatric_issues = has_psychiatric_issues;
+        data.psychiatric_issues_type = psychiatric_issues_type;
+
+        if let Some(cpf) = data.cpf.as_ref() {
+            let normalized = validate_cpf(cpf, "Error updating victim")?;
+            data.cpf = Some(normalized);
+        }
+
+        check_policy(&claims, POLICY_UPDATE_VICTIMS, city_id, &policies)?;
 
         VictimValidator::validate_required_fields(&data.full_name, "Error updating victim")?;
 
@@ -184,6 +385,14 @@ impl VictimService {
                 )))
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_victims_city", "Error updating victim: city_id not found"),
+                        ("fk_victim_addresses_city", "Error updating victim: address city_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!(
                     "[VictimService] Error updating victim in database: {:?}",
                     e
@@ -288,7 +497,14 @@ impl VictimService {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", phone.victim_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -318,7 +534,14 @@ impl VictimService {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", phone.victim_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -383,7 +606,14 @@ impl VictimService {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", address.victim_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {
@@ -413,7 +643,14 @@ impl VictimService {
                     Ok(victim) => {
                         check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
                     }
-                    Err(_) => return Err(AppError::InternalServerError),
+                    Err(e) => {
+                        return match e {
+                            sqlx::Error::RowNotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", address.victim_id)
+                            )),
+                            _ => Err(AppError::InternalServerError),
+                        }
+                    }
                 }
             }
             Err(sqlx::Error::RowNotFound) => {

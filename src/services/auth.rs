@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse};
 use log::info;
 use uuid::Uuid;
+use chrono::Utc;
 
 use crate::adapters::password_hasher::PasswordHasherPort;
 use crate::adapters::token_generator::TokenGeneratorPort;
@@ -32,16 +33,17 @@ impl AuthService {
     }
 
     pub async fn login(&self, data: Login) -> Result<HttpResponse, AppError> {
-        info!("[Service] Starting login process with email: {}", data.email);
+        let normalized_email = data.email.trim().to_lowercase();
+        info!("[Service] Starting login process with email: {}", normalized_email);
 
-        info!("[Service] Checking if user exists with email: {}", data.email);
-        let user = match self.auth_repository.get_complete_user_data_by_email(&data.email).await {
+        info!("[Service] Checking if user exists with email: {}", normalized_email);
+        let user = match self.auth_repository.get_complete_user_data_by_email(&normalized_email).await {
             Ok(user) => {
-                info!("[Service] User found with email: {}", data.email);
+                info!("[Service] User found with email: {}", normalized_email);
                 user
             },
             Err(sqlx::Error::RowNotFound) => {
-                info!("[Service] User not found with email: {}", data.email);
+                info!("[Service] User not found with email: {}", normalized_email);
                 return Err(AppError::Unauthorized("Invalid credentials".into()));
             },
             Err(e) => {
@@ -50,15 +52,30 @@ impl AuthService {
             }
         };
 
-        info!("[Service] Verifying password for user with email: {}", data.email);
+        info!("[Service] Verifying password for user with email: {}", normalized_email);
         if !self.password_hasher.verify_password(&user.password, &data.password)
             .map_err(|_| AppError::InternalServerError)? {
-            info!("[Service] Incorrect password for user with email: {}", data.email);
+            info!("[Service] Incorrect password for user with email: {}", normalized_email);
             return Err(AppError::Unauthorized("Invalid credentials".into()));
         }
-        info!("[Service] Password verified successfully for user with email: {}", data.email);
+        info!("[Service] Password verified successfully for user with email: {}", normalized_email);
 
-        info!("[Service] Generating token for user with email: {}", data.email);
+        if user.is_temporary_password {
+            match user.temporary_password_expires_at {
+                Some(expires_at) => {
+                    if Utc::now() > expires_at {
+                        info!("[Service] Temporary password expired for user with email: {}", normalized_email);
+                        return Err(AppError::Unauthorized("Temporary password expired".into()));
+                    }
+                }
+                None => {
+                    info!("[Service] Temporary password missing expiration for user with email: {}", normalized_email);
+                    return Err(AppError::Unauthorized("Temporary password expired".into()));
+                }
+            }
+        }
+
+        info!("[Service] Generating token for user with email: {}", normalized_email);
         let user_id_str = user.id.to_string();
         let email_str = user.email.to_string();
         let city_id_str = user.city_id.map(|id| id.to_string());

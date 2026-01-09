@@ -14,7 +14,8 @@ use crate::utils::{
     errors::AppError,
     responses::ApiResponse,
     authorization::check_policy,
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    db_error_mapper::map_constraint
 };
 use crate::validators::common::{
     POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_READ_PROTECTIVE_MEASURES,
@@ -89,6 +90,13 @@ impl ExtensionService {
                 Ok(ApiResponse::created(extension).into_response())
             }
             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_extensions_protective_measure", "Error adding extension: protective_measure_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
                 error!("[Service] Error creating extension: {:?}", e);
                 Err(AppError::InternalServerError)
             }

@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use crate::core::entities::protective_measures::{
     CreateProtectiveMeasure,
+    CreateExtension,
+    ProtectiveMeasureStatus,
     UpdateProtectiveMeasure,
+    UpdateExtension,
     ProtectiveMeasureWithExtensions
 };
 
@@ -20,9 +23,11 @@ use crate::repositories::extensions::PgExtensionRepository;
 
 use crate::utils::{
     errors::AppError,
-    responses::ApiResponse,
+    responses::{ApiResponse, PaginatedResponse},
     authorization::{check_policy, get_allowed_cities_for_policy},
-    service_helpers::{extract_claims, get_user_policies_with_defaults}
+    service_helpers::{extract_claims, get_user_policies_with_defaults},
+    pagination::{PaginationParams, normalize_pagination},
+    db_error_mapper::map_constraint
 };
 use crate::validators::{
     common::{
@@ -84,10 +89,11 @@ impl ProtectiveMeasureService {
         ProtectiveMeasureValidator::validate_required_fields(
             &measure.process_number,
             &measure.judicial_authority,
+            &measure.violence_types,
             "Error adding protective measure"
         )?;
 
-        if measure.is_active {
+        if measure.status == ProtectiveMeasureStatus::Valid {
             let active_exists = self.measure_repository
                 .check_active_measure_exists_for_victim(measure.victim_id, Uuid::nil())
                 .await
@@ -106,16 +112,75 @@ impl ProtectiveMeasureService {
 
         info!("[ProtectiveMeasureService] Saving protective measure to database");
 
-        match self.measure_repository.create_protective_measure(measure).await {
-            Ok(measure) => {
-                info!("[ProtectiveMeasureService] Protective measure created successfully with ID: {}", measure.id);
-                Ok(ApiResponse::created(measure).into_response())
-            }
-            Err(e) => {
-                error!("[ProtectiveMeasureService] Failed to save protective measure: {:?}", e);
-                Err(AppError::InternalServerError)
+        if let Some(extensions) = measure.extensions.as_ref() {
+            if extensions.iter().any(|ext| ext.id.is_some()) {
+                return Err(AppError::BadRequest(
+                    "Error adding protective measure: extension id is not allowed on create".to_string()
+                ));
             }
         }
+
+        let mut tx = self.measure_repository
+            .begin_tx()
+            .await
+            .map_err(|e| {
+                error!("[ProtectiveMeasureService] Failed to begin transaction: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        let created = match self.measure_repository
+            .create_protective_measure_with_tx(&mut tx, &measure)
+            .await
+        {
+            Ok(measure) => measure,
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_protective_measures_court_district", "Error adding protective measure: court_district_id not found"),
+                        ("fk_protective_measures_victim", "Error adding protective measure: victim_id not found"),
+                        ("fk_protective_measures_offender", "Error adding protective measure: offender_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
+                error!("[ProtectiveMeasureService] Failed to save protective measure: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        };
+
+        if let Some(extensions) = measure.extensions.as_ref() {
+            for ext in extensions {
+                let create = CreateExtension {
+                    extension_number: ext.extension_number,
+                    extension_date: ext.extension_date,
+                    new_valid_until: ext.new_valid_until,
+                    notes: ext.notes.clone(),
+                };
+
+                if let Err(e) = self.extension_repository
+                    .create_extension_with_tx(&mut tx, created.id, &create)
+                    .await
+                {
+                    if let sqlx::Error::Database(db_err) = &e {
+                        if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                            ("fk_extensions_protective_measure", "Error adding protective measure: extension protective_measure_id not found"),
+                        ]) {
+                            return Err(app_err);
+                        }
+                    }
+                    error!("[ProtectiveMeasureService] Failed to create extension: {:?}", e);
+                    return Err(AppError::InternalServerError);
+                }
+            }
+        }
+
+        tx.commit().await.map_err(|e| {
+            error!("[ProtectiveMeasureService] Failed to commit transaction: {:?}", e);
+            AppError::InternalServerError
+        })?;
+
+        info!("[ProtectiveMeasureService] Protective measure created successfully with ID: {}", created.id);
+        Ok(ApiResponse::created(created).into_response())
     }
 
     pub async fn get_protective_measure_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -158,55 +223,55 @@ impl ProtectiveMeasureService {
         }
     }
 
-    pub async fn get_all_protective_measures(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_all_protective_measures(
+        &self,
+        params: PaginationParams,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
         info!("[ProtectiveMeasureService] Getting all protective measures");
 
         let claims = extract_claims(&req)?;
 
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        let measures_result = if let Some(allowed_cities) = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies) {
-            match self.measure_repository.get_all_protective_measures().await {
-                Ok(all_measures) => {
-                    let mut filtered = Vec::new();
-                    for measure in all_measures {
-                        if let Ok(victim) = self.victim_repository.get_victim_by_id(measure.victim_id).await {
-                            if allowed_cities.contains(&victim.city_id) {
-                                filtered.push(measure);
-                            }
-                        }
-                    }
-                    Ok(filtered)
-                }
-                Err(e) => Err(e),
-            }
-        } else {
-            self.measure_repository.get_all_protective_measures().await
-        };
+        let pagination = normalize_pagination(&params);
+        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_PROTECTIVE_MEASURES, &policies);
 
-        match measures_result {
-            Ok(measures) => {
-                let mut measures_with_extensions = Vec::new();
-                for measure in measures {
-                    let extensions = self.extension_repository.get_extensions_by_measure(measure.id).await
-                        .map_err(|e| {
-                            error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
-                            AppError::InternalServerError
-                        })?;
+        let total_items = self.measure_repository
+            .count_protective_measures(allowed_cities.as_deref())
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
 
-                    measures_with_extensions.push(ProtectiveMeasureWithExtensions {
-                        measure,
-                        extensions,
-                    });
-                }
+        let measures = self.measure_repository
+            .get_protective_measures_paginated(
+                allowed_cities.as_deref(),
+                pagination.page_size,
+                pagination.offset,
+            )
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
 
-                info!("[ProtectiveMeasureService] Successfully retrieved {} measures", measures_with_extensions.len());
-                Ok(ApiResponse::success(measures_with_extensions).into_response())
-            }
-            Err(e) => {
-                error!("[ProtectiveMeasureService] Failed to retrieve measures: {:?}", e);
-                Err(AppError::InternalServerError)
-            }
+        let mut measures_with_extensions = Vec::new();
+        for measure in measures {
+            let extensions = self.extension_repository.get_extensions_by_measure(measure.id).await
+                .map_err(|e| {
+                    error!("[ProtectiveMeasureService] Error fetching extensions: {:?}", e);
+                    AppError::InternalServerError
+                })?;
+
+            measures_with_extensions.push(ProtectiveMeasureWithExtensions {
+                measure,
+                extensions,
+            });
         }
+
+        info!("[ProtectiveMeasureService] Successfully retrieved {} measures", measures_with_extensions.len());
+        Ok(PaginatedResponse::success(
+            measures_with_extensions,
+            pagination.page,
+            pagination.page_size,
+            total_items,
+        )
+        .into_response())
     }
 
     pub async fn get_protective_measures_by_victim(&self, victim_id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
@@ -258,6 +323,7 @@ impl ProtectiveMeasureService {
         info!("[ProtectiveMeasureService] Updating protective measure: {}", id);
 
         let claims = extract_claims(&req)?;
+        let mut data = data;
 
         let existing_measure = match self.measure_repository.get_protective_measure_by_id(id).await {
             Ok(m) => m,
@@ -310,10 +376,11 @@ impl ProtectiveMeasureService {
         ProtectiveMeasureValidator::validate_required_fields(
             &data.process_number,
             &data.judicial_authority,
+            &data.violence_types,
             "Error updating protective measure"
         )?;
 
-        if data.is_active {
+        if data.status == ProtectiveMeasureStatus::Valid {
             let active_exists = self.measure_repository
                 .check_active_measure_exists_for_victim(data.victim_id, id)
                 .await
@@ -330,19 +397,127 @@ impl ProtectiveMeasureService {
             }
         }
 
-        match self.measure_repository.update_protective_measure_by_id(data, id).await {
-            Ok(measure) => {
-                info!("[ProtectiveMeasureService] Protective measure updated successfully: {}", id);
-                Ok(ApiResponse::success(measure).into_response())
-            }
-            Err(sqlx::Error::RowNotFound) => {
-                Err(AppError::NotFound(format!("Protective measure with id '{}' not found", id)))
-            }
-            Err(e) => {
-                error!("[ProtectiveMeasureService] Failed to update measure: {:?}", e);
-                Err(AppError::InternalServerError)
+        let extensions = data.extensions.take();
+        if let Some(extensions_list) = extensions.as_ref() {
+            for ext in extensions_list {
+                if let Some(ext_id) = ext.id {
+                    let existing_ext = match self.extension_repository.get_extension_by_id(ext_id).await {
+                        Ok(found) => found,
+                        Err(sqlx::Error::RowNotFound) => {
+                            return Err(AppError::NotFound(format!(
+                                "Extension with id '{}' not found",
+                                ext_id
+                            )));
+                        }
+                        Err(e) => {
+                            error!("[ProtectiveMeasureService] Error fetching extension: {:?}", e);
+                            return Err(AppError::InternalServerError);
+                        }
+                    };
+
+                    if existing_ext.protective_measure_id != id {
+                        return Err(AppError::BadRequest(
+                            "Error updating protective measure: extension does not belong to this measure".to_string()
+                        ));
+                    }
+                }
             }
         }
+
+        let mut tx = self.measure_repository
+            .begin_tx()
+            .await
+            .map_err(|e| {
+                error!("[ProtectiveMeasureService] Failed to begin transaction: {:?}", e);
+                AppError::InternalServerError
+            })?;
+
+        let updated = match self.measure_repository
+            .update_protective_measure_by_id_with_tx(&mut tx, &data, id)
+            .await
+        {
+            Ok(measure) => measure,
+            Err(sqlx::Error::RowNotFound) => {
+                return Err(AppError::NotFound(format!("Protective measure with id '{}' not found", id)));
+            }
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                        ("fk_protective_measures_court_district", "Error updating protective measure: court_district_id not found"),
+                        ("fk_protective_measures_victim", "Error updating protective measure: victim_id not found"),
+                        ("fk_protective_measures_offender", "Error updating protective measure: offender_id not found"),
+                    ]) {
+                        return Err(app_err);
+                    }
+                }
+                error!("[ProtectiveMeasureService] Failed to update measure: {:?}", e);
+                return Err(AppError::InternalServerError);
+            }
+        };
+
+        if let Some(extensions_list) = extensions {
+            for ext in extensions_list {
+                if let Some(ext_id) = ext.id {
+                    let update = UpdateExtension {
+                        extension_number: ext.extension_number,
+                        extension_date: ext.extension_date,
+                        new_valid_until: ext.new_valid_until,
+                        notes: ext.notes.clone(),
+                    };
+
+                    if let Err(e) = self.extension_repository
+                        .update_extension_by_id_with_tx(&mut tx, &update, ext_id)
+                        .await
+                    {
+                        if let sqlx::Error::Database(db_err) = &e {
+                            if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                                ("fk_extensions_protective_measure", "Error updating protective measure: extension protective_measure_id not found"),
+                            ]) {
+                                return Err(app_err);
+                            }
+                        }
+                        if let sqlx::Error::RowNotFound = e {
+                            return Err(AppError::NotFound(format!(
+                                "Extension with id '{}' not found",
+                                ext_id
+                            )));
+                        }
+                        error!("[ProtectiveMeasureService] Failed to update extension: {:?}", e);
+                        return Err(AppError::InternalServerError);
+                    }
+                } else {
+                    let create = CreateExtension {
+                        extension_number: ext.extension_number,
+                        extension_date: ext.extension_date,
+                        new_valid_until: ext.new_valid_until,
+                        notes: ext.notes.clone(),
+                    };
+
+                    if let Err(e) = self.extension_repository
+                        .create_extension_with_tx(&mut tx, id, &create)
+                        .await
+                    {
+                        if let sqlx::Error::Database(db_err) = &e {
+                            if let Some(app_err) = map_constraint(db_err.constraint(), &[
+                                ("fk_extensions_protective_measure", "Error updating protective measure: extension protective_measure_id not found"),
+                            ]) {
+                                return Err(app_err);
+                            }
+                        }
+                        error!("[ProtectiveMeasureService] Failed to create extension: {:?}", e);
+                        return Err(AppError::InternalServerError);
+                    }
+                }
+            }
+        }
+
+        tx.commit().await.map_err(|e| {
+            error!("[ProtectiveMeasureService] Failed to commit transaction: {:?}", e);
+            AppError::InternalServerError
+        })?;
+
+        info!("[ProtectiveMeasureService] Protective measure updated successfully: {}", id);
+        Ok(ApiResponse::success(updated).into_response())
     }
 
     pub async fn delete_protective_measure_by_id(&self, id: Uuid, req: HttpRequest) -> Result<HttpResponse, AppError> {
