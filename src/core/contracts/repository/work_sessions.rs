@@ -60,7 +60,16 @@ pub trait WorkSessionRepository: Send + Sync {
         start_date: Option<NaiveDate>,
         end_date: Option<NaiveDate>,
         city_id: Option<Uuid>,
+        limit: i64,
+        offset: i64,
     ) -> Result<Vec<WorkSession>, sqlx::Error>;
+    async fn count_sessions_filtered(
+        &self,
+        user_id: Option<Uuid>,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+        city_id: Option<Uuid>,
+    ) -> Result<i64, sqlx::Error>;
 
     async fn get_session_members(
         &self,
