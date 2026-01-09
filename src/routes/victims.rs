@@ -11,6 +11,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::get().to(victims::get_all_victims)),
             )
             .service(
+                web::resource("/search")
+                    .route(web::get().to(victims::search_victims)),
+            )
+            .service(
                 web::resource("/{id}")
                     .route(web::get().to(victims::get_victim_by_id))
                     .route(web::put().to(victims::update_victim_by_id))

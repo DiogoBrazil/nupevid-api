@@ -11,6 +11,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::get().to(offenders::get_all_offenders)),
             )
             .service(
+                web::resource("/search")
+                    .route(web::get().to(offenders::search_offenders)),
+            )
+            .service(
                 web::resource("/victim/{victim_id}")
                     .route(web::get().to(offenders::get_offenders_by_victim_id)),
             )
@@ -37,15 +41,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/{id}/addresses/{address_id}")
                     .route(web::put().to(offenders::update_offender_address))
                     .route(web::delete().to(offenders::delete_offender_address)),
-            )
-            .service(
-                web::resource("/{id}/work-addresses")
-                    .route(web::post().to(offenders::add_work_address_to_offender)),
-            )
-            .service(
-                web::resource("/{id}/work-addresses/{work_address_id}")
-                    .route(web::put().to(offenders::update_offender_work_address))
-                    .route(web::delete().to(offenders::delete_offender_work_address)),
             ),
     );
 }
