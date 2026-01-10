@@ -185,7 +185,7 @@ pub struct CreateOffender {
     pub security_force: Option<SecurityForce>,
     pub uses_alcohol: bool,
     pub uses_drugs: bool,
-    pub has_psychiatric_issues: bool,
+    pub has_psychiatric_issues: Option<bool>,
     pub psychiatric_issues_type: Option<String>,
     pub education_level: EducationLevel,
     pub observation: Option<String>,

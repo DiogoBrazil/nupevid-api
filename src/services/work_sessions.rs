@@ -161,7 +161,7 @@ impl WorkSessionService {
         info!("[WorkSessionService] Getting session by id: {}", session_id);
 
         let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let policies = get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
