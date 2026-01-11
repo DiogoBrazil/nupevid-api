@@ -498,12 +498,8 @@ components:
       description: "Tipo de violência sofrida pela vítima"
 
     HasChildren:
-      type: string
-      enum:
-        - "Yes"
-        - "No"
-        - "Pregnant"
-      description: "Status de filhos da vítima"
+      type: boolean
+      description: "Indicador de filhos da vítima"
 
     SecurityForce:
       type: string
@@ -651,6 +647,9 @@ components:
           type: integer
           nullable: true
           example: 2
+        is_pregnant:
+          type: boolean
+          nullable: true
         has_special_needs:
           type: boolean
         special_needs_type:
@@ -747,7 +746,6 @@ components:
       type: object
       required:
         - full_name
-        - has_children
         - uses_alcohol
         - uses_drugs
       properties:
@@ -785,6 +783,9 @@ components:
           $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
+          nullable: true
+        is_pregnant:
+          type: boolean
           nullable: true
         special_needs_type:
           type: array
@@ -805,7 +806,6 @@ components:
       type: object
       required:
         - full_name
-        - has_children
         - uses_alcohol
         - uses_drugs
       properties:
@@ -843,6 +843,9 @@ components:
           $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
+          nullable: true
+        is_pregnant:
+          type: boolean
           nullable: true
         special_needs_type:
           type: array
@@ -938,7 +941,9 @@ components:
         has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         education_level:
           $ref: "#/components/schemas/EducationLevel"
@@ -969,7 +974,6 @@ components:
         - imprisoned
         - uses_alcohol
         - uses_drugs
-        - has_psychiatric_issues
         - education_level
       properties:
         full_name:
@@ -1004,7 +1008,9 @@ components:
         has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         education_level:
           $ref: "#/components/schemas/EducationLevel"
@@ -1030,7 +1036,6 @@ components:
         - imprisoned
         - uses_alcohol
         - uses_drugs
-        - has_psychiatric_issues
         - education_level
       properties:
         full_name:
@@ -1062,7 +1067,9 @@ components:
         has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         education_level:
           $ref: "#/components/schemas/EducationLevel"
@@ -2186,25 +2193,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /users/{id}/password:
-    parameters:
-      - name: "id"
-        in: "path"
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: "ID do usuário"
-
+  /users/password:
     patch:
       tags:
         - "Users"
-      summary: "Atualizar senha do usuário"
+      summary: "Atualizar senha do usuário atual"
       description: |
-        Atualiza a senha de um usuário.
+        Atualiza a senha do usuário autenticado.
 
         **Regras:**
-        - Usuários podem atualizar apenas sua própria senha
         - É obrigatório informar a senha atual
       operationId: "updateUserPassword"
       security:
