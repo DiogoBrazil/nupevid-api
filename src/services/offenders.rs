@@ -123,6 +123,13 @@ impl OffenderService {
         }
     }
 
+    fn normalize_flag_from_list(values: &Option<Vec<String>>) -> (bool, Option<Vec<String>>) {
+        match values {
+            Some(list) if !list.is_empty() => (true, Some(list.clone())),
+            _ => (false, None),
+        }
+    }
+
     pub async fn create_offender(
         &self,
         offender: CreateOffender,
@@ -136,6 +143,10 @@ impl OffenderService {
         )?;
         offender.city_id = Some(city_id);
         offender.is_public_security_agent = offender.security_force.is_some();
+        let (has_psychiatric_issues, psychiatric_issues_type) =
+            Self::normalize_flag_from_list(&offender.psychiatric_issues_type);
+        offender.has_psychiatric_issues = has_psychiatric_issues;
+        offender.psychiatric_issues_type = psychiatric_issues_type;
 
         if let Some(cpf) = offender.cpf.as_ref() {
             let normalized = validate_cpf(cpf, "Error adding offender")?;
@@ -406,6 +417,10 @@ impl OffenderService {
             Self::resolve_city_id(&data.addresses, data.city_id, "Error updating offender")?;
         data.city_id = Some(city_id);
         data.is_public_security_agent = data.security_force.is_some();
+        let (has_psychiatric_issues, psychiatric_issues_type) =
+            Self::normalize_flag_from_list(&data.psychiatric_issues_type);
+        data.has_psychiatric_issues = has_psychiatric_issues;
+        data.psychiatric_issues_type = psychiatric_issues_type;
 
         if let Some(cpf) = data.cpf.as_ref() {
             let normalized = validate_cpf(cpf, "Error updating offender")?;

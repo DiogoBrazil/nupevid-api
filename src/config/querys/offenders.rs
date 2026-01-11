@@ -10,7 +10,7 @@ impl OffendersQueries {
             has_psychiatric_issues, psychiatric_issues_type,
             education_level, observation
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::text[], $14, $15)
         RETURNING
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             imprisoned, occupation,
@@ -143,7 +143,7 @@ impl OffendersQueries {
             imprisoned = $6, occupation = $7,
             is_public_security_agent = $8, security_force = $9,
             uses_alcohol = $10, uses_drugs = $11,
-            has_psychiatric_issues = $12, psychiatric_issues_type = $13,
+            has_psychiatric_issues = $12, psychiatric_issues_type = $13::text[],
             education_level = $14, observation = $15
         WHERE id = $1 AND is_deleted = false
         RETURNING
