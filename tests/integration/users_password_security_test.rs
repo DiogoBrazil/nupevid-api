@@ -2,7 +2,7 @@ use actix_web::{http::StatusCode, test};
 
 use crate::common::{db_fixtures, test_helpers};
 
-/// VULNERABILITY TEST: User should NOT be able to change another user's password
+/// User should NOT be able to change another user's password
 /// even if they know the current password
 #[actix_rt::test]
 async fn city_admin_cannot_change_other_city_admin_password() {
@@ -68,7 +68,7 @@ async fn city_admin_cannot_change_other_city_admin_password() {
     let create_b_resp = test::call_service(&app, create_b_req).await;
     assert_eq!(create_b_resp.status(), StatusCode::CREATED);
     let body_b: serde_json::Value = test::read_body_json(create_b_resp).await;
-    let admin_b_id = body_b["data"]["id"].as_str().unwrap();
+    let _admin_b_id = body_b["data"]["id"].as_str().unwrap();
 
     // Admin A tries to login to get their token
     let login_payload_a = serde_json::json!({
@@ -86,8 +86,7 @@ async fn city_admin_cannot_change_other_city_admin_password() {
     let login_body_a: serde_json::Value = test::read_body_json(login_resp_a).await;
     let admin_a_token = login_body_a["data"]["token"].as_str().unwrap();
 
-    // VULNERABILITY: Admin A tries to change Admin B's password
-    // (knowing Admin B's current password)
+    // Admin A tries to change Admin B's password (knowing Admin B's current password)
     let change_password_payload = serde_json::json!({
         "current_password": "knownPassword456",  // Admin B's current password
         "new_password": "hacked123"
@@ -95,7 +94,7 @@ async fn city_admin_cannot_change_other_city_admin_password() {
 
     let change_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", admin_b_id))
+            .uri("/api/v1/users/password")
             .set_json(&change_password_payload),
         &config,
         admin_a_token,
@@ -104,16 +103,25 @@ async fn city_admin_cannot_change_other_city_admin_password() {
 
     let change_resp = test::call_service(&app, change_req).await;
 
-    // EXPECTED: Should return 403 FORBIDDEN (user can only change their own password)
-    // ACTUAL (BUG): Currently returns 200 OK and changes the password!
-    println!("Response status: {:?}", change_resp.status());
-
-    // This test will FAIL until the vulnerability is fixed
     assert_eq!(
         change_resp.status(),
-        StatusCode::FORBIDDEN,
-        "SECURITY BUG: User should NOT be able to change another user's password!"
+        StatusCode::BAD_REQUEST,
+        "User should not be able to change another user's password"
     );
+
+    let login_payload_b = serde_json::json!({
+        "email": "admin.b@test.com",
+        "password": "knownPassword456"
+    });
+
+    let login_req_b = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload_b)
+        .to_request();
+
+    let login_resp_b = test::call_service(&app, login_req_b).await;
+    assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
 #[actix_rt::test]
@@ -177,7 +185,7 @@ async fn city_user_cannot_change_other_city_user_password() {
 
     let create_u2_resp = test::call_service(&app, create_u2_req).await;
     let body_u2: serde_json::Value = test::read_body_json(create_u2_resp).await;
-    let user2_id = body_u2["data"]["id"].as_str().unwrap();
+    let _user2_id = body_u2["data"]["id"].as_str().unwrap();
 
     // User 1 logs in
     let login_payload = serde_json::json!({
@@ -195,7 +203,7 @@ async fn city_user_cannot_change_other_city_user_password() {
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
     let user1_token = login_body["data"]["token"].as_str().unwrap();
 
-    // VULNERABILITY: User 1 tries to change User 2's password
+    // User 1 tries to change User 2's password
     let change_password_payload = serde_json::json!({
         "current_password": "knownPassword456",
         "new_password": "hacked123"
@@ -203,7 +211,7 @@ async fn city_user_cannot_change_other_city_user_password() {
 
     let change_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user2_id))
+            .uri("/api/v1/users/password")
             .set_json(&change_password_payload),
         &config,
         user1_token,
@@ -212,12 +220,25 @@ async fn city_user_cannot_change_other_city_user_password() {
 
     let change_resp = test::call_service(&app, change_req).await;
 
-    // This should be FORBIDDEN
     assert_eq!(
         change_resp.status(),
-        StatusCode::FORBIDDEN,
-        "SECURITY BUG: User should only be able to change their own password!"
+        StatusCode::BAD_REQUEST,
+        "User should not be able to change another user's password"
     );
+
+    let login_payload_b = serde_json::json!({
+        "email": "user2@test.com",
+        "password": "knownPassword456"
+    });
+
+    let login_req_b = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&login_payload_b)
+        .to_request();
+
+    let login_resp_b = test::call_service(&app, login_req_b).await;
+    assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
 #[actix_rt::test]
@@ -256,7 +277,7 @@ async fn user_can_change_own_password() {
 
     let create_resp = test::call_service(&app, create_req).await;
     let body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = body["data"]["id"].as_str().unwrap();
+    let _user_id = body["data"]["id"].as_str().unwrap();
 
     // User logs in
     let login_payload = serde_json::json!({
@@ -282,7 +303,7 @@ async fn user_can_change_own_password() {
 
     let change_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&change_password_payload),
         &config,
         user_token,

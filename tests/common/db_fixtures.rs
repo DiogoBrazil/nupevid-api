@@ -36,7 +36,7 @@ pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uui
             has_psychiatric_issues, psychiatric_issues_type,
             is_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6::education_level_enum, $7, $8::has_children_enum, $9, $10, $11, $12, $13, $14, $15, false
+            $1, $2, $3, $4, $5, $6::education_level_enum, $7, $8, $9, $10, $11, $12, $13, $14, $15, false
         )",
     )
     .bind(id)
@@ -46,7 +46,7 @@ pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uui
     .bind(city_id)
     .bind(Option::<String>::None) // education_level
     .bind(Option::<String>::None) // occupation
-    .bind("No") // has_children
+    .bind(false) // has_children
     .bind(Option::<i32>::None) // children_count
     .bind(false) // has_special_needs
     .bind(Option::<Vec<String>>::None) // special_needs_type
@@ -88,7 +88,7 @@ pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid) -> U
     .bind(false) // uses_alcohol
     .bind(false) // uses_drugs
     .bind(false) // has_psychiatric_issues
-    .bind(Option::<String>::None) // psychiatric_issues_type
+    .bind(Option::<Vec<String>>::None) // psychiatric_issues_type
     .bind("Elementary") // education_level
     .bind(Option::<String>::None) // observation
     .execute(pool)

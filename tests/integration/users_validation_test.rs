@@ -443,7 +443,7 @@ async fn update_password_with_empty_current_password_fails() {
 
     let create_resp = test::call_service(&app, create_req).await;
     let body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = body["data"]["id"].as_str().unwrap();
+    let _user_id = body["data"]["id"].as_str().unwrap();
 
     // User logs in to get their token
     let login_payload = serde_json::json!({
@@ -469,7 +469,7 @@ async fn update_password_with_empty_current_password_fails() {
 
     let password_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_payload),
         &config,
         user_token,
@@ -521,7 +521,7 @@ async fn update_password_with_empty_new_password_fails() {
 
     let create_resp = test::call_service(&app, create_req).await;
     let body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = body["data"]["id"].as_str().unwrap();
+    let _user_id = body["data"]["id"].as_str().unwrap();
 
     // Try to update password with empty new_password
     let password_payload = serde_json::json!({
@@ -546,7 +546,7 @@ async fn update_password_with_empty_new_password_fails() {
 
     let password_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_payload),
         &config,
         user_token,

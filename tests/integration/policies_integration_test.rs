@@ -275,7 +275,6 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
         "addresses": serde_json::Value::Null,
         "education_level": serde_json::Value::Null,
         "occupation": serde_json::Value::Null,
-        "has_children": "No",
         "children_count": serde_json::Value::Null,
         "special_needs_type": serde_json::Value::Null,
         "uses_alcohol": false,

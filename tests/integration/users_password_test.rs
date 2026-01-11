@@ -1,6 +1,4 @@
 use actix_web::{http::StatusCode, test};
-use uuid::Uuid;
-
 use crate::common::{fixtures, test_helpers};
 
 #[actix_rt::test]
@@ -47,7 +45,7 @@ async fn test_update_password_success() {
     let password_data = fixtures::valid_update_password();
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_data),
         &config,
         user_token,
@@ -96,7 +94,7 @@ async fn test_update_password_incorrect_current() {
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = create_body["data"]["id"].as_str().unwrap();
+    let _user_id = create_body["data"]["id"].as_str().unwrap();
 
     // User logs in
     let login_payload = serde_json::json!({
@@ -118,7 +116,7 @@ async fn test_update_password_incorrect_current() {
     let password_data = fixtures::invalid_update_password();
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_data),
         &config,
         user_token,
@@ -139,7 +137,7 @@ async fn test_update_password_incorrect_current() {
 }
 
 #[actix_rt::test]
-async fn test_update_password_other_user_forbidden() {
+async fn test_update_password_does_not_affect_other_users() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
     let config = test_helpers::build_test_config();
@@ -149,6 +147,7 @@ async fn test_update_password_other_user_forbidden() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let user = fixtures::valid_create_user();
+    let other_user = fixtures::valid_create_user_2();
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/users")
@@ -158,8 +157,18 @@ async fn test_update_password_other_user_forbidden() {
     )
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
-    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = create_body["data"]["id"].as_str().unwrap();
+    let _create_body: serde_json::Value = test::read_body_json(create_resp).await;
+
+    let create_other_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/users")
+            .set_json(&other_user),
+        &config,
+        &token,
+    )
+    .to_request();
+    let create_other_resp = test::call_service(&app, create_other_req).await;
+    let _create_other_body: serde_json::Value = test::read_body_json(create_other_resp).await;
 
     let login_payload = serde_json::json!({
         "email": user.email,
@@ -176,11 +185,10 @@ async fn test_update_password_other_user_forbidden() {
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
     let user_token = login_body["data"]["token"].as_str().unwrap();
 
-    let other_user_id = Uuid::new_v4();
     let password_data = fixtures::valid_update_password();
     let req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", other_user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_data),
         &config,
         user_token,
@@ -188,16 +196,21 @@ async fn test_update_password_other_user_forbidden() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("only change your own password")
-    );
+    let other_login_payload = serde_json::json!({
+        "email": other_user.email,
+        "password": other_user.password
+    });
+
+    let other_login_req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&other_login_payload)
+        .to_request();
+
+    let other_login_resp = test::call_service(&app, other_login_req).await;
+    assert_eq!(other_login_resp.status(), StatusCode::OK);
 }
 
 #[actix_rt::test]
@@ -222,7 +235,7 @@ async fn test_update_password_empty_fields() {
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = create_body["data"]["id"].as_str().unwrap();
+    let _user_id = create_body["data"]["id"].as_str().unwrap();
 
     // Try to update with empty password fields
     let password_data = serde_json::json!({
@@ -246,7 +259,7 @@ async fn test_update_password_empty_fields() {
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_data),
         &config,
         user_token,
@@ -300,7 +313,7 @@ async fn test_non_root_must_provide_current_password() {
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let create_body: serde_json::Value = test::read_body_json(create_resp).await;
-    let user_id = create_body["data"]["id"].as_str().unwrap();
+    let _user_id = create_body["data"]["id"].as_str().unwrap();
 
     // User logs in
     let login_payload = serde_json::json!({
@@ -325,7 +338,7 @@ async fn test_non_root_must_provide_current_password() {
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
-            .uri(&format!("/api/v1/users/{}/password", user_id))
+            .uri("/api/v1/users/password")
             .set_json(&password_data),
         &config,
         user_token,
