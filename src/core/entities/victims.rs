@@ -4,14 +4,6 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "has_children_enum", rename_all = "PascalCase")]
-pub enum HasChildren {
-    Yes,
-    No,
-    Pregnant,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "phone_type_enum")]
 pub enum PhoneType {
     #[serde(rename = "Mobile")]
@@ -164,8 +156,10 @@ pub struct CreateVictim {
     pub addresses: Option<Vec<AddressData>>,
     pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub has_children: HasChildren,
+    #[serde(default)]
+    pub has_children: bool,
     pub children_count: Option<i32>,
+    pub is_pregnant: Option<bool>,
     #[serde(default)]
     pub has_special_needs: bool,
     pub special_needs_type: Option<Vec<String>>,
@@ -186,8 +180,10 @@ pub struct UpdateVictim {
     pub addresses: Option<Vec<AddressData>>,
     pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub has_children: HasChildren,
+    #[serde(default)]
+    pub has_children: bool,
     pub children_count: Option<i32>,
+    pub is_pregnant: Option<bool>,
     #[serde(default)]
     pub has_special_needs: bool,
     pub special_needs_type: Option<Vec<String>>,
@@ -210,8 +206,9 @@ pub struct Victim {
     pub is_deleted: bool,
     pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub has_children: HasChildren,
+    pub has_children: bool,
     pub children_count: Option<i32>,
+    pub is_pregnant: Option<bool>,
     pub has_special_needs: bool,
     pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
@@ -232,8 +229,9 @@ pub struct VictimWithDetails {
     pub is_deleted: bool,
     pub education_level: Option<EducationLevel>,
     pub occupation: Option<String>,
-    pub has_children: HasChildren,
+    pub has_children: bool,
     pub children_count: Option<i32>,
+    pub is_pregnant: Option<bool>,
     pub has_special_needs: bool,
     pub special_needs_type: Option<Vec<String>>,
     pub uses_alcohol: bool,
@@ -263,6 +261,7 @@ impl Victim {
             occupation: self.occupation,
             has_children: self.has_children,
             children_count: self.children_count,
+            is_pregnant: self.is_pregnant,
             has_special_needs: self.has_special_needs,
             special_needs_type: self.special_needs_type,
             uses_alcohol: self.uses_alcohol,

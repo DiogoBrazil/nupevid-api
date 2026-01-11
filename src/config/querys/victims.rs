@@ -5,16 +5,16 @@ impl VictimsQueries {
         INSERT INTO victims (
             id, full_name, cpf, birth_date, city_id,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text[], $12, $13, $14, $15::text[])
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14, $15, $16::text[])
         RETURNING
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -24,7 +24,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -36,7 +36,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -49,7 +49,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -63,7 +63,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -91,7 +91,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -104,7 +104,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -117,7 +117,7 @@ impl VictimsQueries {
         SELECT
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -131,15 +131,15 @@ impl VictimsQueries {
         SET
             full_name = $2, cpf = $3, birth_date = $4, city_id = $5,
             education_level = $6, occupation = $7,
-            has_children = $8, children_count = $9,
-            has_special_needs = $10, special_needs_type = $11::text[],
-            uses_alcohol = $12, uses_drugs = $13,
-            has_psychiatric_issues = $14, psychiatric_issues_type = $15::text[]
+            has_children = $8, children_count = $9, is_pregnant = $10,
+            has_special_needs = $11, special_needs_type = $12::text[],
+            uses_alcohol = $13, uses_drugs = $14,
+            has_psychiatric_issues = $15, psychiatric_issues_type = $16::text[]
         WHERE id = $1 AND is_deleted = false
         RETURNING
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
@@ -152,7 +152,7 @@ impl VictimsQueries {
         RETURNING
             id, full_name, cpf, birth_date, city_id, created_at, updated_at, is_deleted,
             education_level, occupation,
-            has_children, children_count,
+            has_children, children_count, is_pregnant,
             has_special_needs, special_needs_type,
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type

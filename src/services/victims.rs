@@ -148,6 +148,7 @@ impl VictimService {
             Self::normalize_flag_from_list(&victim.psychiatric_issues_type);
         victim.has_psychiatric_issues = has_psychiatric_issues;
         victim.psychiatric_issues_type = psychiatric_issues_type;
+        victim.has_children = victim.children_count.is_some();
 
         if let Some(cpf) = victim.cpf.as_ref() {
             let normalized = validate_cpf(cpf, "Error adding victim")?;
@@ -371,6 +372,7 @@ impl VictimService {
             Self::normalize_flag_from_list(&data.psychiatric_issues_type);
         data.has_psychiatric_issues = has_psychiatric_issues;
         data.psychiatric_issues_type = psychiatric_issues_type;
+        data.has_children = data.children_count.is_some();
 
         if let Some(cpf) = data.cpf.as_ref() {
             let normalized = validate_cpf(cpf, "Error updating victim")?;
