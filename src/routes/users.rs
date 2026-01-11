@@ -10,14 +10,14 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::get().to(users::get_all_users)),
             )
             .service(
+                web::resource("/password")
+                    .route(web::patch().to(users::update_user_password_by_id)),
+            )
+            .service(
                 web::resource("/{id}")
                     .route(web::put().to(users::update_user_by_id))
                     .route(web::get().to(users::get_user_by_id))
                     .route(web::delete().to(users::delete_user_by_id)),
-            )
-            .service(
-                web::resource("/{id}/password")
-                    .route(web::patch().to(users::update_user_password_by_id)),
             )
             .service(
                 web::resource("/{id}/password/reset")

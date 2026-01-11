@@ -570,29 +570,17 @@ impl UserService {
 
     pub async fn update_user_password_by_id(
         &self,
-        id: Uuid,
         data: UpdateUserPassword,
         req: HttpRequest,
     ) -> Result<HttpResponse, AppError> {
+        let claims = extract_claims(&req)?;
+        let id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+
         info!(
             "[UserService] Starting password update for user with id: {}",
             id
         );
-
-        let claims = extract_claims(&req)?;
-
-        let requester_id = Uuid::parse_str(&claims.id)
-            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-
-        if requester_id != id {
-            error!(
-                "[UserService] User {} attempted to change password of user {}",
-                requester_id, id
-            );
-            return Err(AppError::Forbidden(
-                "You can only change your own password".to_string(),
-            ));
-        }
 
         let current_pwd = data
             .current_password

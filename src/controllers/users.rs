@@ -76,18 +76,13 @@ pub async fn delete_user_by_id(
 }
 
 pub async fn update_user_password_by_id(
-    path: web::Path<Uuid>,
     data: web::Json<UpdateUserPassword>,
     service: web::Data<UserService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
-    let user_id = path.into_inner();
-    info!(
-        "[Controller] Received request to update password for user with id: {}",
-        user_id
-    );
+    info!("[Controller] Received request to update password for current user");
     service
-        .update_user_password_by_id(user_id, data.into_inner(), req)
+        .update_user_password_by_id(data.into_inner(), req)
         .await
 }
 
