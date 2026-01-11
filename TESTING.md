@@ -66,7 +66,7 @@ Testam endpoints completos com banco de dados real, passando pelo middleware de 
   - Soft delete de usuário existente
   - GET subsequente retorna 404
   - Usuário inexistente → 404
-- ✅ PATCH /users/{id}/password
+- ✅ PATCH /users/password
   - Atualiza senha com senha atual correta
   - Senha atual incorreta → 400
   - Usuário inexistente → 404
