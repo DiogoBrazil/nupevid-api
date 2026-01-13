@@ -12,6 +12,14 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn get_user_by_id(&self, id: Uuid)
     -> Result<UserDataCreatedWithoutPassword, sqlx::Error>;
     async fn get_all_users(&self) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error>;
+    async fn get_users_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error>;
+    async fn get_users_by_registration(
+        &self,
+        registration: &str,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error>;
     async fn get_users_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,

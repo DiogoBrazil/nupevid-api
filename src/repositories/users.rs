@@ -170,6 +170,47 @@ impl UserRepository for PgUserRepository {
         Ok(users)
     }
 
+    async fn get_users_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+        let pattern = format!("%{}%", name);
+        info!(
+            "[Repository] Executing SQL query to get users by name pattern: {}",
+            pattern
+        );
+
+        let users: Vec<UserDataCreatedWithoutPassword> =
+            sqlx::query_as(UsersQueries::GET_USERS_BY_NAME)
+                .bind(pattern)
+                .fetch_all(&self.pool)
+                .await?;
+
+        info!("[Repository] Found {} users by name", users.len());
+
+        Ok(users)
+    }
+
+    async fn get_users_by_registration(
+        &self,
+        registration: &str,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+        info!(
+            "[Repository] Executing SQL query to get users by registration: {}",
+            registration
+        );
+
+        let users: Vec<UserDataCreatedWithoutPassword> =
+            sqlx::query_as(UsersQueries::GET_USERS_BY_REGISTRATION)
+                .bind(registration)
+                .fetch_all(&self.pool)
+                .await?;
+
+        info!("[Repository] Found {} users by registration", users.len());
+
+        Ok(users)
+    }
+
     async fn get_users_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,

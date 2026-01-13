@@ -1,5 +1,6 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword};
@@ -10,6 +11,12 @@ use crate::utils::pagination::PaginationParams;
 #[derive(serde::Deserialize)]
 pub struct PolicyCitiesPayload {
     pub city_ids: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+pub struct UserSearchQuery {
+    pub name: Option<String>,
+    pub registration: Option<String>,
 }
 
 pub async fn create_user(
@@ -60,6 +67,18 @@ pub async fn get_all_users(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all users");
     service.get_all_users(query.into_inner(), req).await
+}
+
+pub async fn search_users(
+    query: web::Query<UserSearchQuery>,
+    service: web::Data<UserService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let query = query.into_inner();
+    info!("[Controller] Received request to search users");
+    service
+        .search_users(query.name, query.registration, req)
+        .await
 }
 
 pub async fn delete_user_by_id(

@@ -20,8 +20,9 @@ use crate::utils::{
 use crate::validators::{
     common::{
         POLICY_DELETE_USERS, POLICY_READ_USERS, POLICY_UPDATE_USERS, PROFILE_CITY_ADMIN,
-        PROFILE_CITY_USER, PROFILE_ROOT, VALID_POLICIES, generate_default_policies,
-        is_assignable_policy, is_valid_policy,
+        PROFILE_CITY_USER, PROFILE_ROOT, REGISTRATION_MAX_LENGTH, REGISTRATION_PREFIX,
+        VALID_POLICIES, generate_default_policies, is_assignable_policy, is_valid_policy,
+        is_valid_registration,
     },
     policy_validator::PolicyValidator,
     user_validator::UserValidator,
@@ -32,6 +33,11 @@ pub struct UserService {
     password_hasher: Box<dyn PasswordHasherPort>,
 }
 
+enum UserSearchCriteria {
+    Name(String),
+    Registration(String),
+}
+
 impl UserService {
     pub fn new(
         user_repository: web::Data<PgUserRepository>,
@@ -40,6 +46,49 @@ impl UserService {
         Self {
             user_repository,
             password_hasher,
+        }
+    }
+
+    fn parse_search_criteria(
+        name: Option<String>,
+        registration: Option<String>,
+        error_context: &str,
+    ) -> Result<UserSearchCriteria, AppError> {
+        match (name, registration) {
+            (Some(_), Some(_)) => Err(AppError::BadRequest(format!(
+                "{}: provide either 'name' or 'registration', not both",
+                error_context
+            ))),
+            (None, None) => Err(AppError::BadRequest(format!(
+                "{}: query parameter 'name' or 'registration' is required",
+                error_context
+            ))),
+            (Some(name), None) => {
+                let trimmed = name.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'name' cannot be empty",
+                        error_context
+                    )));
+                }
+                Ok(UserSearchCriteria::Name(trimmed.to_string()))
+            }
+            (None, Some(registration)) => {
+                let trimmed = registration.trim();
+                if trimmed.is_empty() {
+                    return Err(AppError::BadRequest(format!(
+                        "{}: query parameter 'registration' cannot be empty",
+                        error_context
+                    )));
+                }
+                if !is_valid_registration(trimmed) {
+                    return Err(AppError::BadRequest(format!(
+                        "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
+                        error_context, trimmed, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
+                    )));
+                }
+                Ok(UserSearchCriteria::Registration(trimmed.to_string()))
+            }
         }
     }
 
@@ -506,6 +555,95 @@ impl UserService {
             PaginatedResponse::success(users, pagination.page, pagination.page_size, total_items)
                 .into_response(),
         )
+    }
+
+    pub async fn search_users(
+        &self,
+        name: Option<String>,
+        registration: Option<String>,
+        req: HttpRequest,
+    ) -> Result<HttpResponse, AppError> {
+        info!("[UserService] Starting user search");
+
+        let search = Self::parse_search_criteria(name, registration, "Error searching users")?;
+
+        let claims = extract_claims(&req)?;
+
+        let (allowed_cities, exclude_root) = if claims.profile == PROFILE_ROOT {
+            (None, false)
+        } else if claims.profile == PROFILE_CITY_ADMIN {
+            let claims_policies =
+                match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
+                    Some(p) => p,
+                    None => {
+                        info!("[UserService] No policies found for CITY_ADMIN");
+                        return Ok(
+                            ApiResponse::success(Vec::<UserDataCreatedWithoutPassword>::new())
+                                .into_response(),
+                        );
+                    }
+                };
+
+            let allowed: Vec<Uuid> = claims_policies
+                .get("read_users")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter_map(|s| Uuid::parse_str(s).ok())
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            info!(
+                "[UserService] CITY_ADMIN can read users from {} cities",
+                allowed.len()
+            );
+            (Some(allowed), true)
+        } else {
+            (None, true)
+        };
+
+        let users = match search {
+            UserSearchCriteria::Name(name) => self.user_repository.get_users_by_name(&name).await,
+            UserSearchCriteria::Registration(registration) => {
+                self.user_repository
+                    .get_users_by_registration(&registration)
+                    .await
+            }
+        };
+
+        let users = match users {
+            Ok(list) => {
+                let mut filtered = list;
+                if exclude_root {
+                    filtered.retain(|user| user.profile != PROFILE_ROOT);
+                }
+                if let Some(allowed) = allowed_cities.as_ref() {
+                    filtered.retain(|user| {
+                        user.city_id
+                            .map(|city_id| allowed.contains(&city_id))
+                            .unwrap_or(false)
+                    });
+                }
+                Ok(filtered)
+            }
+            Err(e) => Err(e),
+        };
+
+        match users {
+            Ok(users_list) => {
+                info!(
+                    "[UserService] Successfully retrieved {} users from search",
+                    users_list.len()
+                );
+                Ok(ApiResponse::success(users_list).into_response())
+            }
+            Err(e) => {
+                error!("[UserService] Failed to search users: {:?}", e);
+                Err(AppError::InternalServerError)
+            }
+        }
     }
 
     pub async fn delete_user_by_id(
