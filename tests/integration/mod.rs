@@ -17,6 +17,7 @@ pub mod users_password_security_test;
 pub mod users_password_test;
 pub mod users_permissions_city_test;
 pub mod users_read_test;
+pub mod users_search_test;
 pub mod users_update_delete_test;
 pub mod users_validation_test;
 pub mod victims_integration_test;
