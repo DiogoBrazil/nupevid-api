@@ -2084,6 +2084,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /users/search:
+    get:
+      tags:
+        - "Users"
+      summary: "Buscar usuários por nome ou registration"
+      description: "Busca usuários pelo nome (ILIKE) ou registration exata. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
+      operationId: "searchUsers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome do usuário (parcial). Mutuamente exclusivo com registration."
+        - name: "registration"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Registration do usuário. Mutuamente exclusivo com name."
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+        "400":
+          description: "Parâmetros inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /users/{id}:
     parameters:
       - name: "id"
@@ -2679,7 +2724,7 @@ paths:
       tags:
         - "Victims"
       summary: "Buscar vítimas por nome ou CPF"
-      description: "Busca vítimas pelo nome (ILIKE) ou CPF exato"
+      description: "Busca vítimas pelo nome (ILIKE) ou CPF exato. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
       operationId: "searchVictims"
       security:
         - bearerAuth: []
@@ -2690,13 +2735,13 @@ paths:
           required: false
           schema:
             type: string
-          description: "Nome da vítima (parcial)"
+          description: "Nome da vítima (parcial). Mutuamente exclusivo com cpf."
         - name: "cpf"
           in: "query"
           required: false
           schema:
             type: string
-          description: "CPF da vítima no formato 000.000.000-00"
+          description: "CPF da vítima no formato 000.000.000-00. Mutuamente exclusivo com name."
       responses:
         "200":
           description: "Resultados da busca"
@@ -3112,7 +3157,7 @@ paths:
       tags:
         - "Offenders"
       summary: "Buscar agressores por nome ou CPF"
-      description: "Busca agressores pelo nome (ILIKE) ou CPF exato"
+      description: "Busca agressores pelo nome (ILIKE) ou CPF exato. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
       operationId: "searchOffenders"
       security:
         - bearerAuth: []
@@ -3123,13 +3168,13 @@ paths:
           required: false
           schema:
             type: string
-          description: "Nome do agressor (parcial)"
+          description: "Nome do agressor (parcial). Mutuamente exclusivo com cpf."
         - name: "cpf"
           in: "query"
           required: false
           schema:
             type: string
-          description: "CPF do agressor no formato 000.000.000-00"
+          description: "CPF do agressor no formato 000.000.000-00. Mutuamente exclusivo com name."
       responses:
         "200":
           description: "Resultados da busca"
