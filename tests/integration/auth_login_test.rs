@@ -197,6 +197,41 @@ async fn login_with_auto_create_session_true_creates_work_session() {
 }
 
 #[actix_rt::test]
+async fn login_with_auto_create_session_requires_city_for_non_root() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    db_fixtures::insert_user(&pool, "100010", "user3@test.com", "CITY_USER", None).await;
+
+    let payload = serde_json::json!({
+        "email": "user3@test.com",
+        "password": "senha123",
+        "auto_create_session": true,
+    });
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&payload)
+        .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("User must be associated with a city")
+    );
+}
+
+#[actix_rt::test]
 async fn login_with_auto_create_session_false_does_not_create_session() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;

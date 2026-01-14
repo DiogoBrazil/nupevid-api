@@ -14,6 +14,7 @@ use crate::repositories::auth::PgAuthRepository;
 use crate::repositories::work_sessions::PgWorkSessionRepository;
 use crate::utils::errors::AppError;
 use crate::utils::responses::ApiResponse;
+use crate::validators::common::PROFILE_ROOT;
 pub struct AuthService {
     auth_repository: web::Data<PgAuthRepository>,
     work_session_repository: web::Data<PgWorkSessionRepository>,
@@ -140,6 +141,12 @@ impl AuthService {
 
         let work_session = if data.auto_create_session {
             info!("[Service] Auto-creating work session for user: {}", user.id);
+
+            if user.profile != PROFILE_ROOT && user.city_id.is_none() {
+                return Err(AppError::Forbidden(
+                    "User must be associated with a city".to_string(),
+                ));
+            }
 
             match self
                 .work_session_repository

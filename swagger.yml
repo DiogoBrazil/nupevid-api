@@ -91,7 +91,7 @@ components:
           example: "SecurePassword123!"
         auto_create_session:
           type: boolean
-          description: "Se true, cria automaticamente uma sessão de trabalho no login (default: true)"
+          description: "Se true, cria automaticamente uma sessao de trabalho no login (default: true). Para perfis nao ROOT, exige que o usuario tenha city_id."
           default: true
           example: true
 
@@ -1984,6 +1984,12 @@ paths:
                   profile: "CITY_ADMIN"
         "401":
           description: "Credenciais inválidas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Usuario precisa estar associado a uma cidade para auto-criar sessao"
           content:
             application/json:
               schema:

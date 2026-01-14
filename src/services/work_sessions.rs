@@ -52,14 +52,15 @@ impl WorkSessionService {
             get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_CREATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_CREATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let mut members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> =
             vec![(user_id, Some(TeamMemberFunction::Commander))];

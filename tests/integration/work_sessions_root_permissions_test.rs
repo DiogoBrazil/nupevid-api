@@ -79,14 +79,7 @@ async fn root_can_create_work_session() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    // ROOT may or may not be able to create sessions depending on policy
-    // ROOT doesn't have a city_id, which may cause issues
-    let status = resp.status();
-    assert!(
-        status == StatusCode::CREATED
-            || status == StatusCode::BAD_REQUEST
-            || status == StatusCode::FORBIDDEN
-    );
+    assert_eq!(resp.status(), StatusCode::CREATED);
 }
 
 /// Phase 8 - Test 3: ROOT viewing session from any city
