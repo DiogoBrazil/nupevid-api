@@ -162,6 +162,8 @@ components:
 
     CreateWorkSession:
       type: object
+      required:
+        - members
       properties:
         description:
           type: string
@@ -169,12 +171,12 @@ components:
           example: "Patrulhamento preventivo zona leste"
         members:
           type: array
-          description: "Lista de membros a serem adicionados à sessão (criador é automaticamente Commander)"
+          description: "Lista de membros da sessão. O usuário solicitante deve estar incluído e a equipe deve ter exatamente um Commander."
           items:
             $ref: "#/components/schemas/AddWorkSessionMember"
           example:
             - user_id: "550e8400-e29b-41d4-a716-446655440001"
-              function: "Driver"
+              function: "Commander"
             - user_id: "550e8400-e29b-41d4-a716-446655440002"
               function: "Patroller"
 
@@ -226,6 +228,23 @@ components:
           type: string
           description: "Nome completo do usuário"
           example: "João Silva"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        created_at:
+          type: string
+          format: date-time
+    WorkSessionMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        work_session_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
         function:
           $ref: "#/components/schemas/TeamMemberFunction"
         created_at:
@@ -4718,7 +4737,7 @@ paths:
       tags:
         - "Work Sessions"
       summary: "Criar nova sessão de trabalho"
-      description: "Cria uma nova sessão de trabalho. O usuário criador é automaticamente adicionado como Commander. Requer política 'create_work_sessions'."
+      description: "Cria uma nova sessão de trabalho. O usuário solicitante deve estar incluído em members e a equipe deve ter exatamente um Commander. Requer política 'create_work_sessions'."
       operationId: "createWorkSession"
       security:
         - bearerAuth: []
@@ -4733,7 +4752,7 @@ paths:
               description: "Patrulhamento preventivo zona leste"
               members:
                 - user_id: "550e8400-e29b-41d4-a716-446655440001"
-                  function: "Driver"
+                  function: "Commander"
                 - user_id: "550e8400-e29b-41d4-a716-446655440002"
                   function: "Patroller"
       responses:
@@ -4885,7 +4904,7 @@ paths:
       tags:
         - "Work Sessions"
       summary: "Encerrar sessão de trabalho ativa"
-      description: "Encerra a sessão de trabalho ativa do usuário autenticado. Requer política 'end_work_sessions'."
+      description: "Encerra a sessão de trabalho ativa onde o usuário autenticado é membro. Requer política 'end_work_sessions' e o usuário deve ser criador ou Commander na sessão."
       operationId: "endWorkSession"
       security:
         - bearerAuth: []
@@ -4902,8 +4921,9 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
-        "400":
+                    type: string
+                    example: "Work session ended successfully"
+        "404":
           description: "Usuário não possui sessão ativa"
           content:
             application/json:
@@ -4975,7 +4995,7 @@ paths:
       tags:
         - "Work Sessions"
       summary: "Adicionar membro à sessão de trabalho"
-      description: "Adiciona um novo membro à sessão de trabalho. Apenas o criador da sessão pode adicionar membros. Validações aplicadas (1 Commander, máx 1 Driver, cidade igual)."
+      description: "Adiciona um novo membro à sessão de trabalho. Apenas o criador ou Commander podem adicionar membros. Validações aplicadas (1 Commander, máx 1 Driver, cidade igual)."
       operationId: "addWorkSessionMember"
       security:
         - bearerAuth: []
@@ -5001,7 +5021,7 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    $ref: "#/components/schemas/WorkSessionMember"
         "400":
           description: "Erro de validação (ex: dois Commanders, cidade diferente)"
           content:
@@ -5009,7 +5029,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: "Apenas o criador pode adicionar membros"
+          description: "Apenas o criador ou Commander podem adicionar membros"
           content:
             application/json:
               schema:
@@ -5025,7 +5045,7 @@ paths:
       tags:
         - "Work Sessions"
       summary: "Atualizar lista completa de membros"
-      description: "Substitui completamente a lista de membros da sessão (exceto o criador que sempre permanece). Validações aplicadas."
+      description: "Substitui completamente a lista de membros da sessão. Apenas o criador ou Commander podem atualizar. Validações aplicadas."
       operationId: "updateWorkSessionMembers"
       security:
         - bearerAuth: []
@@ -5062,7 +5082,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: "Apenas o criador pode atualizar membros"
+          description: "Apenas o criador ou Commander podem atualizar membros"
           content:
             application/json:
               schema:
@@ -5083,13 +5103,13 @@ paths:
         schema:
           type: string
           format: uuid
-        description: "ID do registro de membro (não é o user_id)"
+        description: "ID do usuário membro"
 
     delete:
       tags:
         - "Work Sessions"
       summary: "Remover membro da sessão de trabalho"
-      description: "Remove um membro da sessão. Não pode remover o criador. Não pode deixar sessão vazia."
+      description: "Remove um membro da sessão. Apenas o criador ou Commander podem remover. Não pode deixar sessão vazia."
       operationId: "removeWorkSessionMember"
       security:
         - bearerAuth: []
@@ -5106,7 +5126,8 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    type: string
+                    example: "Member removed successfully"
         "400":
           description: "Não pode remover criador ou deixar sessão vazia"
           content:
@@ -5114,7 +5135,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: "Apenas o criador pode remover membros"
+          description: "Apenas o criador ou Commander podem remover membros"
           content:
             application/json:
               schema:
@@ -5147,7 +5168,7 @@ paths:
       tags:
         - "Work Sessions"
       summary: "Atualizar função de um membro"
-      description: "Altera a função (Commander/Driver/Patroller) de um membro específico. Validações aplicadas."
+      description: "Altera a função (Commander/Driver/Patroller) de um membro específico. Apenas o criador ou Commander podem atualizar. Validações aplicadas."
       operationId: "updateMemberFunction"
       security:
         - bearerAuth: []
@@ -5172,7 +5193,8 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    type: string
+                    example: "Member function updated successfully"
         "400":
           description: "Erro de validação (ex: dois Commanders, dois Drivers)"
           content:
@@ -5180,7 +5202,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: "Apenas o criador pode atualizar funções"
+          description: "Apenas o criador ou Commander podem atualizar funções"
           content:
             application/json:
               schema:
