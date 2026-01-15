@@ -46,16 +46,6 @@ impl WorkSessionRepository for PgWorkSessionRepository {
             .fetch_one(&mut *tx)
             .await?;
 
-        let creator_session_member_registration_id = Uuid::new_v4();
-        let _: WorkSessionMember =
-            sqlx::query_as(WorkSessionMembersQueries::CREATE_WORK_SESSION_MEMBER)
-                .bind(creator_session_member_registration_id)
-                .bind(session_id)
-                .bind(created_by_user_id)
-                .bind(Some(TeamMemberFunction::Commander))
-                .fetch_one(&mut *tx)
-                .await?;
-
         for member in &data.members {
             let session_member_registration_id = Uuid::new_v4();
             let _: WorkSessionMember =
