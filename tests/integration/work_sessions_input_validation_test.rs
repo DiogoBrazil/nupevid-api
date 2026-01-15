@@ -21,7 +21,12 @@ async fn create_session_with_empty_description() {
 
     let payload = serde_json::json!({
         "description": "",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(
@@ -57,7 +62,12 @@ async fn create_session_with_null_description() {
 
     let payload = serde_json::json!({
         "description": null,
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(
@@ -102,7 +112,12 @@ async fn add_member_with_invalid_function() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -163,6 +178,10 @@ async fn create_session_with_invalid_member_function() {
         "description": "Test session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member_id,
                 "function": "InvalidRole"
             }
@@ -205,7 +224,12 @@ async fn create_session_with_very_long_description() {
 
     let payload = serde_json::json!({
         "description": long_description,
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(

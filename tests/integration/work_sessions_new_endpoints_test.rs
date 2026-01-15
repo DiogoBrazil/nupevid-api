@@ -39,6 +39,10 @@ async fn update_member_function_success() {
         "description": "Test session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member_id,
                 "function": "Patroller"
             }
@@ -130,10 +134,14 @@ async fn update_member_function_to_commander_fails_when_already_has_commander() 
     claims.id = creator_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    // Create session (creator is automatically Commander)
+    // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
         "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member_id,
                 "function": "Driver"
@@ -200,14 +208,9 @@ async fn update_member_function_non_creator_fails() {
         Some(city_id),
     )
     .await;
-    let other_user_id = db_fixtures::insert_user(
-        &pool,
-        "100007",
-        "other@test.com",
-        "CITY_USER",
-        Some(city_id),
-    )
-    .await;
+    let other_user_id =
+        db_fixtures::insert_user(&pool, "100007", "other@test.com", "CITY_USER", Some(city_id))
+            .await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city_id);
     creator_claims.id = creator_id.to_string();
@@ -218,8 +221,16 @@ async fn update_member_function_non_creator_fails() {
         "description": "Test session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member_id,
                 "function": "Driver"
+            },
+            {
+                "user_id": other_user_id,
+                "function": "Patroller"
             }
         ]
     });
@@ -288,7 +299,12 @@ async fn update_member_function_nonexistent_member_fails() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -360,7 +376,12 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
 
     let create_payload = serde_json::json!({
         "description": "User1 session",
-        "members": []
+        "members": [
+            {
+                "user_id": user1_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -381,7 +402,12 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
 
     let create_payload2 = serde_json::json!({
         "description": "User2 session",
-        "members": []
+        "members": [
+            {
+                "user_id": user2_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req2 = test_helpers::with_auth_headers(
@@ -443,7 +469,12 @@ async fn list_sessions_city_admin_sees_all_city_sessions() {
 
     let create_payload = serde_json::json!({
         "description": "User session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -464,7 +495,12 @@ async fn list_sessions_city_admin_sees_all_city_sessions() {
 
     let create_payload2 = serde_json::json!({
         "description": "Admin session",
-        "members": []
+        "members": [
+            {
+                "user_id": admin_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req2 = test_helpers::with_auth_headers(
@@ -528,7 +564,12 @@ async fn list_sessions_root_sees_all_sessions() {
 
     let create_payload1 = serde_json::json!({
         "description": "City1 session",
-        "members": []
+        "members": [
+            {
+                "user_id": user1_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req1 = test_helpers::with_auth_headers(
@@ -549,7 +590,12 @@ async fn list_sessions_root_sees_all_sessions() {
 
     let create_payload2 = serde_json::json!({
         "description": "City2 session",
-        "members": []
+        "members": [
+            {
+                "user_id": user2_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req2 = test_helpers::with_auth_headers(
@@ -602,7 +648,12 @@ async fn list_sessions_with_date_filters() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(

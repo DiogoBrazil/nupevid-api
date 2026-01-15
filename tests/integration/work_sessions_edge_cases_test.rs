@@ -30,7 +30,12 @@ async fn cannot_add_members_to_inactive_session() {
     // Create and end session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -108,6 +113,10 @@ async fn cannot_remove_members_from_inactive_session() {
         "description": "Test session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member_id,
                 "function": "Driver"
             }
@@ -181,7 +190,12 @@ async fn can_create_new_session_after_ending_previous() {
     // Create first session
     let create1_payload = serde_json::json!({
         "description": "First session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create1_req = test_helpers::with_auth_headers(
@@ -210,7 +224,12 @@ async fn can_create_new_session_after_ending_previous() {
     // Create second session
     let create2_payload = serde_json::json!({
         "description": "Second session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create2_req = test_helpers::with_auth_headers(
@@ -259,7 +278,12 @@ async fn ended_session_has_is_active_false() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -348,7 +372,12 @@ async fn can_add_multiple_patrollers() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -430,7 +459,12 @@ async fn get_active_session_returns_404_after_ending() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(

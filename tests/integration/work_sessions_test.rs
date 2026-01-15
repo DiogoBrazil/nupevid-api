@@ -32,7 +32,7 @@ async fn create_work_session_success() {
     )
     .await;
 
-    // Generate JWT token (creator is automatically Commander)
+    // Generate JWT token
     let mut claims = test_helpers::build_city_user_claims(city_id);
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
@@ -40,6 +40,10 @@ async fn create_work_session_success() {
     let payload = serde_json::json!({
         "description": "Test session",
         "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member1_id,
                 "function": "Driver"
@@ -72,7 +76,7 @@ async fn create_work_session_success() {
         "Test session"
     );
 
-    // Verify members (creator + commander + driver = 3)
+    // Verify members (Commander + Driver + Patroller = 3)
     let members = body["data"]["members"].as_array().unwrap();
     assert_eq!(members.len(), 3);
 }
@@ -102,11 +106,14 @@ async fn create_work_session_without_commander_fails() {
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    // This test is now obsolete: creator is automatically Commander
-    // Creating a session with just a Driver should now succeed
+    // Requesting user must be included, but no Commander should fail
     let payload = serde_json::json!({
         "description": "Session with Driver",
         "members": [
+            {
+                "user_id": user_id,
+                "function": "Driver"
+            },
             {
                 "user_id": member1_id,
                 "function": "Driver"
@@ -124,11 +131,10 @@ async fn create_work_session_without_commander_fails() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::CREATED);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    let members = body["data"]["members"].as_array().unwrap();
-    assert_eq!(members.len(), 2); // Creator (Commander) + Driver
+    assert!(body["message"].as_str().unwrap().contains("Commander"));
 }
 
 #[actix_rt::test]
@@ -156,10 +162,14 @@ async fn create_work_session_with_two_commanders_fails() {
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    // With creator as Commander, adding one more Commander = 2 total
+    // With requester as Commander, adding one more Commander = 2 total
     let payload = serde_json::json!({
         "description": "Invalid session - two commanders",
         "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member1_id,
                 "function": "Commander"
@@ -314,10 +324,14 @@ async fn user_cannot_have_two_active_sessions() {
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    // Try to create second session (creator is automatically Commander)
+    // Try to create second session
     let payload = serde_json::json!({
         "description": "Second session",
         "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member_id,
                 "function": "Driver"

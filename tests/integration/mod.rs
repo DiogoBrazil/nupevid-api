@@ -25,6 +25,7 @@ pub mod victims_phones_addresses_test;
 pub mod victims_validation_test;
 pub mod work_sessions_additional_edge_cases_test;
 pub mod work_sessions_advanced_test;
+pub mod work_sessions_commander_permissions_test;
 pub mod work_sessions_cross_user_permissions_test;
 pub mod work_sessions_data_integrity_test;
 pub mod work_sessions_edge_cases_test;

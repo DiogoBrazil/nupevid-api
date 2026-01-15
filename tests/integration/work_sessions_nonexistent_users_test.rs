@@ -28,6 +28,10 @@ async fn create_session_with_nonexistent_member() {
         "description": "Session with ghost member",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": nonexistent_user_id,
                 "function": "Driver"
             }
@@ -75,7 +79,12 @@ async fn add_nonexistent_member_to_session() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -139,7 +148,12 @@ async fn update_members_with_nonexistent_user() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -211,7 +225,12 @@ async fn remove_nonexistent_member_from_session() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(

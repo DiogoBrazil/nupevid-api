@@ -142,11 +142,14 @@ async fn attendance_tracks_all_session_members() {
     commander_claims.id = commander_id.to_string();
     let commander_token = test_helpers::generate_jwt(&commander_claims, &config.jwt_secret);
 
-    // Create work session with Driver and Patroller
-    // Note: Commander (creator) is added automatically, so only add other members
+    // Create work session with Commander, Driver, and Patroller
     let create_session_payload = serde_json::json!({
         "description": "Team session",
         "members": [
+            {
+                "user_id": commander_id,
+                "function": "Commander"
+            },
             {
                 "user_id": driver_id,
                 "function": "Driver"

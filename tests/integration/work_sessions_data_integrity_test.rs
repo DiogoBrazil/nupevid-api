@@ -22,7 +22,12 @@ async fn new_session_has_null_ended_at() {
 
     let payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(
@@ -74,7 +79,12 @@ async fn ended_session_has_ended_at_timestamp() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -144,7 +154,12 @@ async fn session_has_timestamps_on_creation() {
 
     let payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(
@@ -206,7 +221,12 @@ async fn session_has_started_at_timestamp() {
 
     let payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": user_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(

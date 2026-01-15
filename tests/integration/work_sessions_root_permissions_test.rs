@@ -66,7 +66,12 @@ async fn root_can_create_work_session() {
 
     let payload = serde_json::json!({
         "description": "ROOT session",
-        "members": []
+        "members": [
+            {
+                "user_id": root_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let req = test_helpers::with_auth_headers(

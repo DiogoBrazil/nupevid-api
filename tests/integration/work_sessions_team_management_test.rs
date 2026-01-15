@@ -27,10 +27,15 @@ async fn add_member_to_session_success() {
     creator_claims.id = creator_id.to_string();
     let creator_token = test_helpers::generate_jwt(&creator_claims, &config.jwt_secret);
 
-    // Create session (creator is automatically Commander)
+    // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -108,6 +113,10 @@ async fn remove_member_from_session_success() {
     let create_payload = serde_json::json!({
         "description": "Test session",
         "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member_id,
                 "function": "Driver"
@@ -189,6 +198,10 @@ async fn update_session_members_success() {
     let create_payload = serde_json::json!({
         "description": "Test session",
         "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member1_id,
                 "function": "Driver"
@@ -296,6 +309,10 @@ async fn cannot_add_second_driver() {
         "description": "Test session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": driver1_id,
                 "function": "Driver"
             }
@@ -363,7 +380,12 @@ async fn cannot_remove_last_member() {
     // Create session with only creator
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(

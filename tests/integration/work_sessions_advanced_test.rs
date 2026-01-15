@@ -40,6 +40,10 @@ async fn session_members_from_different_cities_fails() {
         "description": "Multi-city session",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member_from_city_b,
                 "function": "Driver"
             }
@@ -56,11 +60,8 @@ async fn session_members_from_different_cities_fails() {
     .to_request();
 
     let create_resp = test::call_service(&app, create_req).await;
-    // Validation currently allows cross-city, but returns CREATED
-    // This test documents current behavior - ideally should be BAD_REQUEST
     let status = create_resp.status();
-    // For now accept that it might pass - validation may need improvement
-    assert!(status == StatusCode::CREATED || status == StatusCode::BAD_REQUEST);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 /// Phase 3 - Test 2: User B cannot add members to session created by user A
@@ -99,7 +100,16 @@ async fn non_creator_cannot_add_members() {
     // Creator creates session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
+                "user_id": other_user_id,
+                "function": "Patroller"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -138,7 +148,10 @@ async fn non_creator_cannot_add_members() {
     assert_eq!(add_resp.status(), StatusCode::FORBIDDEN);
 
     let body: serde_json::Value = test::read_body_json(add_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("creator"));
+    assert!(body["message"]
+        .as_str()
+        .unwrap()
+        .contains("creator or commander"));
 }
 
 /// Phase 3 - Test 3: User already in active session cannot join another
@@ -179,6 +192,10 @@ async fn user_in_active_session_cannot_join_another() {
         "description": "Session 1",
         "members": [
             {
+                "user_id": creator1_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": shared_member_id,
                 "function": "Driver"
             }
@@ -203,7 +220,12 @@ async fn user_in_active_session_cannot_join_another() {
 
     let create2_payload = serde_json::json!({
         "description": "Session 2",
-        "members": []
+        "members": [
+            {
+                "user_id": creator2_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create2_req = test_helpers::with_auth_headers(
@@ -273,7 +295,12 @@ async fn root_can_view_any_session() {
     // Creator creates session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -350,7 +377,12 @@ async fn city_admin_cannot_view_other_city_session() {
     // Creator A creates session
     let create_payload = serde_json::json!({
         "description": "City A session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_a_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(

@@ -724,6 +724,10 @@ async fn create_attendance_adds_all_session_members_automatically() {
         "description": "Session with 3 members",
         "members": [
             {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
+            {
                 "user_id": member1_id,
                 "function": "Driver"
             },

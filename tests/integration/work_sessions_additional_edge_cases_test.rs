@@ -103,7 +103,12 @@ async fn update_members_with_empty_array_fails() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
@@ -167,6 +172,10 @@ async fn cannot_remove_commander_from_session() {
     let create_payload = serde_json::json!({
         "description": "Test session",
         "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            },
             {
                 "user_id": member_id,
                 "function": "Driver"
@@ -268,7 +277,12 @@ async fn add_member_with_malformed_uuid() {
     // Create session
     let create_payload = serde_json::json!({
         "description": "Test session",
-        "members": []
+        "members": [
+            {
+                "user_id": creator_id,
+                "function": "Commander"
+            }
+        ]
     });
 
     let create_req = test_helpers::with_auth_headers(
