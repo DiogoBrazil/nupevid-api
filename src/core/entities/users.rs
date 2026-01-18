@@ -57,3 +57,32 @@ pub struct UserDataCreatedWithoutPassword {
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct UserComplement {
+    pub id: Uuid,
+    pub rank: String,
+    pub registration: String,
+    pub full_name: String,
+    pub profile: String,
+    pub email: String,
+    pub city_id: Option<Uuid>,
+    pub permission_policies: JsonValue,
+    pub is_deleted: bool,
+}
+
+impl From<UserDataCreatedWithoutPassword> for UserComplement {
+    fn from(user: UserDataCreatedWithoutPassword) -> Self {
+        Self {
+            id: user.id,
+            rank: user.rank,
+            registration: user.registration,
+            full_name: user.full_name,
+            profile: user.profile,
+            email: user.email,
+            city_id: user.city_id,
+            permission_policies: user.permission_policies,
+            is_deleted: user.is_deleted,
+        }
+    }
+}

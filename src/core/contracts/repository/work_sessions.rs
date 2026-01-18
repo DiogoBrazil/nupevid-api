@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::core::entities::work_session_members::{
-    AddWorkSessionMember, TeamMemberFunction, WorkSessionMember,
+    AddWorkSessionMember, TeamMemberFunction, WorkSessionMember, WorkSessionMemberWithUser,
 };
 use crate::core::entities::work_sessions::{
     CreateWorkSession, WorkSession, WorkSessionMemberWithDetails, WorkSessionWithMembers,
@@ -37,6 +37,8 @@ pub trait WorkSessionRepository: Send + Sync {
         session_id: Uuid,
     ) -> Result<WorkSessionWithMembers, sqlx::Error>;
 
+    async fn get_session_by_id_base(&self, session_id: Uuid) -> Result<WorkSession, sqlx::Error>;
+
     async fn get_sessions_by_user(
         &self,
         user_id: Uuid,
@@ -68,6 +70,11 @@ pub trait WorkSessionRepository: Send + Sync {
         &self,
         session_id: Uuid,
     ) -> Result<Vec<WorkSessionMemberWithDetails>, sqlx::Error>;
+
+    async fn get_session_members_with_user_details(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Vec<WorkSessionMemberWithUser>, sqlx::Error>;
 
     async fn add_member_to_session(
         &self,

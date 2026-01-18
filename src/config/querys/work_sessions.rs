@@ -124,6 +124,25 @@ impl WorkSessionMembersQueries {
         ORDER BY wsm.created_at ASC
     "#;
 
+    pub const GET_SESSION_MEMBERS_WITH_USER_DETAILS: &'static str = r#"
+        SELECT
+            wsm.id,
+            wsm.function,
+            u.id as user_id,
+            u.rank as user_rank,
+            u.registration as user_registration,
+            u.full_name as user_full_name,
+            u.profile as user_profile,
+            u.email as user_email,
+            u.city_id as user_city_id,
+            u.permission_policies as user_permission_policies,
+            u.is_deleted as user_is_deleted
+        FROM work_session_members wsm
+        JOIN users u ON u.id = wsm.user_id
+        WHERE wsm.work_session_id = $1
+        ORDER BY wsm.created_at ASC
+    "#;
+
     pub const DELETE_MEMBER: &'static str = r#"
         DELETE FROM work_session_members
         WHERE work_session_id = $1 AND user_id = $2

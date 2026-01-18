@@ -6,7 +6,7 @@ use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::{
-    CreateWorkSession, ListWorkSessionsQuery, UpdateWorkSessionMembers,
+    CreateWorkSession, ListWorkSessionsQuery, UpdateWorkSessionMembers, WorkSession,
 };
 use crate::repositories::users::PgUserRepository;
 use crate::repositories::work_sessions::PgWorkSessionRepository;
@@ -44,6 +44,7 @@ impl WorkSessionService {
         &self,
         data: CreateWorkSession,
         req: HttpRequest,
+        include_complement_for_entities: bool,
     ) -> Result<HttpResponse, AppError> {
         info!("[WorkSessionService] Starting work session creation");
 
@@ -100,7 +101,28 @@ impl WorkSessionService {
         {
             Ok(session) => {
                 info!("[WorkSessionService] Work session created: {}", session.id);
-                Ok(ApiResponse::created(session).into_response())
+                if include_complement_for_entities {
+                    let members = self
+                        .work_session_repository
+                        .get_session_members_with_user_details(session.id)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+
+                    let base = WorkSession {
+                        id: session.id,
+                        created_by_user_id: session.created_by_user_id,
+                        started_at: session.started_at,
+                        ended_at: session.ended_at,
+                        is_active: session.is_active,
+                        description: session.description,
+                        created_at: session.created_at,
+                        updated_at: session.updated_at,
+                    };
+
+                    Ok(ApiResponse::created(base.with_members_complement(members)).into_response())
+                } else {
+                    Ok(ApiResponse::created(session).into_response())
+                }
             }
             Err(e) => {
                 if let sqlx::Error::Database(db_err) = &e
@@ -130,7 +152,11 @@ impl WorkSessionService {
         }
     }
 
-    pub async fn get_active_session(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn get_active_session(
+        &self,
+        req: HttpRequest,
+        include_complement_for_entities: bool,
+    ) -> Result<HttpResponse, AppError> {
         info!("[WorkSessionService] Getting active session");
 
         let claims = extract_claims(&req)?;
@@ -143,18 +169,27 @@ impl WorkSessionService {
             .await
         {
             Ok(session) => {
-                let with_members = self
-                    .work_session_repository
-                    .get_session_by_id(session.id)
-                    .await
-                    .map_err(|e| match e {
-                        sqlx::Error::RowNotFound => {
-                            AppError::NotFound("Work session not found".to_string())
-                        }
-                        _ => AppError::InternalServerError,
-                    })?;
+                if include_complement_for_entities {
+                    let members = self
+                        .work_session_repository
+                        .get_session_members_with_user_details(session.id)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+                    Ok(ApiResponse::success(session.with_members_complement(members)).into_response())
+                } else {
+                    let with_members = self
+                        .work_session_repository
+                        .get_session_by_id(session.id)
+                        .await
+                        .map_err(|e| match e {
+                            sqlx::Error::RowNotFound => {
+                                AppError::NotFound("Work session not found".to_string())
+                            }
+                            _ => AppError::InternalServerError,
+                        })?;
 
-                Ok(ApiResponse::success(with_members).into_response())
+                    Ok(ApiResponse::success(with_members).into_response())
+                }
             }
             Err(sqlx::Error::RowNotFound) => Err(AppError::NotFound(
                 "No active work session found".to_string(),
@@ -167,6 +202,7 @@ impl WorkSessionService {
         &self,
         session_id: Uuid,
         req: HttpRequest,
+        include_complement_for_entities: bool,
     ) -> Result<HttpResponse, AppError> {
         info!("[WorkSessionService] Getting session by id: {}", session_id);
 
@@ -175,28 +211,58 @@ impl WorkSessionService {
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        let session = self
-            .work_session_repository
-            .get_session_by_id(session_id)
-            .await
-            .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
-                    AppError::NotFound("Work session not found".to_string())
-                }
-                _ => AppError::InternalServerError,
-            })?;
+        if include_complement_for_entities {
+            let session = self
+                .work_session_repository
+                .get_session_by_id_base(session_id)
+                .await
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => {
+                        AppError::NotFound("Work session not found".to_string())
+                    }
+                    _ => AppError::InternalServerError,
+                })?;
 
-        if session.created_by_user_id != user_id {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_VIEW_OTHER_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            if session.created_by_user_id != user_id {
+                let user_city_id = extract_city_id_from_claims(&claims)?;
+                check_policy(
+                    &claims,
+                    POLICY_VIEW_OTHER_WORK_SESSIONS,
+                    user_city_id,
+                    &policies,
+                )?;
+            }
+
+            let members = self
+                .work_session_repository
+                .get_session_members_with_user_details(session_id)
+                .await
+                .map_err(|_| AppError::InternalServerError)?;
+            Ok(ApiResponse::success(session.with_members_complement(members)).into_response())
+        } else {
+            let session = self
+                .work_session_repository
+                .get_session_by_id(session_id)
+                .await
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => {
+                        AppError::NotFound("Work session not found".to_string())
+                    }
+                    _ => AppError::InternalServerError,
+                })?;
+
+            if session.created_by_user_id != user_id {
+                let user_city_id = extract_city_id_from_claims(&claims)?;
+                check_policy(
+                    &claims,
+                    POLICY_VIEW_OTHER_WORK_SESSIONS,
+                    user_city_id,
+                    &policies,
+                )?;
+            }
+
+            Ok(ApiResponse::success(session).into_response())
         }
-
-        Ok(ApiResponse::success(session).into_response())
     }
 
     pub async fn list_sessions(
@@ -267,33 +333,66 @@ impl WorkSessionService {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        let mut sessions_with_members = Vec::with_capacity(sessions.len());
-        for session in sessions {
-            let members = self
-                .work_session_repository
-                .get_session_members_with_details(session.id)
-                .await
-                .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => AppError::NotFound(format!(
-                        "Session members not found for session '{}'",
-                        session.id
-                    )),
-                    _ => AppError::InternalServerError,
-                })?;
-            sessions_with_members.push(session.with_members(members));
-        }
+        let include_complement_for_entities =
+            query.include_complement_for_entities.unwrap_or(false);
 
-        info!(
-            "[WorkSessionService] Found {} sessions",
-            sessions_with_members.len()
-        );
-        Ok(PaginatedResponse::success(
-            sessions_with_members,
-            pagination.page,
-            pagination.page_size,
-            total_items,
-        )
-        .into_response())
+        if include_complement_for_entities {
+            let mut sessions_with_members = Vec::with_capacity(sessions.len());
+            for session in sessions {
+                let members = self
+                    .work_session_repository
+                    .get_session_members_with_user_details(session.id)
+                    .await
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => AppError::NotFound(format!(
+                            "Session members not found for session '{}'",
+                            session.id
+                        )),
+                        _ => AppError::InternalServerError,
+                    })?;
+                sessions_with_members.push(session.with_members_complement(members));
+            }
+
+            info!(
+                "[WorkSessionService] Found {} sessions",
+                sessions_with_members.len()
+            );
+            Ok(PaginatedResponse::success(
+                sessions_with_members,
+                pagination.page,
+                pagination.page_size,
+                total_items,
+            )
+            .into_response())
+        } else {
+            let mut sessions_with_members = Vec::with_capacity(sessions.len());
+            for session in sessions {
+                let members = self
+                    .work_session_repository
+                    .get_session_members_with_details(session.id)
+                    .await
+                    .map_err(|e| match e {
+                        sqlx::Error::RowNotFound => AppError::NotFound(format!(
+                            "Session members not found for session '{}'",
+                            session.id
+                        )),
+                        _ => AppError::InternalServerError,
+                    })?;
+                sessions_with_members.push(session.with_members(members));
+            }
+
+            info!(
+                "[WorkSessionService] Found {} sessions",
+                sessions_with_members.len()
+            );
+            Ok(PaginatedResponse::success(
+                sessions_with_members,
+                pagination.page,
+                pagination.page_size,
+                total_items,
+            )
+            .into_response())
+        }
     }
 
     pub async fn end_session(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {

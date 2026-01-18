@@ -242,6 +242,29 @@ pub struct VictimWithDetails {
     pub addresses: Vec<VictimAddressResponse>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VictimComplement {
+    pub id: Uuid,
+    pub full_name: String,
+    pub cpf: Option<String>,
+    pub birth_date: Option<NaiveDate>,
+    pub city_id: Uuid,
+    pub is_deleted: bool,
+    pub education_level: Option<EducationLevel>,
+    pub occupation: Option<String>,
+    pub has_children: bool,
+    pub children_count: Option<i32>,
+    pub is_pregnant: Option<bool>,
+    pub has_special_needs: bool,
+    pub special_needs_type: Option<Vec<String>>,
+    pub uses_alcohol: bool,
+    pub uses_drugs: bool,
+    pub has_psychiatric_issues: bool,
+    pub psychiatric_issues_type: Option<Vec<String>>,
+    pub phones: Vec<VictimPhoneResponse>,
+    pub addresses: Vec<VictimAddressResponse>,
+}
+
 impl Victim {
     pub fn with_details(
         self,
@@ -270,6 +293,32 @@ impl Victim {
             psychiatric_issues_type: self.psychiatric_issues_type,
             phones: phones.into_iter().map(|p| p.to_response()).collect(),
             addresses: addresses.into_iter().map(|a| a.to_response()).collect(),
+        }
+    }
+}
+
+impl VictimWithDetails {
+    pub fn to_complement(self) -> VictimComplement {
+        VictimComplement {
+            id: self.id,
+            full_name: self.full_name,
+            cpf: self.cpf,
+            birth_date: self.birth_date,
+            city_id: self.city_id,
+            is_deleted: self.is_deleted,
+            education_level: self.education_level,
+            occupation: self.occupation,
+            has_children: self.has_children,
+            children_count: self.children_count,
+            is_pregnant: self.is_pregnant,
+            has_special_needs: self.has_special_needs,
+            special_needs_type: self.special_needs_type,
+            uses_alcohol: self.uses_alcohol,
+            uses_drugs: self.uses_drugs,
+            has_psychiatric_issues: self.has_psychiatric_issues,
+            psychiatric_issues_type: self.psychiatric_issues_type,
+            phones: self.phones,
+            addresses: self.addresses,
         }
     }
 }

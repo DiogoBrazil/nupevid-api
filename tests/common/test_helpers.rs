@@ -148,6 +148,7 @@ pub async fn create_full_test_app(
         offender_repository.clone(),
         user_repository.clone(),
         extension_repository.clone(),
+        city_repository.clone(),
     ));
     let extension_service = web::Data::new(ExtensionService::new(
         extension_repository.clone(),

@@ -233,6 +233,18 @@ components:
         created_at:
           type: string
           format: date-time
+
+    WorkSessionMemberWithUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        user:
+          $ref: "#/components/schemas/UserComplement"
     WorkSessionMember:
       type: object
       properties:
@@ -283,6 +295,39 @@ components:
           description: "Lista de membros da sessão com detalhes"
           items:
             $ref: "#/components/schemas/WorkSessionMemberWithDetails"
+
+    WorkSessionWithMembersComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        members:
+          type: array
+          description: "Lista de membros da sessão com dados do usuário"
+          items:
+            $ref: "#/components/schemas/WorkSessionMemberWithUser"
 
     UpdateWorkSessionMembers:
       type: object
@@ -338,6 +383,37 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_deleted:
+          type: boolean
+
+    UserComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rank:
+          type: string
+          example: "CAP PM"
+        registration:
+          type: string
+          example: "100000001"
+        full_name:
+          type: string
+          example: "João Silva"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão do usuário"
         is_deleted:
           type: boolean
 
@@ -463,6 +539,24 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_deleted:
+          type: boolean
+
+    CityComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "PORTO VELHO"
+        state:
+          type: string
+          example: "RO"
+        battalion:
+          type: string
+          example: "1ºBPM"
         is_deleted:
           type: boolean
 
@@ -701,6 +795,70 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_deleted:
+          type: boolean
+
+    VictimComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        education_level:
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          example: "Professora"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+          example: 2
+        is_pregnant:
+          type: boolean
+          nullable: true
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimAddress"
         is_deleted:
           type: boolean
 
@@ -983,6 +1141,62 @@ components:
         updated_at:
           type: string
           format: date-time
+        is_deleted:
+          type: boolean
+
+    OffenderComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderAddress"
         is_deleted:
           type: boolean
 
@@ -1406,6 +1620,23 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ProtectiveMeasureExtension"
+
+    ProtectiveMeasureWithExtensionsAndEntities:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/ProtectiveMeasure"
+        - type: object
+          properties:
+            extensions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProtectiveMeasureExtension"
+            victim:
+              $ref: "#/components/schemas/VictimComplement"
+            offender:
+              $ref: "#/components/schemas/OffenderComplement"
+            court_district:
+              $ref: "#/components/schemas/CityComplement"
 
     # --- Attendance Victim Schemas ---
     AttendanceVictim:
@@ -2040,6 +2271,13 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       responses:
         "200":
           description: "Lista de usuários retornada com sucesso"
@@ -3590,7 +3828,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                      oneOf:
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
                   page:
                     type: integer
                     example: 1
@@ -3613,6 +3853,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       requestBody:
         required: true
         content:
@@ -3631,7 +3879,9 @@ paths:
                     type: integer
                     example: 201
                   data:
-                    $ref: "#/components/schemas/ProtectiveMeasure"
+                    oneOf:
+                      - $ref: "#/components/schemas/ProtectiveMeasure"
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
         "400":
           description: "Dados inválidos ou vítima já possui medida ativa"
           content:
@@ -3658,6 +3908,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       responses:
         "200":
           description: "Medida protetiva encontrada"
@@ -3670,7 +3928,9 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                    oneOf:
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
 
     put:
       tags:
@@ -3743,6 +4003,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       responses:
         "200":
           description: "Lista de medidas protetivas da vítima"
@@ -3757,7 +4025,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                      oneOf:
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
 
   # === EXTENSION ENDPOINTS ===
   /protective-measures/{id}/extensions:
@@ -4742,6 +5012,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
       requestBody:
         required: true
         content:
@@ -4767,7 +5045,9 @@ paths:
                     type: integer
                     example: 201
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
         "400":
           description: "Dados inválidos (ex: usuário já possui sessão ativa, validação de funções falhou)"
           content:
@@ -4835,6 +5115,13 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
       responses:
         "200":
           description: "Lista de sessões retornada com sucesso"
@@ -4849,7 +5136,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/WorkSessionWithMembers"
+                      oneOf:
+                        - $ref: "#/components/schemas/WorkSessionWithMembers"
+                        - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
                   page:
                     type: integer
                     example: 1
@@ -4879,6 +5168,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
       responses:
         "200":
           description: "Sessão ativa retornada com sucesso"
@@ -4891,7 +5188,9 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
         "404":
           description: "Nenhuma sessão ativa encontrada para o usuário"
           content:
@@ -4955,6 +5254,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
       responses:
         "200":
           description: "Sessão retornada com sucesso"
@@ -4967,7 +5274,9 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/WorkSessionWithMembers"
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
         "403":
           description: "Sem permissão para visualizar esta sessão"
           content:

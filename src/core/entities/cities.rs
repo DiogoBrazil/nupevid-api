@@ -27,3 +27,24 @@ pub struct City {
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CityComplement {
+    pub id: Uuid,
+    pub name: String,
+    pub state: String,
+    pub battalion: String,
+    pub is_deleted: bool,
+}
+
+impl From<City> for CityComplement {
+    fn from(city: City) -> Self {
+        Self {
+            id: city.id,
+            name: city.name,
+            state: city.state,
+            battalion: city.battalion,
+            is_deleted: city.is_deleted,
+        }
+    }
+}

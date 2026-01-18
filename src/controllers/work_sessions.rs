@@ -10,25 +10,37 @@ use crate::services::work_sessions::WorkSessionService;
 use crate::utils::errors::AppError;
 use serde::Deserialize;
 
+#[derive(Deserialize)]
+pub struct IncludeComplementQuery {
+    pub include_complement_for_entities: Option<bool>,
+}
+
 pub async fn create_work_session(
     data: web::Json<CreateWorkSession>,
+    query: web::Query<IncludeComplementQuery>,
     service: web::Data<WorkSessionService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create work session");
-    service.create_work_session(data.into_inner(), req).await
+    service
+        .create_work_session(data.into_inner(), req, query.include_complement_for_entities.unwrap_or(false))
+        .await
 }
 
 pub async fn get_active_session(
+    query: web::Query<IncludeComplementQuery>,
     service: web::Data<WorkSessionService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get active work session");
-    service.get_active_session(req).await
+    service
+        .get_active_session(req, query.include_complement_for_entities.unwrap_or(false))
+        .await
 }
 
 pub async fn get_session_by_id(
     path: web::Path<Uuid>,
+    query: web::Query<IncludeComplementQuery>,
     service: web::Data<WorkSessionService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
@@ -37,7 +49,9 @@ pub async fn get_session_by_id(
         "[Controller] Received request to get work session: {}",
         session_id
     );
-    service.get_session_by_id(session_id, req).await
+    service
+        .get_session_by_id(session_id, req, query.include_complement_for_entities.unwrap_or(false))
+        .await
 }
 
 pub async fn list_sessions(

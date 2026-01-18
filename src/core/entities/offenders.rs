@@ -262,6 +262,28 @@ pub struct OffenderWithDetails {
     pub addresses: Vec<OffenderAddressResponse>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OffenderComplement {
+    pub id: Uuid,
+    pub full_name: String,
+    pub cpf: Option<String>,
+    pub birth_date: Option<NaiveDate>,
+    pub city_id: Uuid,
+    pub imprisoned: bool,
+    pub occupation: Option<String>,
+    pub is_public_security_agent: bool,
+    pub security_force: Option<SecurityForce>,
+    pub uses_alcohol: bool,
+    pub uses_drugs: bool,
+    pub has_psychiatric_issues: bool,
+    pub psychiatric_issues_type: Option<Vec<String>>,
+    pub education_level: EducationLevel,
+    pub observation: Option<String>,
+    pub is_deleted: bool,
+    pub phones: Vec<OffenderPhoneResponse>,
+    pub addresses: Vec<OffenderAddressResponse>,
+}
+
 impl Offender {
     pub fn with_details(
         self,
@@ -289,6 +311,31 @@ impl Offender {
             is_deleted: self.is_deleted,
             phones: phones.into_iter().map(|p| p.to_response()).collect(),
             addresses: addresses.into_iter().map(|a| a.to_response()).collect(),
+        }
+    }
+}
+
+impl OffenderWithDetails {
+    pub fn to_complement(self) -> OffenderComplement {
+        OffenderComplement {
+            id: self.id,
+            full_name: self.full_name,
+            cpf: self.cpf,
+            birth_date: self.birth_date,
+            city_id: self.city_id,
+            imprisoned: self.imprisoned,
+            occupation: self.occupation,
+            is_public_security_agent: self.is_public_security_agent,
+            security_force: self.security_force,
+            uses_alcohol: self.uses_alcohol,
+            uses_drugs: self.uses_drugs,
+            has_psychiatric_issues: self.has_psychiatric_issues,
+            psychiatric_issues_type: self.psychiatric_issues_type,
+            education_level: self.education_level,
+            observation: self.observation,
+            is_deleted: self.is_deleted,
+            phones: self.phones,
+            addresses: self.addresses,
         }
     }
 }

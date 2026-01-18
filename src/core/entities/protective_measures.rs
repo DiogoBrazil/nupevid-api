@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
+use crate::core::entities::cities::CityComplement;
+use crate::core::entities::offenders::OffenderComplement;
+use crate::core::entities::victims::VictimComplement;
+
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "violence_type_enum", rename_all = "PascalCase")]
 pub enum ViolenceType {
@@ -182,4 +186,14 @@ pub struct ProtectiveMeasureWithExtensions {
     #[serde(flatten)]
     pub measure: ProtectiveMeasure,
     pub extensions: Vec<ProtectiveMeasureExtension>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProtectiveMeasureWithExtensionsAndEntities {
+    #[serde(flatten)]
+    pub measure: ProtectiveMeasure,
+    pub extensions: Vec<ProtectiveMeasureExtension>,
+    pub victim: VictimComplement,
+    pub offender: OffenderComplement,
+    pub court_district: CityComplement,
 }

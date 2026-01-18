@@ -6,7 +6,8 @@ use uuid::Uuid;
 use crate::config::querys::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
 use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
 use crate::core::entities::work_session_members::{
-    AddWorkSessionMember, TeamMemberFunction, WorkSessionMember,
+    AddWorkSessionMember, TeamMemberFunction, WorkSessionMember, WorkSessionMemberWithUser,
+    WorkSessionMemberWithUserRow,
 };
 use crate::core::entities::work_sessions::{
     CreateWorkSession, WorkSession, WorkSessionMemberWithDetails, WorkSessionWithMembers,
@@ -153,6 +154,15 @@ impl WorkSessionRepository for PgWorkSessionRepository {
         Ok(session.with_members(members))
     }
 
+    async fn get_session_by_id_base(&self, session_id: Uuid) -> Result<WorkSession, sqlx::Error> {
+        let session: WorkSession = sqlx::query_as(WorkSessionsQueries::GET_SESSION_BY_ID)
+            .bind(session_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(session)
+    }
+
     async fn get_sessions_by_user(
         &self,
         user_id: Uuid,
@@ -237,6 +247,19 @@ impl WorkSessionRepository for PgWorkSessionRepository {
                 .await?;
 
         Ok(members)
+    }
+
+    async fn get_session_members_with_user_details(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Vec<WorkSessionMemberWithUser>, sqlx::Error> {
+        let rows: Vec<WorkSessionMemberWithUserRow> =
+            sqlx::query_as(WorkSessionMembersQueries::GET_SESSION_MEMBERS_WITH_USER_DETAILS)
+                .bind(session_id)
+                .fetch_all(&self.pool)
+                .await?;
+
+        Ok(rows.into_iter().map(|row| row.into_member()).collect())
     }
 
     async fn add_member_to_session(
