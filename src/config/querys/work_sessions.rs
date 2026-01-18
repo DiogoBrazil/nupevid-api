@@ -48,6 +48,14 @@ impl WorkSessionsQueries {
         WHERE id = $1
     "#;
 
+    pub const UPDATE_WORK_SESSION_DESCRIPTION: &'static str = r#"
+        UPDATE work_sessions
+        SET description = $2
+        WHERE id = $1
+        RETURNING id, created_by_user_id, started_at, ended_at, is_active,
+                  description, created_at, updated_at
+    "#;
+
     pub const GET_SESSIONS_BY_USER: &'static str = r#"
         SELECT id, created_by_user_id, started_at, ended_at, is_active,
                description, created_at, updated_at

@@ -38,3 +38,4 @@ pub mod work_sessions_nonexistent_users_test;
 pub mod work_sessions_root_permissions_test;
 pub mod work_sessions_team_management_test;
 pub mod work_sessions_test;
+pub mod work_sessions_update_full_test;

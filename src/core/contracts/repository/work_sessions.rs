@@ -102,4 +102,11 @@ pub trait WorkSessionRepository: Send + Sync {
         session_id: Uuid,
         members: Vec<AddWorkSessionMember>,
     ) -> Result<Vec<WorkSessionMember>, sqlx::Error>;
+
+    async fn update_work_session_with_members(
+        &self,
+        session_id: Uuid,
+        description: Option<String>,
+        members: Vec<AddWorkSessionMember>,
+    ) -> Result<WorkSession, sqlx::Error>;
 }

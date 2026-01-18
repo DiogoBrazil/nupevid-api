@@ -139,3 +139,25 @@ pub async fn update_member_function(
         .update_member_function(session_id, user_id, data.function.clone(), req)
         .await
 }
+
+pub async fn update_work_session(
+    path: web::Path<Uuid>,
+    data: web::Json<CreateWorkSession>,
+    query: web::Query<IncludeComplementQuery>,
+    service: web::Data<WorkSessionService>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let session_id = path.into_inner();
+    info!(
+        "[Controller] Received request to update work session: {}",
+        session_id
+    );
+    service
+        .update_work_session(
+            session_id,
+            data.into_inner(),
+            req,
+            query.include_complement_for_entities.unwrap_or(false),
+        )
+        .await
+}

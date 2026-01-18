@@ -818,6 +818,133 @@ impl WorkSessionService {
         }
     }
 
+    pub async fn update_work_session(
+        &self,
+        session_id: Uuid,
+        data: CreateWorkSession,
+        req: HttpRequest,
+        include_complement_for_entities: bool,
+    ) -> Result<HttpResponse, AppError> {
+        info!(
+            "[WorkSessionService] Updating work session: {}",
+            session_id
+        );
+
+        let claims = extract_claims(&req)?;
+        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let requesting_user_id = Uuid::parse_str(&claims.id)
+            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
+        let user_city_id = extract_city_id_from_claims(&claims)?;
+
+        check_policy(
+            &claims,
+            POLICY_UPDATE_WORK_SESSIONS,
+            user_city_id,
+            &policies,
+        )?;
+
+        let session = self
+            .work_session_repository
+            .get_session_by_id_base(session_id)
+            .await
+            .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
+
+        if !session.is_active {
+            return Err(AppError::BadRequest(
+                "Cannot update inactive session".to_string(),
+            ));
+        }
+
+        let current_members = self
+            .work_session_repository
+            .get_session_members(session_id)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound("Session members not found".to_string())
+                }
+                _ => AppError::InternalServerError,
+            })?;
+
+        self.ensure_creator_or_commander(
+            session.created_by_user_id,
+            requesting_user_id,
+            &current_members,
+            "Only the session creator or commander can update the session",
+        )?;
+
+        if !data
+            .members
+            .iter()
+            .any(|member| member.user_id == requesting_user_id)
+        {
+            return Err(AppError::BadRequest(
+                "Requesting user must be included in session members".to_string(),
+            ));
+        }
+
+        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = data
+            .members
+            .iter()
+            .map(|m| (m.user_id, m.function.clone()))
+            .collect();
+
+        WorkSessionValidator::validate_team_functions(&members_with_functions)
+            .map_err(AppError::BadRequest)?;
+
+        self.validate_members_same_city(
+            &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
+            false,
+        )
+        .await?;
+
+        match self
+            .work_session_repository
+            .update_work_session_with_members(session_id, data.description, data.members)
+            .await
+        {
+            Ok(updated_session) => {
+                if include_complement_for_entities {
+                    let members = self
+                        .work_session_repository
+                        .get_session_members_with_user_details(session_id)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+                    Ok(ApiResponse::success(
+                        updated_session.with_members_complement(members),
+                    )
+                    .into_response())
+                } else {
+                    let members = self
+                        .work_session_repository
+                        .get_session_members_with_details(session_id)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+                    Ok(ApiResponse::success(updated_session.with_members(members)).into_response())
+                }
+            }
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.is_unique_violation()
+                    && let Some(app_err) = map_unique_constraint(
+                        db_err.constraint(),
+                        &[(
+                            "work_session_members_work_session_id_user_id_key",
+                            "User already added to session",
+                        )],
+                    )
+                {
+                    return Err(app_err);
+                }
+                error!(
+                    "[WorkSessionService] Failed to update work session: {:?}",
+                    e
+                );
+                Err(AppError::InternalServerError)
+            }
+        }
+    }
+
     async fn validate_members_same_city(
         &self,
         user_ids: &[Uuid],

@@ -344,4 +344,49 @@ impl WorkSessionRepository for PgWorkSessionRepository {
 
         Ok(result)
     }
+
+    async fn update_work_session_with_members(
+        &self,
+        session_id: Uuid,
+        description: Option<String>,
+        members: Vec<AddWorkSessionMember>,
+    ) -> Result<WorkSession, sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        if let Some(desc) = description {
+            let _: WorkSession =
+                sqlx::query_as(WorkSessionsQueries::UPDATE_WORK_SESSION_DESCRIPTION)
+                    .bind(session_id)
+                    .bind(desc)
+                    .fetch_one(&mut *tx)
+                    .await?;
+        }
+
+        let _: sqlx::postgres::PgQueryResult =
+            sqlx::query(WorkSessionMembersQueries::DELETE_ALL_MEMBERS)
+                .bind(session_id)
+                .execute(&mut *tx)
+                .await?;
+
+        for member in members {
+            let session_member_registration_id = Uuid::new_v4();
+            let _: WorkSessionMember =
+                sqlx::query_as(WorkSessionMembersQueries::CREATE_WORK_SESSION_MEMBER)
+                    .bind(session_member_registration_id)
+                    .bind(session_id)
+                    .bind(member.user_id)
+                    .bind(member.function)
+                    .fetch_one(&mut *tx)
+                    .await?;
+        }
+
+        let session: WorkSession = sqlx::query_as(WorkSessionsQueries::GET_SESSION_BY_ID)
+            .bind(session_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(session)
+    }
 }

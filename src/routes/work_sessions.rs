@@ -12,7 +12,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             )
             .route("/active", web::get().to(work_sessions::get_active_session))
             .route("/end", web::post().to(work_sessions::end_session))
-            .route("/{id}", web::get().to(work_sessions::get_session_by_id))
+            .service(
+                web::resource("/{id}")
+                    .route(web::get().to(work_sessions::get_session_by_id))
+                    .route(web::put().to(work_sessions::update_work_session)),
+            )
             .route("/{id}/members", web::post().to(work_sessions::add_member))
             .route(
                 "/{id}/members/{member_id}",
