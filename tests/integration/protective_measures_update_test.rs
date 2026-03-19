@@ -427,3 +427,106 @@ async fn update_measure_to_nonexistent_victim_returns_404() {
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
+
+#[actix_rt::test]
+async fn update_measure_rejects_extension_from_another_measure() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Extensao Update").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload_a = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    let create_req_a = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload_a),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let create_resp_a = test::call_service(&app, create_req_a).await;
+    assert_eq!(create_resp_a.status(), StatusCode::CREATED);
+    let create_body_a: serde_json::Value = test::read_body_json(create_resp_a).await;
+    let measure_a_id = create_body_a["data"]["id"].as_str().unwrap();
+
+    let payload_b = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    let create_req_b = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload_b),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let create_resp_b = test::call_service(&app, create_req_b).await;
+    assert_eq!(create_resp_b.status(), StatusCode::CREATED);
+    let create_body_b: serde_json::Value = test::read_body_json(create_resp_b).await;
+    let measure_b_id: Uuid = create_body_b["data"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    let foreign_extension_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO protective_measure_extensions (id, protective_measure_id, extension_number, extension_date, new_valid_until, notes) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(foreign_extension_id)
+    .bind(measure_b_id)
+    .bind(1_i32)
+    .bind(NaiveDate::from_ymd_opt(2025, 3, 1).unwrap())
+    .bind(NaiveDate::from_ymd_opt(2026, 3, 1).unwrap())
+    .bind("Extensao da outra medida")
+    .execute(&pool)
+    .await
+    .expect("failed to insert extension for test");
+
+    let update_payload = serde_json::json!({
+        "process_number": "12345-67.2025.8.26.0000",
+        "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        "valid_until": NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        "judicial_authority": "Juiz A",
+        "court_district_id": city,
+        "status": "Revoked",
+        "violence_types": ["Physical"],
+        "relationship_to_victim": "Spouse",
+        "assaults_children": false,
+        "was_drunk_during_assault": false,
+        "victim_id": victim_id,
+        "offender_id": offender_id,
+        "extensions": [
+            {
+                "id": foreign_extension_id,
+                "extension_number": 1,
+                "extension_date": NaiveDate::from_ymd_opt(2025, 3, 1).unwrap(),
+                "new_valid_until": NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+                "notes": "Nao pertence a esta medida"
+            }
+        ]
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/protective-measures/{}", measure_a_id))
+            .set_json(&update_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(
+        body["message"].as_str().unwrap(),
+        "Bad Request: Error updating protective measure: extension does not belong to this measure"
+    );
+}
