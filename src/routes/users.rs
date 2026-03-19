@@ -9,9 +9,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(users::create_user))
                     .route(web::get().to(users::get_all_users)),
             )
-            .service(
-                web::resource("/search").route(web::get().to(users::search_users)),
-            )
+            .service(web::resource("/search").route(web::get().to(users::search_users)))
             .service(
                 web::resource("/password")
                     .route(web::patch().to(users::update_user_password_by_id)),
