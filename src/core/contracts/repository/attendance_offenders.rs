@@ -10,6 +10,7 @@ pub trait AttendanceOffenderRepository: Send + Sync {
     async fn create_attendance_offender(
         &self,
         attendance: CreateAttendanceOffender,
+        session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceOffenderWithAddress, sqlx::Error>;
     async fn get_attendance_offender_by_id(
         &self,
