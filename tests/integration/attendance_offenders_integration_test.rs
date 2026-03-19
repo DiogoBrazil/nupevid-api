@@ -360,6 +360,71 @@ async fn update_attendance_offender() {
 }
 
 #[actix_rt::test]
+async fn update_attendance_offender_change_victim_requires_permission_on_new_victim_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
+    let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
+    let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
+    let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+
+    let root_user_id =
+        db_fixtures::insert_user(&pool, "100050001", "root.attendance@test.com", "ROOT", None)
+            .await;
+    test_helpers::create_work_session_for_user(&pool, root_user_id).await;
+
+    let mut root_claims = test_helpers::build_root_claims();
+    root_claims.id = root_user_id.to_string();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let create_payload = build_attendance_offender_payload(offender_a, victim_a);
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-offenders")
+            .set_json(&create_payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let attendance_id = create_body["data"]["id"].as_str().unwrap();
+
+    let acting_admin_id = db_fixtures::insert_user(
+        &pool,
+        "100050002",
+        "admin.attendance@test.com",
+        "CITY_ADMIN",
+        Some(city_a),
+    )
+    .await;
+    test_helpers::create_work_session_for_user(&pool, acting_admin_id).await;
+
+    let mut admin_claims = test_helpers::build_city_admin_claims(city_a);
+    admin_claims.id = acting_admin_id.to_string();
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let update_payload = build_attendance_offender_payload(offender_a, victim_b);
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/attendance-offenders/{}", attendance_id))
+            .set_json(&update_payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
 async fn delete_attendance_offender() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
