@@ -1,9 +1,9 @@
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
-pub async fn init_database(database_url: &str) -> PgPool {
+pub async fn init_database(database_url: &str, max_connections: u32) -> PgPool {
     PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(max_connections)
         .connect(database_url)
         .await
-        .expect("Falied to create pool database")
+        .expect("Failed to create pool database")
 }
