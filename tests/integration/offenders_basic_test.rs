@@ -190,6 +190,93 @@ async fn search_offenders_by_cpf_returns_match() {
 }
 
 #[actix_rt::test]
+async fn search_offenders_rejects_missing_filters() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/offenders/search"),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("query parameter 'name' or 'cpf' is required")
+    );
+}
+
+#[actix_rt::test]
+async fn search_offenders_rejects_conflicting_filters() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/offenders/search?name=carlos&cpf=529.982.247-25"),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("provide either 'name' or 'cpf', not both")
+    );
+}
+
+#[actix_rt::test]
+async fn search_offenders_rejects_empty_name_filter() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let claims = test_helpers::build_root_claims();
+    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/offenders/search?name=%20%20"),
+        &config,
+        &token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("query parameter 'name' cannot be empty")
+    );
+}
+
+#[actix_rt::test]
 async fn create_offender_with_invalid_cpf_format_fails() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
