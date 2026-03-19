@@ -27,12 +27,22 @@ async fn create_work_session_with_include_complement_returns_user_details() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Cidade WS").await;
-    let user_id =
-        db_fixtures::insert_user(&pool, "200001", "ws.user@test.com", "CITY_USER", Some(city_id))
-            .await;
-    let member_id =
-        db_fixtures::insert_user(&pool, "200002", "ws.member@test.com", "CITY_USER", Some(city_id))
-            .await;
+    let user_id = db_fixtures::insert_user(
+        &pool,
+        "200001",
+        "ws.user@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
+    let member_id = db_fixtures::insert_user(
+        &pool,
+        "200002",
+        "ws.member@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let mut claims = test_helpers::build_city_user_claims(city_id);
     claims.id = user_id.to_string();
@@ -129,8 +139,7 @@ async fn list_work_sessions_with_include_complement_returns_user_details() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions?include_complement_for_entities=true"),
+        test::TestRequest::get().uri("/api/v1/work-sessions?include_complement_for_entities=true"),
         &config,
         &token,
     )

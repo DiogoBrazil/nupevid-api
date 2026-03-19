@@ -208,9 +208,14 @@ async fn update_member_function_non_creator_fails() {
         Some(city_id),
     )
     .await;
-    let other_user_id =
-        db_fixtures::insert_user(&pool, "100007", "other@test.com", "CITY_USER", Some(city_id))
-            .await;
+    let other_user_id = db_fixtures::insert_user(
+        &pool,
+        "100007",
+        "other@test.com",
+        "CITY_USER",
+        Some(city_id),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city_id);
     creator_claims.id = creator_id.to_string();

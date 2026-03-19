@@ -5,11 +5,7 @@ use crate::common::test_helpers;
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn build_user_payload(
-    full_name: &str,
-    registration: &str,
-    email: &str,
-) -> serde_json::Value {
+fn build_user_payload(full_name: &str, registration: &str, email: &str) -> serde_json::Value {
     serde_json::json!({
         "rank": "CAP PM",
         "registration": registration,
@@ -250,8 +246,7 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
         email: "city.admin@test.com".to_string(),
         city_id: Some(city_a_id.to_string()),
     };
-    let city_admin_token =
-        test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
+    let city_admin_token = test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
 
     let search_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri("/api/v1/users/search?name=user"),
@@ -265,7 +260,11 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
     let results = body["data"].as_array().unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["full_name"].as_str().unwrap(), "User City A");
-    assert!(results.iter().all(|u| u["profile"].as_str().unwrap() != "ROOT"));
+    assert!(
+        results
+            .iter()
+            .all(|u| u["profile"].as_str().unwrap() != "ROOT")
+    );
 }
 
 #[actix_rt::test]

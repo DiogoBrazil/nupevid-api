@@ -148,10 +148,12 @@ async fn non_creator_cannot_add_members() {
     assert_eq!(add_resp.status(), StatusCode::FORBIDDEN);
 
     let body: serde_json::Value = test::read_body_json(add_resp).await;
-    assert!(body["message"]
-        .as_str()
-        .unwrap()
-        .contains("creator or commander"));
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("creator or commander")
+    );
 }
 
 /// Phase 3 - Test 3: User already in active session cannot join another

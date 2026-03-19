@@ -11,14 +11,9 @@ async fn commander_non_creator_can_add_member() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900001",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900001", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900002",
@@ -27,14 +22,8 @@ async fn commander_non_creator_can_add_member() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900003",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900003", "member@test.com", "CITY_USER", Some(city)).await;
     let new_member_id = db_fixtures::insert_user(
         &pool,
         "900004",
@@ -111,14 +100,9 @@ async fn commander_non_creator_can_remove_member() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900010",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900010", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900011",
@@ -127,14 +111,8 @@ async fn commander_non_creator_can_remove_member() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900012",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900012", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -199,14 +177,9 @@ async fn commander_non_creator_can_update_members() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900020",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900020", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900021",
@@ -215,14 +188,8 @@ async fn commander_non_creator_can_update_members() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900022",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900022", "member@test.com", "CITY_USER", Some(city)).await;
     let new_member_id = db_fixtures::insert_user(
         &pool,
         "900023",
@@ -315,14 +282,9 @@ async fn commander_non_creator_can_update_member_function() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900030",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900030", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900031",
@@ -331,14 +293,8 @@ async fn commander_non_creator_can_update_member_function() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900032",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900032", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -409,14 +365,9 @@ async fn commander_non_creator_can_end_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900040",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900040", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900041",
@@ -490,14 +441,9 @@ async fn member_non_commander_cannot_remove_member() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900050",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900050", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900051",
@@ -506,14 +452,8 @@ async fn member_non_commander_cannot_remove_member() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900052",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900052", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -578,14 +518,9 @@ async fn member_non_commander_cannot_update_members() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900060",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900060", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900061",
@@ -594,14 +529,8 @@ async fn member_non_commander_cannot_update_members() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900062",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900062", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -678,14 +607,9 @@ async fn member_non_commander_cannot_end_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
-    let creator_id = db_fixtures::insert_user(
-        &pool,
-        "900070",
-        "creator@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let creator_id =
+        db_fixtures::insert_user(&pool, "900070", "creator@test.com", "CITY_USER", Some(city))
+            .await;
     let commander_id = db_fixtures::insert_user(
         &pool,
         "900071",
@@ -694,14 +618,8 @@ async fn member_non_commander_cannot_end_session() {
         Some(city),
     )
     .await;
-    let member_id = db_fixtures::insert_user(
-        &pool,
-        "900072",
-        "member@test.com",
-        "CITY_USER",
-        Some(city),
-    )
-    .await;
+    let member_id =
+        db_fixtures::insert_user(&pool, "900072", "member@test.com", "CITY_USER", Some(city)).await;
 
     let mut creator_claims = test_helpers::build_city_user_claims(city);
     creator_claims.id = creator_id.to_string();

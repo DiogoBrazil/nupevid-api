@@ -1,5 +1,5 @@
-use actix_web::{http::StatusCode, test};
 use crate::common::{fixtures, test_helpers};
+use actix_web::{http::StatusCode, test};
 
 #[actix_rt::test]
 async fn test_update_password_success() {

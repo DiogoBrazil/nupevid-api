@@ -60,9 +60,18 @@ async fn create_protective_measure_with_include_complement_returns_entities() {
     assert_eq!(resp.status(), StatusCode::CREATED);
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = &body["data"];
-    assert_eq!(data["victim"]["id"].as_str().unwrap(), victim_id.to_string());
-    assert_eq!(data["offender"]["id"].as_str().unwrap(), offender_id.to_string());
-    assert_eq!(data["court_district"]["id"].as_str().unwrap(), city.to_string());
+    assert_eq!(
+        data["victim"]["id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
+    assert_eq!(
+        data["offender"]["id"].as_str().unwrap(),
+        offender_id.to_string()
+    );
+    assert_eq!(
+        data["court_district"]["id"].as_str().unwrap(),
+        city.to_string()
+    );
     assert_entity_without_timestamps(&data["victim"]);
     assert_entity_without_timestamps(&data["offender"]);
     assert_entity_without_timestamps(&data["court_district"]);
@@ -79,17 +88,17 @@ async fn get_protective_measure_by_id_with_include_complement_returns_entities()
     let city = db_fixtures::insert_city(&pool, "Cidade PM Get").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima PM Get", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor PM Get", city).await;
-    let measure_id = db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
+    let measure_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     let admin_claims = test_helpers::build_city_admin_claims(city);
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri(&format!(
-                "/api/v1/protective-measures/{}?include_complement_for_entities=true",
-                measure_id
-            )),
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures/{}?include_complement_for_entities=true",
+            measure_id
+        )),
         &config,
         &admin_token,
     )
@@ -99,9 +108,18 @@ async fn get_protective_measure_by_id_with_include_complement_returns_entities()
     assert_eq!(resp.status(), StatusCode::OK);
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = &body["data"];
-    assert_eq!(data["victim"]["id"].as_str().unwrap(), victim_id.to_string());
-    assert_eq!(data["offender"]["id"].as_str().unwrap(), offender_id.to_string());
-    assert_eq!(data["court_district"]["id"].as_str().unwrap(), city.to_string());
+    assert_eq!(
+        data["victim"]["id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
+    assert_eq!(
+        data["offender"]["id"].as_str().unwrap(),
+        offender_id.to_string()
+    );
+    assert_eq!(
+        data["court_district"]["id"].as_str().unwrap(),
+        city.to_string()
+    );
     assert_entity_without_timestamps(&data["victim"]);
     assert_entity_without_timestamps(&data["offender"]);
     assert_entity_without_timestamps(&data["court_district"]);

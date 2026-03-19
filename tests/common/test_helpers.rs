@@ -33,7 +33,7 @@ pub async fn setup_test_db() -> PgPool {
     let database_url = env::var("DATABASE_TEST_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/nupevid_test".to_string());
 
-    let pool = init_database(&database_url).await;
+    let pool = init_database(&database_url, 5).await;
 
     // Run migrations
     sqlx::migrate!("./migrations")
@@ -52,15 +52,16 @@ pub fn build_test_config() -> Config {
     let database_url = env::var("DATABASE_TEST_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/nupevid_test".to_string());
 
-    let sercer_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
+    let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
     let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
     let api_key = env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
 
     Config {
         database_url,
-        sercer_addr,
+        server_addr,
         jwt_secret,
         api_key,
+        db_max_connections: 5,
     }
 }
 
