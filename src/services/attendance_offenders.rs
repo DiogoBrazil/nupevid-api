@@ -360,7 +360,13 @@ impl AttendanceOffenderService {
         }
 
         if data.victim_id != existing.victim_id {
-            let _victim = self.verify_victim_access(&claims, data.victim_id).await?;
+            let victim = self.verify_victim_access(&claims, data.victim_id).await?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_ATTENDANCES,
+                victim.city_id,
+                &policies,
+            )?;
         }
 
         if data.protective_measure_id != existing.protective_measure_id
