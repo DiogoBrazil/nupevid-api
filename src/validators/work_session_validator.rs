@@ -66,9 +66,23 @@ impl WorkSessionValidator {
         Ok(())
     }
 
-    pub fn can_remove_member(current_member_count: usize) -> Result<(), String> {
-        if current_member_count <= 1 {
+    pub fn can_remove_member(
+        current_members: &[(Uuid, Option<TeamMemberFunction>)],
+        member_to_remove: Uuid,
+    ) -> Result<(), String> {
+        if current_members.len() <= 1 {
             return Err("Cannot remove member. Team must have at least one member.".to_string());
+        }
+
+        let is_commander = current_members.iter().any(|(id, func)| {
+            *id == member_to_remove && matches!(func, Some(TeamMemberFunction::Commander))
+        });
+
+        if is_commander {
+            return Err(
+                "Cannot remove the Commander. Change the Commander role to another member first."
+                    .to_string(),
+            );
         }
 
         Ok(())
