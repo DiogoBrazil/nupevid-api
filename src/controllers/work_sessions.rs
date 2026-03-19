@@ -23,7 +23,11 @@ pub async fn create_work_session(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create work session");
     service
-        .create_work_session(data.into_inner(), req, query.include_complement_for_entities.unwrap_or(false))
+        .create_work_session(
+            data.into_inner(),
+            req,
+            query.include_complement_for_entities.unwrap_or(false),
+        )
         .await
 }
 
@@ -50,7 +54,11 @@ pub async fn get_session_by_id(
         session_id
     );
     service
-        .get_session_by_id(session_id, req, query.include_complement_for_entities.unwrap_or(false))
+        .get_session_by_id(
+            session_id,
+            req,
+            query.include_complement_for_entities.unwrap_or(false),
+        )
         .await
 }
 
