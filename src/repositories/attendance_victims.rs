@@ -98,6 +98,7 @@ impl AttendanceVictimRepository for PgAttendanceVictimRepository {
     async fn create_attendance_victim(
         &self,
         attendance: CreateAttendanceVictim,
+        session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceVictimWithAddress, sqlx::Error> {
         let attendance_id = Uuid::new_v4();
 
@@ -141,6 +142,19 @@ impl AttendanceVictimRepository for PgAttendanceVictimRepository {
         } else {
             None
         };
+
+        for (user_id, work_session_id) in &session_members {
+            sqlx::query(
+                "INSERT INTO attendance_victim_members (id, attendance_victim_id, user_id, work_session_id, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())"
+            )
+            .bind(Uuid::new_v4())
+            .bind(attendance_id)
+            .bind(user_id)
+            .bind(work_session_id)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         tx.commit().await?;
 

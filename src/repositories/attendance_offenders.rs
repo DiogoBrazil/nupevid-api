@@ -99,6 +99,7 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
     async fn create_attendance_offender(
         &self,
         attendance: CreateAttendanceOffender,
+        session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceOffenderWithAddress, sqlx::Error> {
         let attendance_id = Uuid::new_v4();
 
@@ -136,6 +137,19 @@ impl AttendanceOffenderRepository for PgAttendanceOffenderRepository {
         } else {
             None
         };
+
+        for (user_id, work_session_id) in &session_members {
+            sqlx::query(
+                "INSERT INTO attendance_offender_members (id, attendance_offender_id, user_id, work_session_id, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())"
+            )
+            .bind(Uuid::new_v4())
+            .bind(attendance_id)
+            .bind(user_id)
+            .bind(work_session_id)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         tx.commit().await?;
 
