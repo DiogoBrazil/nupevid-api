@@ -227,7 +227,9 @@ impl WorkSessionService {
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id {
+            if session.created_by_user_id != user_id
+                && claims.profile != PROFILE_ROOT
+            {
                 let user_city_id = extract_city_id_from_claims(&claims)?;
                 check_policy(
                     &claims,
@@ -255,7 +257,9 @@ impl WorkSessionService {
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id {
+            if session.created_by_user_id != user_id
+                && claims.profile != PROFILE_ROOT
+            {
                 let user_city_id = extract_city_id_from_claims(&claims)?;
                 check_policy(
                     &claims,
