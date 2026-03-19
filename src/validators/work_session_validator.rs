@@ -88,3 +88,204 @@ impl WorkSessionValidator {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    // ==================== validate_team_functions ====================
+
+    #[test]
+    fn test_valid_commander_driver_patroller() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+        ];
+        assert!(WorkSessionValidator::validate_team_functions(&members).is_ok());
+    }
+
+    #[test]
+    fn test_valid_commander_only() {
+        let members = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
+        assert!(WorkSessionValidator::validate_team_functions(&members).is_ok());
+    }
+
+    #[test]
+    fn test_valid_commander_multiple_patrollers() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+        ];
+        assert!(WorkSessionValidator::validate_team_functions(&members).is_ok());
+    }
+
+    #[test]
+    fn test_no_commander_err() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+        ];
+        let err = WorkSessionValidator::validate_team_functions(&members).unwrap_err();
+        assert!(err.contains("exactly one Commander"));
+    }
+
+    #[test]
+    fn test_two_commanders_err() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+        ];
+        let err = WorkSessionValidator::validate_team_functions(&members).unwrap_err();
+        assert!(err.contains("only have one Commander"));
+    }
+
+    #[test]
+    fn test_two_drivers_err() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+        ];
+        let err = WorkSessionValidator::validate_team_functions(&members).unwrap_err();
+        assert!(err.contains("only have one Driver"));
+    }
+
+    #[test]
+    fn test_valid_commander_driver_no_patrollers() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+        ];
+        assert!(WorkSessionValidator::validate_team_functions(&members).is_ok());
+    }
+
+    #[test]
+    fn test_valid_members_with_none_function() {
+        let members = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), None),
+            (Uuid::new_v4(), None),
+        ];
+        assert!(WorkSessionValidator::validate_team_functions(&members).is_ok());
+    }
+
+    // ==================== can_add_member_with_function ====================
+
+    #[test]
+    fn test_can_add_patroller() {
+        let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
+        assert!(WorkSessionValidator::can_add_member_with_function(
+            &current,
+            &Some(TeamMemberFunction::Patroller)
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_can_add_driver_when_no_driver() {
+        let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
+        assert!(WorkSessionValidator::can_add_member_with_function(
+            &current,
+            &Some(TeamMemberFunction::Driver)
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_cannot_add_commander_when_exists() {
+        let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
+        let err = WorkSessionValidator::can_add_member_with_function(
+            &current,
+            &Some(TeamMemberFunction::Commander),
+        )
+        .unwrap_err();
+        assert!(err.contains("already has a Commander"));
+    }
+
+    #[test]
+    fn test_cannot_add_driver_when_exists() {
+        let current = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
+        ];
+        let err = WorkSessionValidator::can_add_member_with_function(
+            &current,
+            &Some(TeamMemberFunction::Driver),
+        )
+        .unwrap_err();
+        assert!(err.contains("already has a Driver"));
+    }
+
+    #[test]
+    fn test_can_add_member_with_none() {
+        let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
+        assert!(
+            WorkSessionValidator::can_add_member_with_function(&current, &None).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_can_add_commander_when_no_commander() {
+        let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Patroller))];
+        assert!(WorkSessionValidator::can_add_member_with_function(
+            &current,
+            &Some(TeamMemberFunction::Commander)
+        )
+        .is_ok());
+    }
+
+    // ==================== can_remove_member ====================
+
+    #[test]
+    fn test_can_remove_patroller() {
+        let pat_id = Uuid::new_v4();
+        let current = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (pat_id, Some(TeamMemberFunction::Patroller)),
+        ];
+        assert!(WorkSessionValidator::can_remove_member(&current, pat_id).is_ok());
+    }
+
+    #[test]
+    fn test_cannot_remove_only_member() {
+        let cmd_id = Uuid::new_v4();
+        let current = vec![(cmd_id, Some(TeamMemberFunction::Commander))];
+        let err = WorkSessionValidator::can_remove_member(&current, cmd_id).unwrap_err();
+        assert!(err.contains("at least one member"));
+    }
+
+    #[test]
+    fn test_cannot_remove_commander() {
+        let cmd_id = Uuid::new_v4();
+        let current = vec![
+            (cmd_id, Some(TeamMemberFunction::Commander)),
+            (Uuid::new_v4(), Some(TeamMemberFunction::Patroller)),
+        ];
+        let err = WorkSessionValidator::can_remove_member(&current, cmd_id).unwrap_err();
+        assert!(err.contains("Cannot remove the Commander"));
+    }
+
+    #[test]
+    fn test_can_remove_driver() {
+        let drv_id = Uuid::new_v4();
+        let current = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (drv_id, Some(TeamMemberFunction::Driver)),
+        ];
+        assert!(WorkSessionValidator::can_remove_member(&current, drv_id).is_ok());
+    }
+
+    #[test]
+    fn test_can_remove_none_function_member() {
+        let none_id = Uuid::new_v4();
+        let current = vec![
+            (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
+            (none_id, None),
+        ];
+        assert!(WorkSessionValidator::can_remove_member(&current, none_id).is_ok());
+    }
+}
