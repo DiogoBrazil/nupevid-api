@@ -2,9 +2,9 @@ use actix_web::{http::StatusCode, test};
 
 use crate::common::{db_fixtures, test_helpers};
 
-/// Phase 8 - Test 1: ROOT can end any session
+/// Phase 8 - Test 1: current endpoint only ends the caller's active session
 #[actix_rt::test]
-async fn root_can_end_any_user_session() {
+async fn root_cannot_end_other_user_session_without_own_active_session() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 

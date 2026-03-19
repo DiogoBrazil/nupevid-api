@@ -48,9 +48,14 @@ async fn create_session_with_nonexistent_member() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    // Should fail - user doesn't exist
-    let status = resp.status();
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains(&nonexistent_user_id.to_string())
+    );
 }
 
 /// Phase 6 - Test 2: Add non-existent member to existing session
@@ -118,8 +123,14 @@ async fn add_nonexistent_member_to_session() {
     .to_request();
 
     let add_resp = test::call_service(&app, add_req).await;
-    let status = add_resp.status();
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::NOT_FOUND);
+    assert_eq!(add_resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = test::read_body_json(add_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains(&nonexistent_user_id.to_string())
+    );
 }
 
 /// Phase 6 - Test 3: Update members with non-existent user
@@ -195,8 +206,14 @@ async fn update_members_with_nonexistent_user() {
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    let status = update_resp.status();
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::NOT_FOUND);
+    assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains(&nonexistent_user_id.to_string())
+    );
 }
 
 /// Phase 6 - Test 4: Remove non-existent member from session
@@ -217,6 +234,14 @@ async fn remove_nonexistent_member_from_session() {
         Some(city),
     )
     .await;
+    let teammate_id = db_fixtures::insert_user(
+        &pool,
+        "300005",
+        "teammate@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
 
     let mut creator_claims = test_helpers::build_city_admin_claims(city);
     creator_claims.id = creator_id.to_string();
@@ -229,6 +254,10 @@ async fn remove_nonexistent_member_from_session() {
             {
                 "user_id": creator_id,
                 "function": "Commander"
+            },
+            {
+                "user_id": teammate_id,
+                "function": "Patroller"
             }
         ]
     });
@@ -260,7 +289,10 @@ async fn remove_nonexistent_member_from_session() {
     .to_request();
 
     let remove_resp = test::call_service(&app, remove_req).await;
-    let status = remove_resp.status();
-    // Should fail - member doesn't exist
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::NOT_FOUND);
+    assert_eq!(remove_resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = test::read_body_json(remove_resp).await;
+    assert_eq!(
+        body["message"].as_str().unwrap(),
+        "Not Found: User is not a member of this session"
+    );
 }
