@@ -1,6 +1,7 @@
 use crate::utils::errors::AppError;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashMap;
 
 // Profile constants
 pub const PROFILE_ROOT: &str = "ROOT";
@@ -302,8 +303,6 @@ pub fn generate_default_policies(
     profile: &str,
     city_id: Option<uuid::Uuid>,
 ) -> std::collections::HashMap<String, Vec<uuid::Uuid>> {
-    use std::collections::HashMap;
-
     let mut policies: HashMap<String, Vec<uuid::Uuid>> = HashMap::new();
 
     match profile {
