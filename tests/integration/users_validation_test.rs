@@ -700,8 +700,20 @@ async fn append_policy_with_empty_city_ids_array() {
     .to_request();
 
     let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let user_id = body["data"]["id"].as_str().unwrap();
+
+    let get_before_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", user_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let get_before_resp = test::call_service(&app, get_before_req).await;
+    assert_eq!(get_before_resp.status(), StatusCode::OK);
+    let before_body: serde_json::Value = test::read_body_json(get_before_resp).await;
+    let before_policies = before_body["data"]["permission_policies"].clone();
 
     // Try to append with empty city_ids (should succeed but not change anything)
     let append_payload = serde_json::json!({
@@ -723,4 +735,15 @@ async fn append_policy_with_empty_city_ids_array() {
     let append_resp = test::call_service(&app, append_req).await;
     // This should succeed (empty array is valid, just doesn't add anything)
     assert_eq!(append_resp.status(), StatusCode::OK);
+
+    let get_after_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/users/{}", user_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let get_after_resp = test::call_service(&app, get_after_req).await;
+    assert_eq!(get_after_resp.status(), StatusCode::OK);
+    let after_body: serde_json::Value = test::read_body_json(get_after_resp).await;
+    assert_eq!(after_body["data"]["permission_policies"], before_policies);
 }
