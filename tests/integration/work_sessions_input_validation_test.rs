@@ -149,9 +149,8 @@ async fn add_member_with_invalid_function() {
     .to_request();
 
     let add_resp = test::call_service(&app, add_req).await;
-    let status = add_resp.status();
-    // Invalid function should be rejected during deserialization or validation
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::UNPROCESSABLE_ENTITY);
+    // Invalid function is rejected during JSON deserialization
+    assert_eq!(add_resp.status(), StatusCode::BAD_REQUEST);
 }
 
 /// Phase 5 - Test 4: Create session with member having invalid function
@@ -198,8 +197,8 @@ async fn create_session_with_invalid_member_function() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    let status = resp.status();
-    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::UNPROCESSABLE_ENTITY);
+    // Invalid function is rejected during JSON deserialization
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 /// Phase 5 - Test 5: Create session with very long description (tests DB limits)

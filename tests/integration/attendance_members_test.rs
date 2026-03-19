@@ -73,8 +73,8 @@ async fn get_victim_attendance_members_success() {
     let get_body: serde_json::Value = test::read_body_json(get_resp).await;
     let members = get_body["data"].as_array().unwrap();
 
-    // Should have user automatically added
-    assert!(members.len() >= 1);
+    // Should have user automatically added (exactly 1 session member)
+    assert_eq!(members.len(), 1);
 }
 
 #[actix_rt::test]
@@ -449,8 +449,8 @@ async fn get_offender_attendance_members_success() {
     let get_body: serde_json::Value = test::read_body_json(get_resp).await;
     let members = get_body["data"].as_array().unwrap();
 
-    // Should have user automatically added
-    assert!(members.len() >= 1);
+    // Should have user automatically added (exactly 1 session member)
+    assert_eq!(members.len(), 1);
 }
 
 #[actix_rt::test]

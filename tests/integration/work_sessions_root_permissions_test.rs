@@ -24,8 +24,8 @@ async fn root_can_end_any_user_session() {
     root_claims.id = root_id.to_string();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    // ROOT calls end endpoint - this may not work as expected since end looks for "user's" active session
-    // This test documents current behavior
+    // ROOT calls end endpoint - end_session looks for ROOT's own active session (not by session_id)
+    // ROOT bypasses policy check but has no active session, so returns NOT_FOUND
     let end_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri("/api/v1/work-sessions/end"),
         &config,
@@ -34,10 +34,8 @@ async fn root_can_end_any_user_session() {
     .to_request();
 
     let end_resp = test::call_service(&app, end_req).await;
-    // ROOT doesn't have city_id so fails permission check before finding session
-    // Returns FORBIDDEN instead of NOT_FOUND
-    let status = end_resp.status();
-    assert!(status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND);
+    // ROOT bypasses policy check but has no active session → NOT_FOUND
+    assert_eq!(end_resp.status(), StatusCode::NOT_FOUND);
 
     // Verify session is still active
     let is_active: bool = sqlx::query_scalar("SELECT is_active FROM work_sessions WHERE id = $1")
@@ -137,9 +135,8 @@ async fn root_can_view_session_from_any_city() {
     .to_request();
 
     let get_a_resp = test::call_service(&app, get_a_req).await;
-    // ROOT should be able to view any session, but may fail due to city_id requirement
-    let status_a = get_a_resp.status();
-    assert!(status_a == StatusCode::OK || status_a == StatusCode::FORBIDDEN);
+    // ROOT bypasses policy check and can view any session
+    assert_eq!(get_a_resp.status(), StatusCode::OK);
 
     // View session from city B
     let get_b_req = test_helpers::with_auth_headers(
@@ -150,6 +147,5 @@ async fn root_can_view_session_from_any_city() {
     .to_request();
 
     let get_b_resp = test::call_service(&app, get_b_req).await;
-    let status_b = get_b_resp.status();
-    assert!(status_b == StatusCode::OK || status_b == StatusCode::FORBIDDEN);
+    assert_eq!(get_b_resp.status(), StatusCode::OK);
 }
