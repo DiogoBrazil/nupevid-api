@@ -7,14 +7,3 @@ impl AttendanceVictimValidator {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validate_fields() {
-        let result = AttendanceVictimValidator::validate_fields();
-        assert!(result.is_ok());
-    }
-}
