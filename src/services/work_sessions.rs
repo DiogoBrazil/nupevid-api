@@ -175,7 +175,10 @@ impl WorkSessionService {
                         .get_session_members_with_user_details(session.id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-                    Ok(ApiResponse::success(session.with_members_complement(members)).into_response())
+                    Ok(
+                        ApiResponse::success(session.with_members_complement(members))
+                            .into_response(),
+                    )
                 } else {
                     let with_members = self
                         .work_session_repository
@@ -207,7 +210,8 @@ impl WorkSessionService {
         info!("[WorkSessionService] Getting session by id: {}", session_id);
 
         let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
+        let policies =
+            get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
@@ -402,9 +406,10 @@ impl WorkSessionService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(&claims, POLICY_END_WORK_SESSIONS, user_city_id, &policies)?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(&claims, POLICY_END_WORK_SESSIONS, user_city_id, &policies)?;
+        }
 
         let session = self
             .work_session_repository
@@ -455,14 +460,15 @@ impl WorkSessionService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_UPDATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let session = self
             .work_session_repository
@@ -504,7 +510,10 @@ impl WorkSessionService {
             ));
         }
 
-        self.validate_members_same_city(&[user_id], false).await?;
+        let mut all_user_ids: Vec<Uuid> = current_members.iter().map(|m| m.user_id).collect();
+        all_user_ids.push(user_id);
+        self.validate_members_same_city(&all_user_ids, claims.profile == PROFILE_ROOT)
+            .await?;
 
         let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
             .iter()
@@ -562,14 +571,15 @@ impl WorkSessionService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_UPDATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let session = self
             .work_session_repository
@@ -601,7 +611,11 @@ impl WorkSessionService {
             "Only the session creator or commander can remove members",
         )?;
 
-        WorkSessionValidator::can_remove_member(current_members.len())
+        let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
+            .iter()
+            .map(|m| (m.user_id, m.function.clone()))
+            .collect();
+        WorkSessionValidator::can_remove_member(&members_with_functions, member_id)
             .map_err(AppError::BadRequest)?;
 
         match self
@@ -635,14 +649,15 @@ impl WorkSessionService {
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_UPDATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let session = self
             .work_session_repository
@@ -685,7 +700,7 @@ impl WorkSessionService {
 
         self.validate_members_same_city(
             &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
-            false,
+            claims.profile == PROFILE_ROOT,
         )
         .await?;
 
@@ -740,14 +755,15 @@ impl WorkSessionService {
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_UPDATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let session = self
             .work_session_repository
@@ -825,23 +841,21 @@ impl WorkSessionService {
         req: HttpRequest,
         include_complement_for_entities: bool,
     ) -> Result<HttpResponse, AppError> {
-        info!(
-            "[WorkSessionService] Updating work session: {}",
-            session_id
-        );
+        info!("[WorkSessionService] Updating work session: {}", session_id);
 
         let claims = extract_claims(&req)?;
         let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        let user_city_id = extract_city_id_from_claims(&claims)?;
-
-        check_policy(
-            &claims,
-            POLICY_UPDATE_WORK_SESSIONS,
-            user_city_id,
-            &policies,
-        )?;
+        if claims.profile != PROFILE_ROOT {
+            let user_city_id = extract_city_id_from_claims(&claims)?;
+            check_policy(
+                &claims,
+                POLICY_UPDATE_WORK_SESSIONS,
+                user_city_id,
+                &policies,
+            )?;
+        }
 
         let session = self
             .work_session_repository
@@ -894,7 +908,7 @@ impl WorkSessionService {
 
         self.validate_members_same_city(
             &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
-            false,
+            claims.profile == PROFILE_ROOT,
         )
         .await?;
 
@@ -910,10 +924,10 @@ impl WorkSessionService {
                         .get_session_members_with_user_details(session_id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-                    Ok(ApiResponse::success(
-                        updated_session.with_members_complement(members),
+                    Ok(
+                        ApiResponse::success(updated_session.with_members_complement(members))
+                            .into_response(),
                     )
-                    .into_response())
                 } else {
                     let members = self
                         .work_session_repository

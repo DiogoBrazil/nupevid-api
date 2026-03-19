@@ -577,10 +577,10 @@ impl UserService {
                     Some(p) => p,
                     None => {
                         info!("[UserService] No policies found for CITY_ADMIN");
-                        return Ok(
-                            ApiResponse::success(Vec::<UserDataCreatedWithoutPassword>::new())
-                                .into_response(),
-                        );
+                        return Ok(ApiResponse::success(
+                            Vec::<UserDataCreatedWithoutPassword>::new(),
+                        )
+                        .into_response());
                     }
                 };
 

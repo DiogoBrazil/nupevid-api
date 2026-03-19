@@ -855,11 +855,28 @@ impl ProtectiveMeasureService {
             AppError::InternalServerError
         })?;
 
+        let extensions = self
+            .extension_repository
+            .get_extensions_by_measure(id)
+            .await
+            .map_err(|e| {
+                error!(
+                    "[ProtectiveMeasureService] Error fetching extensions: {:?}",
+                    e
+                );
+                AppError::InternalServerError
+            })?;
+
+        let response = ProtectiveMeasureWithExtensions {
+            measure: updated,
+            extensions,
+        };
+
         info!(
             "[ProtectiveMeasureService] Protective measure updated successfully: {}",
             id
         );
-        Ok(ApiResponse::success(updated).into_response())
+        Ok(ApiResponse::success(response).into_response())
     }
 
     pub async fn delete_protective_measure_by_id(
@@ -945,10 +962,9 @@ impl ProtectiveMeasureService {
             .get_victim_by_id(measure.victim_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => AppError::NotFound(format!(
-                    "Victim with id '{}' not found",
-                    measure.victim_id
-                )),
+                sqlx::Error::RowNotFound => {
+                    AppError::NotFound(format!("Victim with id '{}' not found", measure.victim_id))
+                }
                 _ => {
                     error!("[ProtectiveMeasureService] Error fetching victim: {:?}", e);
                     AppError::InternalServerError

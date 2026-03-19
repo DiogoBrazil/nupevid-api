@@ -86,9 +86,14 @@ impl AttendanceVictimService {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
+        let members_for_tx: Vec<(Uuid, Option<Uuid>)> = session_members
+            .iter()
+            .map(|m| (m.user_id, Some(active_session.id)))
+            .collect();
+
         match self
             .attendance_victim_repository
-            .create_attendance_victim(attendance)
+            .create_attendance_victim(attendance, members_for_tx)
             .await
         {
             Ok(attendance_with_address) => {
@@ -96,32 +101,6 @@ impl AttendanceVictimService {
                     "[AttendanceVictimService] Attendance victim created: {}",
                     attendance_with_address.id
                 );
-
-                for member in session_members {
-                    match self
-                        .attendance_member_repository
-                        .add_member_to_victim_attendance(
-                            attendance_with_address.id,
-                            member.user_id,
-                            Some(active_session.id),
-                        )
-                        .await
-                    {
-                        Ok(_) => {
-                            info!(
-                                "[AttendanceVictimService] Member {} added to attendance {}",
-                                member.user_id, attendance_with_address.id
-                            );
-                        }
-                        Err(e) => {
-                            error!(
-                                "[AttendanceVictimService] Failed to add member {} to attendance: {:?}",
-                                member.user_id, e
-                            );
-                        }
-                    }
-                }
-
                 Ok(ApiResponse::created(attendance_with_address).into_response())
             }
             Err(e) => {
