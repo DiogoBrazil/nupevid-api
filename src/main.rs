@@ -36,9 +36,12 @@ async fn main() -> std::io::Result<()> {
 
     dotenv::dotenv().ok();
 
-    let config = Config::from_env();
+    let config = Config::from_env().unwrap_or_else(|e| {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    });
 
-    let pool = init_database(&config.database_url).await;
+    let pool = init_database(&config.database_url, config.db_max_connections).await;
     info!("Database connection established");
 
     // Create adapters
@@ -128,14 +131,14 @@ async fn main() -> std::io::Result<()> {
     info!("Services created");
 
     // Start the server
-    let server_addr = config.sercer_addr.clone();
+    let server_addr = config.server_addr.clone();
     info!("Server will be started at: http://{}", server_addr);
 
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
             .allowed_origin_fn(|origin, _req_head| {
-                println!("Origin: {:?}", origin);
+                log::debug!("CORS Origin: {:?}", origin);
                 true
             })
             .allow_any_method()
