@@ -135,6 +135,93 @@ async fn search_victims_by_cpf_returns_match() {
 }
 
 #[actix_rt::test]
+async fn search_victims_rejects_missing_filters() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims/search"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("query parameter 'name' or 'cpf' is required")
+    );
+}
+
+#[actix_rt::test]
+async fn search_victims_rejects_conflicting_filters() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims/search?name=maria&cpf=529.982.247-25"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("provide either 'name' or 'cpf', not both")
+    );
+}
+
+#[actix_rt::test]
+async fn search_victims_rejects_empty_name_filter() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let root_claims = test_helpers::build_root_claims();
+    let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
+
+    let search_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/victims/search?name=%20%20"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let search_resp = test::call_service(&app, search_req).await;
+    assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(search_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("query parameter 'name' cannot be empty")
+    );
+}
+
+#[actix_rt::test]
 async fn root_can_create_and_list_victims_in_multiple_cities() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
