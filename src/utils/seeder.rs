@@ -1,6 +1,6 @@
+use crate::core::commands::users::CreateUser;
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
-use crate::core::entities::users::CreateUser;
 use crate::repositories::users::PgUserRepository;
 use log::{error, info};
 use sqlx::PgPool;
