@@ -1,7 +1,8 @@
-use jsonwebtoken::{EncodingKey, Header, encode, errors::Error as JwtError};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::errors::DomainError;
 
 pub use crate::core::contracts::adapters::token_generator::{TokenClaimsInput, TokenGeneratorPort};
 
@@ -25,7 +26,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         &self,
         claims: TokenClaimsInput<'_>,
         secret: &str,
-    ) -> Result<String, JwtError> {
+    ) -> Result<String, DomainError> {
         let expiration: usize = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -48,5 +49,6 @@ impl TokenGeneratorPort for JwtTokenGenerator {
             &claims,
             &EncodingKey::from_secret(secret.as_bytes()),
         )
+        .map_err(|e| DomainError::AdapterError(e.to_string()))
     }
 }

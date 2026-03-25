@@ -1,4 +1,4 @@
-use jsonwebtoken::errors::Error as JwtError;
+use crate::core::errors::DomainError;
 
 pub struct TokenClaimsInput<'a> {
     pub id: &'a str,
@@ -15,5 +15,5 @@ pub trait TokenGeneratorPort: Send + Sync {
         &self,
         claims: TokenClaimsInput<'_>,
         secret: &str,
-    ) -> Result<String, JwtError>;
+    ) -> Result<String, DomainError>;
 }
