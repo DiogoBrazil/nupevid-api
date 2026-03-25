@@ -3,13 +3,19 @@ use log::info;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::config::querys::extensions::ExtensionsQueries;
 use crate::config::querys::protective_measures::ProtectiveMeasuresQueries;
 use crate::core::{
-    contracts::repository::protective_measures::ProtectiveMeasureRepository,
-    entities::protective_measures::{
-        CreateProtectiveMeasure, ProtectiveMeasure, UpdateProtectiveMeasure,
+    commands::protective_measures::{
+        CreateExtension, CreateProtectiveMeasure, UpdateExtension, UpdateProtectiveMeasure,
     },
+    contracts::repository::{
+        error::RepositoryError,
+        protective_measures::{ProtectiveMeasureReadRepository, ProtectiveMeasureWriteRepository},
+    },
+    entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureExtension},
 };
+use super::models::protective_measures::{ProtectiveMeasureRow, ProtectiveMeasureExtensionRow};
 
 #[derive(Clone)]
 pub struct PgProtectiveMeasureRepository {
@@ -21,19 +27,24 @@ impl PgProtectiveMeasureRepository {
         Self { pool }
     }
 
-    pub async fn begin_tx(&self) -> Result<Transaction<'_, Postgres>, sqlx::Error> {
-        self.pool.begin().await
+    pub async fn begin_tx(
+        &self,
+    ) -> Result<Transaction<'_, Postgres>, RepositoryError> {
+        self.pool
+            .begin()
+            .await
+            .map_err(crate::repositories::error_mapper::map_sqlx_error)
     }
 
     pub async fn create_protective_measure_with_tx(
         &self,
         tx: &mut Transaction<'_, Postgres>,
         measure: &CreateProtectiveMeasure,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
         let measure_created: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
                 .bind(id)
                 .bind(&measure.process_number)
                 .bind(&measure.sei_process_number)
@@ -51,7 +62,9 @@ impl PgProtectiveMeasureRepository {
                 .bind(measure.victim_id)
                 .bind(measure.offender_id)
                 .fetch_one(&mut **tx)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         Ok(measure_created)
     }
@@ -61,9 +74,9 @@ impl PgProtectiveMeasureRepository {
         tx: &mut Transaction<'_, Postgres>,
         data: &UpdateProtectiveMeasure,
         id: Uuid,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
         let measure_updated: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
                 .bind(id)
                 .bind(&data.process_number)
                 .bind(&data.sei_process_number)
@@ -81,18 +94,180 @@ impl PgProtectiveMeasureRepository {
                 .bind(data.victim_id)
                 .bind(data.offender_id)
                 .fetch_one(&mut **tx)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         Ok(measure_updated)
     }
 }
 
 #[async_trait]
-impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
+impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
+    async fn get_protective_measure_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
+        info!(
+            "[Repository] Executing SQL query to get protective measure with id: {}",
+            id
+        );
+
+        let measure: ProtectiveMeasure =
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURE_BY_ID)
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
+
+        info!(
+            "[Repository] Protective measure successfully found in the database with ID: {}",
+            id
+        );
+
+        Ok(measure)
+    }
+
+    async fn get_all_protective_measures(
+        &self,
+    ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
+        info!("[Repository] Executing SQL query to get all protective measures");
+
+        let measures: Vec<ProtectiveMeasure> =
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_ALL_PROTECTIVE_MEASURES)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
+
+        info!(
+            "[Repository] Found {} protective measures in database",
+            measures.len()
+        );
+
+        Ok(measures)
+    }
+
+    async fn get_protective_measures_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
+        info!("[Repository] Executing SQL query to get paginated protective measures");
+
+        let rows: Vec<ProtectiveMeasureRow> = match allowed_cities {
+            Some(city_ids) => {
+                sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES)
+                    .bind(city_ids)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            }
+            None => sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+        };
+        let measures: Vec<ProtectiveMeasure> = rows.into_iter().map(Into::into).collect();
+
+        info!(
+            "[Repository] Found {} protective measures in database",
+            measures.len()
+        );
+
+        Ok(measures)
+    }
+
+    async fn count_protective_measures(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+    ) -> Result<i64, RepositoryError> {
+        let count: i64 = match allowed_cities {
+            Some(city_ids) => {
+                sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES_BY_CITIES)
+                    .bind(city_ids)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            }
+            None => sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+        };
+
+        Ok(count)
+    }
+
+    async fn get_protective_measures_by_victim(
+        &self,
+        victim_id: Uuid,
+    ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
+        info!(
+            "[Repository] Executing SQL query to get protective measures for victim: {}",
+            victim_id
+        );
+
+        let measures: Vec<ProtectiveMeasure> =
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_BY_VICTIM)
+                .bind(victim_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
+
+        info!(
+            "[Repository] Found {} protective measures for victim: {}",
+            measures.len(),
+            victim_id
+        );
+
+        Ok(measures)
+    }
+
+    async fn check_active_measure_exists_for_victim(
+        &self,
+        victim_id: Uuid,
+        exclude_measure_id: Uuid,
+    ) -> Result<bool, RepositoryError> {
+        info!(
+            "[Repository] Checking if active measure exists for victim: {} excluding measure: {}",
+            victim_id, exclude_measure_id
+        );
+
+        let result: bool =
+            sqlx::query_scalar(ProtectiveMeasuresQueries::CHECK_ACTIVE_MEASURE_EXISTS_FOR_VICTIM)
+                .bind(victim_id)
+                .bind(exclude_measure_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+
+        info!(
+            "[Repository] Active measure exists for victim {}: {}",
+            victim_id, result
+        );
+
+        Ok(result)
+    }
+}
+
+#[async_trait]
+impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
     async fn create_protective_measure(
         &self,
         measure: CreateProtectiveMeasure,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
         info!(
@@ -101,7 +276,7 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
         );
 
         let measure_created: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
                 .bind(id)
                 .bind(measure.process_number)
                 .bind(measure.sei_process_number)
@@ -119,7 +294,9 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
                 .bind(measure.victim_id)
                 .bind(measure.offender_id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Protective measure successfully inserted into database with ID: {}",
@@ -129,161 +306,55 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
         Ok(measure_created)
     }
 
-    async fn get_protective_measure_by_id(
+    async fn create_protective_measure_with_extensions(
         &self,
-        id: Uuid,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
-        info!(
-            "[Repository] Executing SQL query to get protective measure with id: {}",
-            id
-        );
+        measure: &CreateProtectiveMeasure,
+        extensions: &[CreateExtension],
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
 
-        let measure: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURE_BY_ID)
-                .bind(id)
-                .fetch_one(&self.pool)
-                .await?;
+        let created = self
+            .create_protective_measure_with_tx(&mut tx, measure)
+            .await?;
 
-        info!(
-            "[Repository] Protective measure successfully found in the database with ID: {}",
-            id
-        );
+        for extension in extensions {
+            let extension_id = Uuid::new_v4();
+            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
+                .bind(extension_id)
+                .bind(created.id)
+                .bind(extension.extension_number)
+                .bind(extension.extension_date)
+                .bind(extension.new_valid_until)
+                .bind(&extension.notes)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
+        }
 
-        Ok(measure)
-    }
+        tx.commit()
+            .await
+            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
 
-    async fn get_all_protective_measures(&self) -> Result<Vec<ProtectiveMeasure>, sqlx::Error> {
-        info!("[Repository] Executing SQL query to get all protective measures");
-
-        let measures: Vec<ProtectiveMeasure> =
-            sqlx::query_as(ProtectiveMeasuresQueries::GET_ALL_PROTECTIVE_MEASURES)
-                .fetch_all(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Found {} protective measures in database",
-            measures.len()
-        );
-
-        Ok(measures)
-    }
-
-    async fn get_protective_measures_paginated(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<ProtectiveMeasure>, sqlx::Error> {
-        info!("[Repository] Executing SQL query to get paginated protective measures");
-
-        let measures: Vec<ProtectiveMeasure> = match allowed_cities {
-            Some(city_ids) => {
-                sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES)
-                    .bind(city_ids)
-                    .bind(limit)
-                    .bind(offset)
-                    .fetch_all(&self.pool)
-                    .await?
-            }
-            None => {
-                sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED)
-                    .bind(limit)
-                    .bind(offset)
-                    .fetch_all(&self.pool)
-                    .await?
-            }
-        };
-
-        info!(
-            "[Repository] Found {} protective measures in database",
-            measures.len()
-        );
-
-        Ok(measures)
-    }
-
-    async fn count_protective_measures(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
-    ) -> Result<i64, sqlx::Error> {
-        let count: i64 = match allowed_cities {
-            Some(city_ids) => {
-                sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES_BY_CITIES)
-                    .bind(city_ids)
-                    .fetch_one(&self.pool)
-                    .await?
-            }
-            None => {
-                sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES)
-                    .fetch_one(&self.pool)
-                    .await?
-            }
-        };
-
-        Ok(count)
-    }
-
-    async fn get_protective_measures_by_victim(
-        &self,
-        victim_id: Uuid,
-    ) -> Result<Vec<ProtectiveMeasure>, sqlx::Error> {
-        info!(
-            "[Repository] Executing SQL query to get protective measures for victim: {}",
-            victim_id
-        );
-
-        let measures: Vec<ProtectiveMeasure> =
-            sqlx::query_as(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_BY_VICTIM)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Found {} protective measures for victim: {}",
-            measures.len(),
-            victim_id
-        );
-
-        Ok(measures)
-    }
-
-    async fn check_active_measure_exists_for_victim(
-        &self,
-        victim_id: Uuid,
-        exclude_measure_id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
-        info!(
-            "[Repository] Checking if active measure exists for victim: {} excluding measure: {}",
-            victim_id, exclude_measure_id
-        );
-
-        let result: bool =
-            sqlx::query_scalar(ProtectiveMeasuresQueries::CHECK_ACTIVE_MEASURE_EXISTS_FOR_VICTIM)
-                .bind(victim_id)
-                .bind(exclude_measure_id)
-                .fetch_one(&self.pool)
-                .await?;
-
-        info!(
-            "[Repository] Active measure exists for victim {}: {}",
-            victim_id, result
-        );
-
-        Ok(result)
+        Ok(created)
     }
 
     async fn update_protective_measure_by_id(
         &self,
         data: UpdateProtectiveMeasure,
         id: Uuid,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update protective measure with ID: {}",
             id
         );
 
         let measure_updated: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
                 .bind(id)
                 .bind(data.process_number)
                 .bind(data.sei_process_number)
@@ -301,7 +372,9 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
                 .bind(data.victim_id)
                 .bind(data.offender_id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Protective measure successfully updated in database with ID: {}",
@@ -311,20 +384,75 @@ impl ProtectiveMeasureRepository for PgProtectiveMeasureRepository {
         Ok(measure_updated)
     }
 
+    async fn update_protective_measure_with_extensions(
+        &self,
+        data: &UpdateProtectiveMeasure,
+        id: Uuid,
+        extensions_to_create: &[CreateExtension],
+        extensions_to_update: &[(Uuid, UpdateExtension)],
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+
+        let updated = self
+            .update_protective_measure_by_id_with_tx(&mut tx, data, id)
+            .await?;
+
+        for (extension_id, extension) in extensions_to_update {
+            let _: ProtectiveMeasureExtension =
+                sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
+                    .bind(extension_id)
+                    .bind(extension.extension_number)
+                    .bind(extension.extension_date)
+                    .bind(extension.new_valid_until)
+                    .bind(&extension.notes)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .into();
+        }
+
+        for extension in extensions_to_create {
+            let extension_id = Uuid::new_v4();
+            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
+                .bind(extension_id)
+                .bind(id)
+                .bind(extension.extension_number)
+                .bind(extension.extension_date)
+                .bind(extension.new_valid_until)
+                .bind(&extension.notes)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
+        }
+
+        tx.commit()
+            .await
+            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+
+        Ok(updated)
+    }
+
     async fn delete_protective_measure_by_id(
         &self,
         id: Uuid,
-    ) -> Result<ProtectiveMeasure, sqlx::Error> {
+    ) -> Result<ProtectiveMeasure, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to soft delete protective measure with id: {}",
             id
         );
 
         let deleted_measure: ProtectiveMeasure =
-            sqlx::query_as(ProtectiveMeasuresQueries::DELETE_PROTECTIVE_MEASURE_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::DELETE_PROTECTIVE_MEASURE_BY_ID)
                 .bind(id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Protective measure successfully soft deleted from database with ID: {}",

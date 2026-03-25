@@ -5,9 +5,11 @@ use uuid::Uuid;
 
 use crate::config::querys::extensions::ExtensionsQueries;
 use crate::core::{
-    contracts::repository::extensions::ExtensionRepository,
-    entities::protective_measures::{CreateExtension, ProtectiveMeasureExtension, UpdateExtension},
+    commands::protective_measures::{CreateExtension, UpdateExtension},
+    contracts::repository::{error::RepositoryError, extensions::ExtensionRepository},
+    entities::protective_measures::ProtectiveMeasureExtension,
 };
+use super::models::protective_measures::ProtectiveMeasureExtensionRow;
 
 #[derive(Clone)]
 pub struct PgExtensionRepository {
@@ -24,11 +26,11 @@ impl PgExtensionRepository {
         tx: &mut Transaction<'_, Postgres>,
         protective_measure_id: Uuid,
         extension: &CreateExtension,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         let id = Uuid::new_v4();
 
         let extension_created: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::CREATE_EXTENSION)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
                 .bind(id)
                 .bind(protective_measure_id)
                 .bind(extension.extension_number)
@@ -36,7 +38,9 @@ impl PgExtensionRepository {
                 .bind(extension.new_valid_until)
                 .bind(&extension.notes)
                 .fetch_one(&mut **tx)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         Ok(extension_created)
     }
@@ -46,16 +50,18 @@ impl PgExtensionRepository {
         tx: &mut Transaction<'_, Postgres>,
         data: &UpdateExtension,
         id: Uuid,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         let extension_updated: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
                 .bind(id)
                 .bind(data.extension_number)
                 .bind(data.extension_date)
                 .bind(data.new_valid_until)
                 .bind(&data.notes)
                 .fetch_one(&mut **tx)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         Ok(extension_updated)
     }
@@ -67,7 +73,7 @@ impl ExtensionRepository for PgExtensionRepository {
         &self,
         protective_measure_id: Uuid,
         extension: CreateExtension,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         let id = Uuid::new_v4();
 
         info!(
@@ -76,7 +82,7 @@ impl ExtensionRepository for PgExtensionRepository {
         );
 
         let extension_created: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::CREATE_EXTENSION)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
                 .bind(id)
                 .bind(protective_measure_id)
                 .bind(extension.extension_number)
@@ -84,7 +90,9 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(extension.new_valid_until)
                 .bind(extension.notes)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Extension successfully inserted into database with ID: {}",
@@ -97,17 +105,19 @@ impl ExtensionRepository for PgExtensionRepository {
     async fn get_extension_by_id(
         &self,
         id: Uuid,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get extension with id: {}",
             id
         );
 
         let extension: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::GET_EXTENSION_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::GET_EXTENSION_BY_ID)
                 .bind(id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Extension successfully found in the database with ID: {}",
@@ -120,17 +130,21 @@ impl ExtensionRepository for PgExtensionRepository {
     async fn get_extensions_by_measure(
         &self,
         protective_measure_id: Uuid,
-    ) -> Result<Vec<ProtectiveMeasureExtension>, sqlx::Error> {
+    ) -> Result<Vec<ProtectiveMeasureExtension>, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get extensions for protective measure: {}",
             protective_measure_id
         );
 
         let extensions: Vec<ProtectiveMeasureExtension> =
-            sqlx::query_as(ExtensionsQueries::GET_EXTENSIONS_BY_MEASURE)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::GET_EXTENSIONS_BY_MEASURE)
                 .bind(protective_measure_id)
                 .fetch_all(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
 
         info!(
             "[Repository] Found {} extensions for protective measure: {}",
@@ -141,13 +155,19 @@ impl ExtensionRepository for PgExtensionRepository {
         Ok(extensions)
     }
 
-    async fn get_all_extensions(&self) -> Result<Vec<ProtectiveMeasureExtension>, sqlx::Error> {
+    async fn get_all_extensions(
+        &self,
+    ) -> Result<Vec<ProtectiveMeasureExtension>, RepositoryError> {
         info!("[Repository] Executing SQL query to get all extensions");
 
         let extensions: Vec<ProtectiveMeasureExtension> =
-            sqlx::query_as(ExtensionsQueries::GET_ALL_EXTENSIONS)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::GET_ALL_EXTENSIONS)
                 .fetch_all(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
 
         info!(
             "[Repository] Found {} extensions in database",
@@ -161,21 +181,23 @@ impl ExtensionRepository for PgExtensionRepository {
         &self,
         data: UpdateExtension,
         id: Uuid,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update extension with ID: {}",
             id
         );
 
         let extension_updated: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
                 .bind(id)
                 .bind(data.extension_number)
                 .bind(data.extension_date)
                 .bind(data.new_valid_until)
                 .bind(data.notes)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Extension successfully updated in database with ID: {}",
@@ -188,17 +210,19 @@ impl ExtensionRepository for PgExtensionRepository {
     async fn delete_extension_by_id(
         &self,
         id: Uuid,
-    ) -> Result<ProtectiveMeasureExtension, sqlx::Error> {
+    ) -> Result<ProtectiveMeasureExtension, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to soft delete extension with id: {}",
             id
         );
 
         let deleted_extension: ProtectiveMeasureExtension =
-            sqlx::query_as(ExtensionsQueries::DELETE_EXTENSION_BY_ID)
+            sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::DELETE_EXTENSION_BY_ID)
                 .bind(id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .into();
 
         info!(
             "[Repository] Extension successfully soft deleted from database with ID: {}",
