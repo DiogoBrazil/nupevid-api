@@ -1,5 +1,5 @@
+use crate::core::commands::users::PermissionPolicies;
 use crate::core::entities::auth::ClaimsToUserToken;
-use crate::core::entities::users::PermissionPolicies;
 use crate::utils::errors::AppError;
 use crate::validators::common::*;
 use uuid::Uuid;
