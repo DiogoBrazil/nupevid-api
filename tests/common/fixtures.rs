@@ -1,4 +1,4 @@
-use nupevid_api::core::entities::users::{CreateUser, UpdateUser, UpdateUserPassword};
+use nupevid_api::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
 
 pub fn valid_create_user() -> CreateUser {
     CreateUser {

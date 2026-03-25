@@ -76,12 +76,22 @@ async fn b02_root_can_add_member_to_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "City B02 Add").await;
-    let user_a =
-        db_fixtures::insert_user(&pool, "300003", "a_b02_add@test.com", "CITY_USER", Some(city))
-            .await;
-    let user_b =
-        db_fixtures::insert_user(&pool, "300004", "b_b02_add@test.com", "CITY_USER", Some(city))
-            .await;
+    let user_a = db_fixtures::insert_user(
+        &pool,
+        "300003",
+        "a_b02_add@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
+    let user_b = db_fixtures::insert_user(
+        &pool,
+        "300004",
+        "b_b02_add@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
     let root_id =
         db_fixtures::insert_user(&pool, "300005", "root_b02_add@test.com", "ROOT", None).await;
 
@@ -140,9 +150,14 @@ async fn b02_root_can_update_work_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "City B02 Upd").await;
-    let user_a =
-        db_fixtures::insert_user(&pool, "300006", "a_b02_upd@test.com", "CITY_USER", Some(city))
-            .await;
+    let user_a = db_fixtures::insert_user(
+        &pool,
+        "300006",
+        "a_b02_upd@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
     let root_id =
         db_fixtures::insert_user(&pool, "300007", "root_b02_upd@test.com", "ROOT", None).await;
 

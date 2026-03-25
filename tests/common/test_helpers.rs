@@ -4,6 +4,31 @@ use nupevid_api::adapters::{
     password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator,
 };
 use nupevid_api::config::{config_env::Config, database::init_database};
+use nupevid_api::core::contracts::adapters::password_hasher::PasswordHasherPort;
+use nupevid_api::core::contracts::adapters::token_generator::TokenGeneratorPort;
+use nupevid_api::core::contracts::repository::attendance_members::AttendanceMemberRepository;
+use nupevid_api::core::contracts::repository::attendance_offenders::{
+    AttendanceOffenderReadRepository, AttendanceOffenderWriteRepository,
+};
+use nupevid_api::core::contracts::repository::attendance_victims::{
+    AttendanceVictimReadRepository, AttendanceVictimWriteRepository,
+};
+use nupevid_api::core::contracts::repository::auth::AuthRepository;
+use nupevid_api::core::contracts::repository::cities::CityRepository;
+use nupevid_api::core::contracts::repository::extensions::ExtensionRepository;
+use nupevid_api::core::contracts::repository::offenders::{
+    OffenderReadRepository, OffenderWriteRepository,
+};
+use nupevid_api::core::contracts::repository::protective_measures::{
+    ProtectiveMeasureReadRepository, ProtectiveMeasureWriteRepository,
+};
+use nupevid_api::core::contracts::repository::users::UserRepository;
+use nupevid_api::core::contracts::repository::victims::{
+    VictimReadRepository, VictimWriteRepository,
+};
+use nupevid_api::core::contracts::repository::work_sessions::{
+    WorkSessionReadRepository, WorkSessionWriteRepository,
+};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
@@ -16,13 +41,16 @@ use nupevid_api::repositories::{
 };
 use nupevid_api::routes::config::base_routes::configure_routes as configure_base_routes;
 use nupevid_api::services::{
-    attendance_offenders::AttendanceOffenderService, attendance_victims::AttendanceVictimService,
-    auth::AuthService, cities::CityService, extensions::ExtensionService,
-    offenders::OffenderService, protective_measures::ProtectiveMeasureService, users::UserService,
-    victims::VictimService, work_sessions::WorkSessionService,
+    attendance_offenders::AttendanceOffenderService,
+    attendance_offenders::AttendanceOffenderServiceDeps,
+    attendance_victims::AttendanceVictimService, auth::AuthService, cities::CityService,
+    extensions::ExtensionService, offenders::OffenderService,
+    protective_measures::ProtectiveMeasureService, users::UserService, victims::VictimService,
+    work_sessions::WorkSessionService,
 };
 use sqlx::PgPool;
 use std::env;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -101,101 +129,119 @@ pub async fn create_full_test_app(
     config: Config,
 ) -> impl Service<actix_http::Request, Response = actix_web::dev::ServiceResponse, Error = Error> {
     // Adapters
-    let password_hasher = Box::new(Argon2PasswordHasher::new());
-    let token_generator = Box::new(JwtTokenGenerator::new());
+    let password_hasher: Arc<dyn PasswordHasherPort> = Arc::new(Argon2PasswordHasher::new());
+    let token_generator: Arc<dyn TokenGeneratorPort> = Arc::new(JwtTokenGenerator::new());
 
     // Repositories
-    let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
-    let auth_repository = web::Data::new(PgAuthRepository::new(pool.clone()));
-    let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
-    let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
-    let protective_measure_repository =
-        web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
-    let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
-    let attendance_repository = web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
+    let user_repository: Arc<dyn UserRepository> = Arc::new(PgUserRepository::new(pool.clone()));
+    let auth_repository: Arc<dyn AuthRepository> = Arc::new(PgAuthRepository::new(pool.clone()));
+    let city_repository: Arc<dyn CityRepository> = Arc::new(PgCityRepository::new(pool.clone()));
+    let victim_repository = Arc::new(PgVictimRepository::new(pool.clone()));
+    let victim_read_repository: Arc<dyn VictimReadRepository> = victim_repository.clone();
+    let victim_write_repository: Arc<dyn VictimWriteRepository> = victim_repository.clone();
+    let protective_measure_repository = Arc::new(PgProtectiveMeasureRepository::new(pool.clone()));
+    let protective_measure_read_repository: Arc<dyn ProtectiveMeasureReadRepository> =
+        protective_measure_repository.clone();
+    let protective_measure_write_repository: Arc<dyn ProtectiveMeasureWriteRepository> =
+        protective_measure_repository.clone();
+    let extension_repository: Arc<dyn ExtensionRepository> =
+        Arc::new(PgExtensionRepository::new(pool.clone()));
+    let attendance_repository = Arc::new(PgAttendanceVictimRepository::new(pool.clone()));
+    let attendance_read_repository: Arc<dyn AttendanceVictimReadRepository> =
+        attendance_repository.clone();
+    let attendance_write_repository: Arc<dyn AttendanceVictimWriteRepository> =
+        attendance_repository.clone();
     let attendance_offender_repository =
-        web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
-    let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
-    let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
-    let attendance_member_repository =
-        web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
+        Arc::new(PgAttendanceOffenderRepository::new(pool.clone()));
+    let attendance_offender_read_repository: Arc<dyn AttendanceOffenderReadRepository> =
+        attendance_offender_repository.clone();
+    let attendance_offender_write_repository: Arc<dyn AttendanceOffenderWriteRepository> =
+        attendance_offender_repository.clone();
+    let offender_repository = Arc::new(PgOffenderRepository::new(pool.clone()));
+    let offender_read_repository: Arc<dyn OffenderReadRepository> = offender_repository.clone();
+    let offender_write_repository: Arc<dyn OffenderWriteRepository> = offender_repository.clone();
+    let work_session_repository = Arc::new(PgWorkSessionRepository::new(pool.clone()));
+    let work_session_read_repository: Arc<dyn WorkSessionReadRepository> =
+        work_session_repository.clone();
+    let work_session_write_repository: Arc<dyn WorkSessionWriteRepository> =
+        work_session_repository.clone();
+    let attendance_member_repository: Arc<dyn AttendanceMemberRepository> =
+        Arc::new(PgAttendanceMemberRepository::new(pool.clone()));
 
     // Shared config
-    let config_data = web::Data::new(config.clone());
+    let config_arc = Arc::new(config.clone());
 
     // Services
     let user_service = web::Data::new(UserService::new(
-        user_repository.clone(),
-        password_hasher.clone(),
+        Arc::clone(&user_repository),
+        Arc::clone(&password_hasher),
     ));
     let auth_service = web::Data::new(AuthService::new(
-        auth_repository.clone(),
-        work_session_repository.clone(),
-        config_data.clone(),
-        password_hasher.clone(),
-        token_generator.clone(),
+        Arc::clone(&auth_repository),
+        Arc::clone(&work_session_read_repository),
+        Arc::clone(&work_session_write_repository),
+        Arc::clone(&config_arc),
+        Arc::clone(&password_hasher),
+        Arc::clone(&token_generator),
     ));
     let city_service = web::Data::new(CityService::new(
-        city_repository.clone(),
-        user_repository.clone(),
+        Arc::clone(&city_repository),
+        Arc::clone(&user_repository),
     ));
     let victim_service = web::Data::new(VictimService::new(
-        victim_repository.clone(),
-        user_repository.clone(),
+        Arc::clone(&victim_read_repository),
+        Arc::clone(&victim_write_repository),
+        Arc::clone(&user_repository),
     ));
     let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
-        protective_measure_repository.clone(),
-        victim_repository.clone(),
-        offender_repository.clone(),
-        user_repository.clone(),
-        extension_repository.clone(),
-        city_repository.clone(),
+        Arc::clone(&protective_measure_read_repository),
+        Arc::clone(&protective_measure_write_repository),
+        Arc::clone(&victim_read_repository),
+        Arc::clone(&offender_read_repository),
+        Arc::clone(&user_repository),
+        Arc::clone(&extension_repository),
+        Arc::clone(&city_repository),
     ));
     let extension_service = web::Data::new(ExtensionService::new(
-        extension_repository.clone(),
-        protective_measure_repository.clone(),
-        victim_repository.clone(),
-        user_repository.clone(),
+        Arc::clone(&extension_repository),
+        Arc::clone(&protective_measure_read_repository),
+        Arc::clone(&victim_read_repository),
+        Arc::clone(&user_repository),
     ));
     let attendance_service = web::Data::new(AttendanceVictimService::new(
-        attendance_repository.clone(),
-        victim_repository.clone(),
-        user_repository.clone(),
-        work_session_repository.clone(),
-        attendance_member_repository.clone(),
+        Arc::clone(&attendance_read_repository),
+        Arc::clone(&attendance_write_repository),
+        Arc::clone(&victim_read_repository),
+        Arc::clone(&user_repository),
+        Arc::clone(&work_session_read_repository),
+        Arc::clone(&attendance_member_repository),
     ));
     let offender_service = web::Data::new(OffenderService::new(
-        offender_repository.clone(),
-        user_repository.clone(),
+        Arc::clone(&offender_read_repository),
+        Arc::clone(&offender_write_repository),
+        Arc::clone(&user_repository),
     ));
     let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
-        attendance_offender_repository.clone(),
-        offender_repository.clone(),
-        victim_repository.clone(),
-        protective_measure_repository.clone(),
-        user_repository.clone(),
-        work_session_repository.clone(),
-        attendance_member_repository.clone(),
+        AttendanceOffenderServiceDeps {
+            attendance_offender_read_repository: Arc::clone(&attendance_offender_read_repository),
+            attendance_offender_write_repository: Arc::clone(&attendance_offender_write_repository),
+            offender_repository: Arc::clone(&offender_read_repository),
+            victim_repository: Arc::clone(&victim_read_repository),
+            protective_measure_repository: Arc::clone(&protective_measure_read_repository),
+            user_repository: Arc::clone(&user_repository),
+            work_session_repository: Arc::clone(&work_session_read_repository),
+            attendance_member_repository: Arc::clone(&attendance_member_repository),
+        },
     ));
     let work_session_service = web::Data::new(WorkSessionService::new(
-        work_session_repository.clone(),
-        user_repository.clone(),
+        Arc::clone(&work_session_read_repository),
+        Arc::clone(&work_session_write_repository),
+        Arc::clone(&user_repository),
     ));
 
     test::init_service(
         App::new()
             .wrap(AuthMiddleware)
-            .app_data(user_repository.clone())
-            .app_data(auth_repository.clone())
-            .app_data(city_repository.clone())
-            .app_data(victim_repository.clone())
-            .app_data(protective_measure_repository.clone())
-            .app_data(extension_repository.clone())
-            .app_data(attendance_repository.clone())
-            .app_data(attendance_offender_repository.clone())
-            .app_data(offender_repository.clone())
-            .app_data(work_session_repository.clone())
-            .app_data(attendance_member_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
             .app_data(city_service.clone())
@@ -206,7 +252,7 @@ pub async fn create_full_test_app(
             .app_data(attendance_offender_service.clone())
             .app_data(offender_service.clone())
             .app_data(work_session_service.clone())
-            .app_data(config_data.clone())
+            .app_data(web::Data::new(config.clone()))
             .configure(configure_base_routes),
     )
     .await
