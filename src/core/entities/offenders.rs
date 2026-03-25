@@ -3,8 +3,11 @@ pub use crate::core::entities::common::{
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
+
+use crate::core::read_models::offenders::{
+    OffenderAddressResponse, OffenderComplement, OffenderPhoneResponse, OffenderWithDetails,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
 #[sqlx(type_name = "security_force_enum")]
@@ -32,7 +35,7 @@ pub enum SecurityForce {
     MunicipalGuard,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OffenderPhone {
     pub id: Uuid,
     pub offender_id: Uuid,
@@ -41,13 +44,6 @@ pub struct OffenderPhone {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OffenderPhoneResponse {
-    pub id: Uuid,
-    pub phone: String,
-    pub phone_type: Option<PhoneType>,
 }
 
 impl OffenderPhone {
@@ -61,18 +57,6 @@ impl OffenderPhone {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OffenderAddressResponse {
-    pub id: Uuid,
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub district: Option<String>,
-    pub city_id: Option<Uuid>,
-    pub zip_code: Option<String>,
-    pub complement: Option<String>,
-    pub address_type: AddressType,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct OffenderAddress {
     pub id: Uuid,
     pub offender_id: Uuid,
@@ -103,51 +87,7 @@ impl OffenderAddress {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateOffender {
-    pub full_name: String,
-    pub cpf: Option<String>,
-    pub birth_date: Option<NaiveDate>,
-    pub city_id: Option<Uuid>,
-    pub imprisoned: bool,
-    pub occupation: Option<String>,
-    #[serde(default, skip_deserializing)]
-    pub is_public_security_agent: bool,
-    pub security_force: Option<SecurityForce>,
-    pub uses_alcohol: bool,
-    pub uses_drugs: bool,
-    #[serde(default)]
-    pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<Vec<String>>,
-    pub education_level: EducationLevel,
-    pub observation: Option<String>,
-    pub phones: Option<Vec<PhoneData>>,
-    pub addresses: Option<Vec<AddressData>>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateOffender {
-    pub full_name: String,
-    pub cpf: Option<String>,
-    pub birth_date: Option<NaiveDate>,
-    pub city_id: Option<Uuid>,
-    pub imprisoned: bool,
-    pub occupation: Option<String>,
-    #[serde(default, skip_deserializing)]
-    pub is_public_security_agent: bool,
-    pub security_force: Option<SecurityForce>,
-    pub uses_alcohol: bool,
-    pub uses_drugs: bool,
-    #[serde(default)]
-    pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<Vec<String>>,
-    pub education_level: EducationLevel,
-    pub observation: Option<String>,
-    pub phones: Option<Vec<PhoneData>>,
-    pub addresses: Option<Vec<AddressData>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Offender {
     pub id: Uuid,
     pub full_name: String,
@@ -170,49 +110,10 @@ pub struct Offender {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OffenderWithDetails {
-    pub id: Uuid,
-    pub full_name: String,
-    pub cpf: Option<String>,
-    pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
-    pub imprisoned: bool,
-    pub occupation: Option<String>,
-    pub is_public_security_agent: bool,
-    pub security_force: Option<SecurityForce>,
-    pub uses_alcohol: bool,
-    pub uses_drugs: bool,
-    pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<Vec<String>>,
-    pub education_level: EducationLevel,
-    pub observation: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub is_deleted: bool,
-    pub phones: Vec<OffenderPhoneResponse>,
-    pub addresses: Vec<OffenderAddressResponse>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OffenderComplement {
-    pub id: Uuid,
-    pub full_name: String,
-    pub cpf: Option<String>,
-    pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
-    pub imprisoned: bool,
-    pub occupation: Option<String>,
-    pub is_public_security_agent: bool,
-    pub security_force: Option<SecurityForce>,
-    pub uses_alcohol: bool,
-    pub uses_drugs: bool,
-    pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<Vec<String>>,
-    pub education_level: EducationLevel,
-    pub observation: Option<String>,
-    pub is_deleted: bool,
-    pub phones: Vec<OffenderPhoneResponse>,
-    pub addresses: Vec<OffenderAddressResponse>,
+pub struct OffenderWriteResult {
+    pub offender: Offender,
+    pub phones: Vec<OffenderPhone>,
+    pub addresses: Vec<OffenderAddress>,
 }
 
 impl Offender {
@@ -243,6 +144,12 @@ impl Offender {
             phones: phones.into_iter().map(|p| p.to_response()).collect(),
             addresses: addresses.into_iter().map(|a| a.to_response()).collect(),
         }
+    }
+}
+
+impl OffenderWriteResult {
+    pub fn into_details(self) -> OffenderWithDetails {
+        self.offender.with_details(self.phones, self.addresses)
     }
 }
 

@@ -1,10 +1,11 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::Type;
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::core::entities::attendance_victims::AttendanceAddressData;
+use crate::core::read_models::attendance_offenders::{
+    AttendanceOffenderAddressResponse, AttendanceOffenderWithAddress,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
 #[sqlx(type_name = "violence_aggravator_enum", rename_all = "PascalCase")]
@@ -15,39 +16,7 @@ pub enum ViolenceAggravator {
     Other,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateAttendanceOffender {
-    pub offender_id: Uuid,
-    pub victim_id: Uuid,
-    pub protective_measure_id: Option<Uuid>,
-    pub was_offender_present: bool,
-    pub attendance_date: NaiveDate,
-    pub attendance_time: NaiveTime,
-    pub address: Option<AttendanceAddressData>,
-    pub is_remote: bool,
-    pub assaults_children: bool,
-    pub violence_aggravator: ViolenceAggravator,
-    pub violence_aggravator_other: Option<String>,
-    pub description: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateAttendanceOffender {
-    pub offender_id: Uuid,
-    pub victim_id: Uuid,
-    pub protective_measure_id: Option<Uuid>,
-    pub was_offender_present: bool,
-    pub attendance_date: NaiveDate,
-    pub attendance_time: NaiveTime,
-    pub address: Option<AttendanceAddressData>,
-    pub is_remote: bool,
-    pub assaults_children: bool,
-    pub violence_aggravator: ViolenceAggravator,
-    pub violence_aggravator_other: Option<String>,
-    pub description: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceOffender {
     pub id: Uuid,
     pub offender_id: Uuid,
@@ -67,37 +36,6 @@ pub struct AttendanceOffender {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AttendanceOffenderAddressResponse {
-    pub id: Uuid,
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub district: Option<String>,
-    pub city_id: Option<Uuid>,
-    pub zip_code: Option<String>,
-    pub complement: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AttendanceOffenderWithAddress {
-    pub id: Uuid,
-    pub offender_id: Uuid,
-    pub victim_id: Uuid,
-    pub protective_measure_id: Option<Uuid>,
-    pub was_offender_present: bool,
-    pub attendance_date: NaiveDate,
-    pub attendance_time: NaiveTime,
-    pub is_remote: bool,
-    pub assaults_children: bool,
-    pub violence_aggravator: ViolenceAggravator,
-    pub violence_aggravator_other: Option<String>,
-    pub description: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub is_deleted: bool,
-    pub address: Option<AttendanceOffenderAddressResponse>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AttendanceOffenderAddress {
     pub id: Uuid,
     pub attendance_id: Uuid,
@@ -110,6 +48,12 @@ pub struct AttendanceOffenderAddress {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceOffenderWriteResult {
+    pub attendance: AttendanceOffender,
+    pub address: Option<AttendanceOffenderAddress>,
 }
 
 impl AttendanceOffenderAddress {
@@ -149,5 +93,11 @@ impl AttendanceOffender {
             is_deleted: self.is_deleted,
             address: address.map(|a| a.to_response()),
         }
+    }
+}
+
+impl AttendanceOffenderWriteResult {
+    pub fn into_with_address(self) -> AttendanceOffenderWithAddress {
+        self.attendance.with_address(self.address)
     }
 }
