@@ -1,5 +1,3 @@
-pub mod attendance_offender_validator;
-pub mod attendance_victim_validator;
 pub mod city_validator;
 pub mod common;
 pub mod cpf_validator;

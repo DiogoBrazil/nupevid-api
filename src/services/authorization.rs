@@ -86,24 +86,6 @@ pub fn get_allowed_cities_for_policy(
     Some(allowed_cities)
 }
 
-pub fn has_policy(
-    claims: &ClaimsToUserToken,
-    policy_name: &str,
-    user_policies: &JsonValue,
-) -> bool {
-    if claims.profile == PROFILE_ROOT {
-        return true;
-    }
-
-    if let Some(city_ids) = user_policies.get(policy_name)
-        && let Some(city_array) = city_ids.as_array()
-    {
-        return !city_array.is_empty();
-    }
-
-    false
-}
-
 pub fn validate_user_creation_permission(
     creator_profile: &str,
     target_profile: &str,
@@ -206,18 +188,6 @@ mod tests {
 
         let result = check_policy(&claims, "delete_victims", city_id, &policies);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_has_policy() {
-        let city_id = Uuid::new_v4();
-        let claims = create_test_claims("CITY_USER", Some(&city_id.to_string()));
-        let policies = json!({
-            "read_victims": [city_id.to_string()]
-        });
-
-        assert!(has_policy(&claims, "read_victims", &policies));
-        assert!(!has_policy(&claims, "create_victims", &policies));
     }
 
     #[test]
