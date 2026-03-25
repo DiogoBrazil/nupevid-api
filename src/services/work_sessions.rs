@@ -1,23 +1,24 @@
-use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
+use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::core::commands::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
 use crate::core::contracts::repository::users::UserRepository;
-use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
+use crate::core::contracts::repository::work_sessions::{
+    WorkSessionReadRepository, WorkSessionWriteRepository,
+};
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::common::PaginatedResult;
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
-use crate::core::entities::work_sessions::{
-    CreateWorkSession, ListWorkSessionsQuery, UpdateWorkSessionMembers, WorkSession,
-};
-use crate::repositories::users::PgUserRepository;
-use crate::repositories::work_sessions::PgWorkSessionRepository;
-use crate::utils::authorization::check_policy;
-use crate::utils::db_error_mapper::map_unique_constraint;
 use crate::utils::errors::AppError;
-use crate::utils::pagination::{PaginationParams, normalize_pagination};
-use crate::utils::responses::{ApiResponse, PaginatedResponse};
-use crate::utils::service_helpers::{
-    extract_city_id_from_claims, extract_claims, get_user_policies_with_defaults,
-};
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::queries::work_sessions::ListWorkSessionsQuery;
+use crate::core::read_models::work_sessions::WorkSessionWithMembers;
+use crate::core::responses::work_sessions::WorkSessionResponse;
+use crate::services::auth_context::AuthContext;
+use crate::services::error_mapping::map_unique_constraint;
+use crate::services::helpers::extract_city_id_from_claims;
+use crate::utils::pagination::Pagination;
 use crate::validators::common::{
     POLICY_CREATE_WORK_SESSIONS, POLICY_END_WORK_SESSIONS, POLICY_UPDATE_WORK_SESSIONS,
     POLICY_VIEW_OTHER_WORK_SESSIONS, PROFILE_ROOT,
@@ -25,17 +26,20 @@ use crate::validators::common::{
 use crate::validators::work_session_validator::WorkSessionValidator;
 
 pub struct WorkSessionService {
-    work_session_repository: web::Data<PgWorkSessionRepository>,
-    user_repository: web::Data<PgUserRepository>,
+    work_session_read_repository: Arc<dyn WorkSessionReadRepository>,
+    work_session_write_repository: Arc<dyn WorkSessionWriteRepository>,
+    user_repository: Arc<dyn UserRepository>,
 }
 
 impl WorkSessionService {
     pub fn new(
-        work_session_repository: web::Data<PgWorkSessionRepository>,
-        user_repository: web::Data<PgUserRepository>,
+        work_session_read_repository: Arc<dyn WorkSessionReadRepository>,
+        work_session_write_repository: Arc<dyn WorkSessionWriteRepository>,
+        user_repository: Arc<dyn UserRepository>,
     ) -> Self {
         Self {
-            work_session_repository,
+            work_session_read_repository,
+            work_session_write_repository,
             user_repository,
         }
     }
@@ -43,24 +47,17 @@ impl WorkSessionService {
     pub async fn create_work_session(
         &self,
         data: CreateWorkSession,
-        req: HttpRequest,
+        claims: &ClaimsToUserToken,
         include_complement_for_entities: bool,
-    ) -> Result<HttpResponse, AppError> {
+    ) -> Result<WorkSessionResponse, AppError> {
         info!("[WorkSessionService] Starting work session creation");
 
-        let claims = extract_claims(&req)?;
-        let policies =
-            get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
+        let auth = AuthContext::load(self.user_repository.as_ref(), claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_CREATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_CREATE_WORK_SESSIONS, user_city_id)?;
         }
 
         if !data.members.iter().any(|member| member.user_id == user_id) {
@@ -85,7 +82,7 @@ impl WorkSessionService {
         .await?;
 
         if let Ok(true) = self
-            .work_session_repository
+            .work_session_read_repository
             .is_user_in_active_session(user_id)
             .await
         {
@@ -95,7 +92,7 @@ impl WorkSessionService {
         }
 
         match self
-            .work_session_repository
+            .work_session_write_repository
             .create_work_session(data, user_id)
             .await
         {
@@ -103,32 +100,26 @@ impl WorkSessionService {
                 info!("[WorkSessionService] Work session created: {}", session.id);
                 if include_complement_for_entities {
                     let members = self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_session_members_with_user_details(session.id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-
-                    let base = WorkSession {
-                        id: session.id,
-                        created_by_user_id: session.created_by_user_id,
-                        started_at: session.started_at,
-                        ended_at: session.ended_at,
-                        is_active: session.is_active,
-                        description: session.description,
-                        created_at: session.created_at,
-                        updated_at: session.updated_at,
-                    };
-
-                    Ok(ApiResponse::created(base.with_members_complement(members)).into_response())
+                    Ok(WorkSessionResponse::WithEntities(
+                        session.with_members_complement(members),
+                    ))
                 } else {
-                    Ok(ApiResponse::created(session).into_response())
+                    let members = self
+                        .work_session_read_repository
+                        .get_session_members_with_details(session.id)
+                        .await
+                        .map_err(|_| AppError::InternalServerError)?;
+                    Ok(WorkSessionResponse::Simple(session.with_members(members)))
                 }
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
-                    && db_err.is_unique_violation()
+                if let RepositoryError::UniqueViolation { constraint } = &e
                     && let Some(app_err) = map_unique_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[
                             (
                                 "unique_active_session_per_user",
@@ -154,47 +145,44 @@ impl WorkSessionService {
 
     pub async fn get_active_session(
         &self,
-        req: HttpRequest,
+        claims: &ClaimsToUserToken,
         include_complement_for_entities: bool,
-    ) -> Result<HttpResponse, AppError> {
+    ) -> Result<WorkSessionResponse, AppError> {
         info!("[WorkSessionService] Getting active session");
 
-        let claims = extract_claims(&req)?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
         match self
-            .work_session_repository
+            .work_session_read_repository
             .get_active_session_by_user(user_id)
             .await
         {
             Ok(session) => {
                 if include_complement_for_entities {
                     let members = self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_session_members_with_user_details(session.id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-                    Ok(
-                        ApiResponse::success(session.with_members_complement(members))
-                            .into_response(),
-                    )
+                    Ok(WorkSessionResponse::WithEntities(
+                        session.with_members_complement(members),
+                    ))
                 } else {
                     let with_members = self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_session_by_id(session.id)
                         .await
                         .map_err(|e| match e {
-                            sqlx::Error::RowNotFound => {
+                            RepositoryError::NotFound => {
                                 AppError::NotFound("Work session not found".to_string())
                             }
                             _ => AppError::InternalServerError,
                         })?;
-
-                    Ok(ApiResponse::success(with_members).into_response())
+                    Ok(WorkSessionResponse::Simple(with_members))
                 }
             }
-            Err(sqlx::Error::RowNotFound) => Err(AppError::NotFound(
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(
                 "No active work session found".to_string(),
             )),
             Err(_) => Err(AppError::InternalServerError),
@@ -204,84 +192,70 @@ impl WorkSessionService {
     pub async fn get_session_by_id(
         &self,
         session_id: Uuid,
-        req: HttpRequest,
+        claims: &ClaimsToUserToken,
         include_complement_for_entities: bool,
-    ) -> Result<HttpResponse, AppError> {
+    ) -> Result<WorkSessionResponse, AppError> {
         info!("[WorkSessionService] Getting session by id: {}", session_id);
 
-        let claims = extract_claims(&req)?;
-        let policies =
-            get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
+        let auth = AuthContext::load(self.user_repository.as_ref(), claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
         if include_complement_for_entities {
             let session = self
-                .work_session_repository
+                .work_session_read_repository
                 .get_session_by_id_base(session_id)
                 .await
                 .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => {
+                    RepositoryError::NotFound => {
                         AppError::NotFound("Work session not found".to_string())
                     }
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id
-                && claims.profile != PROFILE_ROOT
-            {
-                let user_city_id = extract_city_id_from_claims(&claims)?;
-                check_policy(
-                    &claims,
-                    POLICY_VIEW_OTHER_WORK_SESSIONS,
-                    user_city_id,
-                    &policies,
-                )?;
+            if session.created_by_user_id != user_id && claims.profile != PROFILE_ROOT {
+                let user_city_id = extract_city_id_from_claims(claims)?;
+                auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)?;
             }
 
             let members = self
-                .work_session_repository
+                .work_session_read_repository
                 .get_session_members_with_user_details(session_id)
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
-            Ok(ApiResponse::success(session.with_members_complement(members)).into_response())
+            Ok(WorkSessionResponse::WithEntities(
+                session.with_members_complement(members),
+            ))
         } else {
             let session = self
-                .work_session_repository
+                .work_session_read_repository
                 .get_session_by_id(session_id)
                 .await
                 .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => {
+                    RepositoryError::NotFound => {
                         AppError::NotFound("Work session not found".to_string())
                     }
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id
-                && claims.profile != PROFILE_ROOT
-            {
-                let user_city_id = extract_city_id_from_claims(&claims)?;
-                check_policy(
-                    &claims,
-                    POLICY_VIEW_OTHER_WORK_SESSIONS,
-                    user_city_id,
-                    &policies,
-                )?;
+            if session.created_by_user_id != user_id && claims.profile != PROFILE_ROOT {
+                let user_city_id = extract_city_id_from_claims(claims)?;
+                auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)?;
             }
 
-            Ok(ApiResponse::success(session).into_response())
+            Ok(WorkSessionResponse::Simple(session))
         }
     }
 
     pub async fn list_sessions(
         &self,
         mut query: ListWorkSessionsQuery,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        pagination: Pagination,
+        claims: &ClaimsToUserToken,
+    ) -> Result<PaginatedResult<WorkSessionResponse>, AppError> {
         info!("[WorkSessionService] Listing sessions with filters");
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
@@ -291,13 +265,8 @@ impl WorkSessionService {
             let user_city_id = Uuid::parse_str(city_id_str)
                 .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
 
-            check_policy(
-                &claims,
-                POLICY_VIEW_OTHER_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )
-            .is_ok()
+            auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)
+                .is_ok()
         } else {
             false
         };
@@ -311,14 +280,8 @@ impl WorkSessionService {
             query.city_id = Some(user_city_id);
         }
 
-        let pagination_params = PaginationParams {
-            page: query.page,
-            page_size: query.page_size,
-        };
-        let pagination = normalize_pagination(&pagination_params);
-
         let total_items = self
-            .work_session_repository
+            .work_session_read_repository
             .count_sessions_filtered(
                 query.user_id,
                 query.start_date,
@@ -329,7 +292,7 @@ impl WorkSessionService {
             .map_err(|_| AppError::InternalServerError)?;
 
         let sessions = self
-            .work_session_repository
+            .work_session_read_repository
             .list_sessions_filtered(
                 query.user_id,
                 query.start_date,
@@ -345,88 +308,79 @@ impl WorkSessionService {
             query.include_complement_for_entities.unwrap_or(false);
 
         if include_complement_for_entities {
-            let mut sessions_with_members = Vec::with_capacity(sessions.len());
+            let mut items = Vec::with_capacity(sessions.len());
             for session in sessions {
-                let members = self
-                    .work_session_repository
-                    .get_session_members_with_user_details(session.id)
-                    .await
-                    .map_err(|e| match e {
-                        sqlx::Error::RowNotFound => AppError::NotFound(format!(
-                            "Session members not found for session '{}'",
-                            session.id
-                        )),
-                        _ => AppError::InternalServerError,
-                    })?;
-                sessions_with_members.push(session.with_members_complement(members));
+                let members =
+                    self.work_session_read_repository
+                        .get_session_members_with_user_details(session.id)
+                        .await
+                        .map_err(|e| match e {
+                            RepositoryError::NotFound => AppError::NotFound(
+                                format!("Session members not found for session '{}'", session.id),
+                            ),
+                            _ => AppError::InternalServerError,
+                        })?;
+                items.push(WorkSessionResponse::WithEntities(
+                    session.with_members_complement(members),
+                ));
             }
 
-            info!(
-                "[WorkSessionService] Found {} sessions",
-                sessions_with_members.len()
-            );
-            Ok(PaginatedResponse::success(
-                sessions_with_members,
-                pagination.page,
-                pagination.page_size,
+            info!("[WorkSessionService] Found {} sessions", items.len());
+            Ok(PaginatedResult {
+                items,
+                page: pagination.page,
+                page_size: pagination.page_size,
                 total_items,
-            )
-            .into_response())
+            })
         } else {
-            let mut sessions_with_members = Vec::with_capacity(sessions.len());
+            let mut items = Vec::with_capacity(sessions.len());
             for session in sessions {
-                let members = self
-                    .work_session_repository
-                    .get_session_members_with_details(session.id)
-                    .await
-                    .map_err(|e| match e {
-                        sqlx::Error::RowNotFound => AppError::NotFound(format!(
-                            "Session members not found for session '{}'",
-                            session.id
-                        )),
-                        _ => AppError::InternalServerError,
-                    })?;
-                sessions_with_members.push(session.with_members(members));
+                let members =
+                    self.work_session_read_repository
+                        .get_session_members_with_details(session.id)
+                        .await
+                        .map_err(|e| match e {
+                            RepositoryError::NotFound => AppError::NotFound(
+                                format!("Session members not found for session '{}'", session.id),
+                            ),
+                            _ => AppError::InternalServerError,
+                        })?;
+                items.push(WorkSessionResponse::Simple(session.with_members(members)));
             }
 
-            info!(
-                "[WorkSessionService] Found {} sessions",
-                sessions_with_members.len()
-            );
-            Ok(PaginatedResponse::success(
-                sessions_with_members,
-                pagination.page,
-                pagination.page_size,
+            info!("[WorkSessionService] Found {} sessions", items.len());
+            Ok(PaginatedResult {
+                items,
+                page: pagination.page,
+                page_size: pagination.page_size,
                 total_items,
-            )
-            .into_response())
+            })
         }
     }
 
-    pub async fn end_session(&self, req: HttpRequest) -> Result<HttpResponse, AppError> {
+    pub async fn end_session(&self, claims: &ClaimsToUserToken) -> Result<String, AppError> {
         info!("[WorkSessionService] Ending session");
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(&claims, POLICY_END_WORK_SESSIONS, user_city_id, &policies)?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_END_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_user_active_session(user_id)
             .await
             .map_err(|_| AppError::NotFound("No active work session found".to_string()))?;
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session.id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -439,10 +393,14 @@ impl WorkSessionService {
             "Only the session creator or commander can end the session",
         )?;
 
-        match self.work_session_repository.end_session(session.id).await {
+        match self
+            .work_session_write_repository
+            .end_session(session.id)
+            .await
+        {
             Ok(_) => {
                 info!("[WorkSessionService] Work session ended: {}", session.id);
-                Ok(ApiResponse::success("Work session ended successfully").into_response())
+                Ok("Work session ended successfully".to_string())
             }
             Err(_) => Err(AppError::InternalServerError),
         }
@@ -453,29 +411,23 @@ impl WorkSessionService {
         session_id: Uuid,
         user_id: Uuid,
         function: Option<TeamMemberFunction>,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<WorkSessionMember, AppError> {
         info!(
             "[WorkSessionService] Adding member to session: {}",
             session_id
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_UPDATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
@@ -487,11 +439,11 @@ impl WorkSessionService {
         }
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -505,7 +457,7 @@ impl WorkSessionService {
         )?;
 
         if let Ok(true) = self
-            .work_session_repository
+            .work_session_read_repository
             .is_user_in_active_session(user_id)
             .await
         {
@@ -529,7 +481,7 @@ impl WorkSessionService {
 
         let session_member_registration_id = Uuid::new_v4();
         match self
-            .work_session_repository
+            .work_session_write_repository
             .add_member_to_session(
                 session_member_registration_id,
                 session_id,
@@ -540,13 +492,12 @@ impl WorkSessionService {
         {
             Ok(member) => {
                 info!("[WorkSessionService] Member added to session");
-                Ok(ApiResponse::success(member).into_response())
+                Ok(member)
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
-                    && db_err.is_unique_violation()
+                if let RepositoryError::UniqueViolation { constraint } = &e
                     && let Some(app_err) = map_unique_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[(
                             "work_session_members_work_session_id_user_id_key",
                             "User already added to session",
@@ -564,29 +515,23 @@ impl WorkSessionService {
         &self,
         session_id: Uuid,
         member_id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<String, AppError> {
         info!(
             "[WorkSessionService] Removing member from session: {}",
             session_id
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_UPDATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
@@ -598,11 +543,11 @@ impl WorkSessionService {
         }
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -623,15 +568,15 @@ impl WorkSessionService {
             .map_err(AppError::BadRequest)?;
 
         match self
-            .work_session_repository
+            .work_session_write_repository
             .remove_member_from_session(session_id, member_id)
             .await
         {
             Ok(_) => {
                 info!("[WorkSessionService] Member removed from session");
-                Ok(ApiResponse::success("Member removed successfully").into_response())
+                Ok("Member removed successfully".to_string())
             }
-            Err(sqlx::Error::RowNotFound) => Err(AppError::NotFound(
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(
                 "User is not a member of this session".to_string(),
             )),
             Err(_) => Err(AppError::InternalServerError),
@@ -642,29 +587,23 @@ impl WorkSessionService {
         &self,
         session_id: Uuid,
         data: UpdateWorkSessionMembers,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<WorkSessionWithMembers, AppError> {
         info!(
             "[WorkSessionService] Updating session members: {}",
             session_id
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_UPDATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
@@ -676,11 +615,11 @@ impl WorkSessionService {
         }
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -709,25 +648,24 @@ impl WorkSessionService {
         .await?;
 
         match self
-            .work_session_repository
+            .work_session_write_repository
             .update_session_members(session_id, data.members)
             .await
         {
             Ok(_) => {
                 let updated_session = self
-                    .work_session_repository
+                    .work_session_read_repository
                     .get_session_by_id(session_id)
                     .await
                     .map_err(|_| AppError::InternalServerError)?;
 
                 info!("[WorkSessionService] Session members updated");
-                Ok(ApiResponse::success(updated_session).into_response())
+                Ok(updated_session)
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
-                    && db_err.is_unique_violation()
+                if let RepositoryError::UniqueViolation { constraint } = &e
                     && let Some(app_err) = map_unique_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[(
                             "work_session_members_work_session_id_user_id_key",
                             "User already added to session",
@@ -746,31 +684,25 @@ impl WorkSessionService {
         session_id: Uuid,
         user_id: Uuid,
         new_function: Option<TeamMemberFunction>,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<String, AppError> {
         info!(
             "[WorkSessionService] Updating member function for session: {}",
             session_id
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_UPDATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_by_id(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
@@ -782,11 +714,11 @@ impl WorkSessionService {
         }
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -820,13 +752,13 @@ impl WorkSessionService {
             .map_err(AppError::BadRequest)?;
 
         match self
-            .work_session_repository
+            .work_session_write_repository
             .update_member_function(session_id, user_id, new_function.clone())
             .await
         {
             Ok(_) => {
                 info!("[WorkSessionService] Member function updated successfully");
-                Ok(ApiResponse::success("Member function updated successfully").into_response())
+                Ok("Member function updated successfully".to_string())
             }
             Err(e) => {
                 error!(
@@ -842,27 +774,21 @@ impl WorkSessionService {
         &self,
         session_id: Uuid,
         data: CreateWorkSession,
-        req: HttpRequest,
+        claims: &ClaimsToUserToken,
         include_complement_for_entities: bool,
-    ) -> Result<HttpResponse, AppError> {
+    ) -> Result<WorkSessionResponse, AppError> {
         info!("[WorkSessionService] Updating work session: {}", session_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
         if claims.profile != PROFILE_ROOT {
-            let user_city_id = extract_city_id_from_claims(&claims)?;
-            check_policy(
-                &claims,
-                POLICY_UPDATE_WORK_SESSIONS,
-                user_city_id,
-                &policies,
-            )?;
+            let user_city_id = extract_city_id_from_claims(claims)?;
+            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
         }
 
         let session = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_by_id_base(session_id)
             .await
             .map_err(|_| AppError::NotFound("Work session not found".to_string()))?;
@@ -874,11 +800,11 @@ impl WorkSessionService {
         }
 
         let current_members = self
-            .work_session_repository
+            .work_session_read_repository
             .get_session_members(session_id)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => {
+                RepositoryError::NotFound => {
                     AppError::NotFound("Session members not found".to_string())
                 }
                 _ => AppError::InternalServerError,
@@ -917,35 +843,35 @@ impl WorkSessionService {
         .await?;
 
         match self
-            .work_session_repository
+            .work_session_write_repository
             .update_work_session_with_members(session_id, data.description, data.members)
             .await
         {
             Ok(updated_session) => {
                 if include_complement_for_entities {
                     let members = self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_session_members_with_user_details(session_id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-                    Ok(
-                        ApiResponse::success(updated_session.with_members_complement(members))
-                            .into_response(),
-                    )
+                    Ok(WorkSessionResponse::WithEntities(
+                        updated_session.with_members_complement(members),
+                    ))
                 } else {
                     let members = self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_session_members_with_details(session_id)
                         .await
                         .map_err(|_| AppError::InternalServerError)?;
-                    Ok(ApiResponse::success(updated_session.with_members(members)).into_response())
+                    Ok(WorkSessionResponse::Simple(
+                        updated_session.with_members(members),
+                    ))
                 }
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
-                    && db_err.is_unique_violation()
+                if let RepositoryError::UniqueViolation { constraint } = &e
                     && let Some(app_err) = map_unique_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[(
                             "work_session_members_work_session_id_user_id_key",
                             "User already added to session",
@@ -980,7 +906,7 @@ impl WorkSessionService {
                 .get_user_by_id(*user_id)
                 .await
                 .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => {
+                    RepositoryError::NotFound => {
                         AppError::NotFound(format!("User {} not found", user_id))
                     }
                     _ => AppError::InternalServerError,

@@ -1,22 +1,20 @@
-use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::adapters::password_hasher::PasswordHasherPort;
+use crate::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
+use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
-use crate::core::entities::users::{
-    CreateUser, ResetUserPasswordResponse, UpdateUser, UpdateUserPassword,
-    UserDataCreatedWithoutPassword,
-};
-use crate::repositories::users::PgUserRepository;
-use crate::utils::{
-    authorization::{check_policy, validate_user_creation_permission},
-    db_error_mapper::map_constraint,
-    errors::AppError,
-    pagination::{PaginationParams, normalize_pagination},
-    responses::{ApiResponse, PaginatedResponse},
-    service_helpers::{extract_city_id_from_claims, extract_claims, get_user_policies_strict},
-};
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::common::PaginatedResult;
+use crate::core::entities::users::UserDataCreatedWithoutPassword;
+use crate::utils::errors::AppError;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::responses::users::ResetUserPasswordResponse;
+use crate::services::authorization::{check_policy, validate_user_creation_permission};
+use crate::services::error_mapping::map_constraint;
+use crate::services::helpers::{extract_city_id_from_claims, get_user_policies_strict};
+use crate::utils::pagination::Pagination;
 use crate::validators::{
     common::{
         POLICY_DELETE_USERS, POLICY_READ_USERS, POLICY_UPDATE_USERS, PROFILE_CITY_ADMIN,
@@ -29,8 +27,8 @@ use crate::validators::{
 };
 
 pub struct UserService {
-    user_repository: web::Data<PgUserRepository>,
-    password_hasher: Box<dyn PasswordHasherPort>,
+    user_repository: Arc<dyn UserRepository>,
+    password_hasher: Arc<dyn PasswordHasherPort>,
 }
 
 enum UserSearchCriteria {
@@ -40,8 +38,8 @@ enum UserSearchCriteria {
 
 impl UserService {
     pub fn new(
-        user_repository: web::Data<PgUserRepository>,
-        password_hasher: Box<dyn PasswordHasherPort>,
+        user_repository: Arc<dyn UserRepository>,
+        password_hasher: Arc<dyn PasswordHasherPort>,
     ) -> Self {
         Self {
             user_repository,
@@ -95,8 +93,8 @@ impl UserService {
     pub async fn create_user(
         &self,
         user: CreateUser,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         let mut user_with_city = user;
         user_with_city.email = user_with_city.email.trim().to_lowercase();
 
@@ -105,16 +103,14 @@ impl UserService {
             user_with_city.email
         );
 
-        let claims = extract_claims(&req)?;
-
         validate_user_creation_permission(&claims.profile, &user_with_city.profile)?;
 
         if let Some(policies) = user_with_city.permission_policies.as_ref() {
             PolicyValidator::validate_policy_names(policies)?;
             let claims_policies_json =
-                get_user_policies_strict(self.user_repository.as_ref(), &claims).await?;
+                get_user_policies_strict(self.user_repository.as_ref(), claims).await?;
             PolicyValidator::validate_assignment_permission(
-                &claims,
+                claims,
                 &user_with_city.profile,
                 policies,
                 claims_policies_json.as_ref(),
@@ -135,7 +131,7 @@ impl UserService {
             || user_with_city.profile == PROFILE_CITY_USER
         {
             if claims.profile == PROFILE_CITY_ADMIN {
-                let admin_city_id = extract_city_id_from_claims(&claims)?;
+                let admin_city_id = extract_city_id_from_claims(claims)?;
 
                 info!(
                     "[UserService] CITY_ADMIN creating user - using city_id from token: {}",
@@ -247,10 +243,10 @@ impl UserService {
                     "[UserService] User created successfully with ID: {}",
                     user.id
                 );
-                Ok(ApiResponse::created(user).into_response())
+                Ok(user)
             }
-            Err(sqlx::Error::Database(db_err)) => {
-                if let Some(constraint) = db_err.constraint() {
+            Err(RepositoryError::UniqueViolation { constraint }) => {
+                if let Some(constraint) = constraint.as_deref() {
                     if constraint.contains("registration") {
                         error!("[UserService] Registration already exists");
                         return Err(AppError::BadRequest(
@@ -266,7 +262,20 @@ impl UserService {
                 }
                 error!(
                     "[UserService] Database error while saving user: {:?}",
-                    db_err
+                    constraint
+                );
+                Err(AppError::InternalServerError)
+            }
+            Err(RepositoryError::ForeignKeyViolation { constraint }) => {
+                if let Some(app_err) = map_constraint(
+                    constraint.as_deref(),
+                    &[("fk_users_city", "Error adding user: city_id not found")],
+                ) {
+                    return Err(app_err);
+                }
+                error!(
+                    "[UserService] Database error while saving user: {:?}",
+                    constraint
                 );
                 Err(AppError::InternalServerError)
             }
@@ -281,11 +290,9 @@ impl UserService {
         &self,
         data: UpdateUser,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         info!("[UserService] Starting user updation for id: {}", id);
-
-        let claims = extract_claims(&req)?;
 
         let mut data = data;
         data.email = data.email.trim().to_lowercase();
@@ -298,7 +305,7 @@ impl UserService {
 
         let existing = match self.user_repository.get_user_by_id(id).await {
             Ok(user) => user,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
                     id
@@ -317,18 +324,18 @@ impl UserService {
         }
 
         if claims.profile != PROFILE_ROOT {
-            let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims)
+            let policies = get_user_policies_strict(self.user_repository.as_ref(), claims)
                 .await?
                 .unwrap_or(serde_json::json!({}));
 
             if let Some(existing_city_id) = existing.city_id {
-                check_policy(&claims, POLICY_UPDATE_USERS, existing_city_id, &policies)?;
+                check_policy(claims, POLICY_UPDATE_USERS, existing_city_id, &policies)?;
             }
 
             if let Some(new_city_id) = data.city_id
                 && Some(new_city_id) != existing.city_id
             {
-                check_policy(&claims, POLICY_UPDATE_USERS, new_city_id, &policies)?;
+                check_policy(claims, POLICY_UPDATE_USERS, new_city_id, &policies)?;
             }
         }
 
@@ -351,9 +358,9 @@ impl UserService {
         if let Some(policies) = data.permission_policies.as_ref() {
             PolicyValidator::validate_policy_names(policies)?;
             let claims_policies_json =
-                get_user_policies_strict(self.user_repository.as_ref(), &claims).await?;
+                get_user_policies_strict(self.user_repository.as_ref(), claims).await?;
             PolicyValidator::validate_assignment_permission(
-                &claims,
+                claims,
                 &data.profile,
                 policies,
                 claims_policies_json.as_ref(),
@@ -391,7 +398,14 @@ impl UserService {
         if self
             .user_repository
             .check_email_exists_for_other_user(&data.email, id)
-            .await?
+            .await
+            .map_err(|e| {
+                error!(
+                    "[UserService] Failed to check if email exists for another user: {:?}",
+                    e
+                );
+                AppError::InternalServerError
+            })?
         {
             return Err(AppError::BadRequest(format!(
                 "Email '{}' is already in use by another user",
@@ -405,17 +419,17 @@ impl UserService {
         match self.user_repository.update_user_by_id(data, id).await {
             Ok(user) => {
                 info!("[Service] User updated successfully with ID: {}", user.id);
-                Ok(ApiResponse::success(user).into_response())
+                Ok(user)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[Service] User with id {} not found for update", id);
                 Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
                     id
                 )))
             }
-            Err(sqlx::Error::Database(db_err)) => {
-                if let Some(constraint) = db_err.constraint() {
+            Err(RepositoryError::UniqueViolation { constraint }) => {
+                if let Some(constraint) = constraint.as_deref() {
                     if constraint.contains("registration") {
                         error!("[UserService] Registration already exists");
                         return Err(AppError::BadRequest(
@@ -431,7 +445,20 @@ impl UserService {
                 }
                 error!(
                     "[UserService] Database error while updating user: {:?}",
-                    db_err
+                    constraint
+                );
+                Err(AppError::InternalServerError)
+            }
+            Err(RepositoryError::ForeignKeyViolation { constraint }) => {
+                if let Some(app_err) = map_constraint(
+                    constraint.as_deref(),
+                    &[("fk_users_city", "Error updating user: city_id not found")],
+                ) {
+                    return Err(app_err);
+                }
+                error!(
+                    "[UserService] Database error while updating user: {:?}",
+                    constraint
                 );
                 Err(AppError::InternalServerError)
             }
@@ -445,11 +472,9 @@ impl UserService {
     pub async fn get_user_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         info!("[Service] Starting find user by id process for id: {}", id);
-
-        let claims = extract_claims(&req)?;
 
         match self.user_repository.get_user_by_id(id).await {
             Ok(user) => {
@@ -462,16 +487,16 @@ impl UserService {
                 if claims.profile != PROFILE_ROOT
                     && let Some(user_city_id) = user.city_id
                 {
-                    let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims)
+                    let policies = get_user_policies_strict(self.user_repository.as_ref(), claims)
                         .await?
                         .unwrap_or(serde_json::json!({}));
-                    check_policy(&claims, POLICY_READ_USERS, user_city_id, &policies)?;
+                    check_policy(claims, POLICY_READ_USERS, user_city_id, &policies)?;
                 }
 
                 info!("[Service] User with id {} found successfully", id);
-                Ok(ApiResponse::success(user).into_response())
+                Ok(user)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[Service] User with id {} not found", id);
                 Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
@@ -487,29 +512,25 @@ impl UserService {
 
     pub async fn get_all_users(
         &self,
-        params: PaginationParams,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        pagination: Pagination,
+        claims: &ClaimsToUserToken,
+    ) -> Result<PaginatedResult<UserDataCreatedWithoutPassword>, AppError> {
         info!("[UserService] Starting process to get all users");
-
-        let claims = extract_claims(&req)?;
-        let pagination = normalize_pagination(&params);
 
         let (allowed_cities, exclude_root) = if claims.profile == PROFILE_ROOT {
             (None, false)
         } else if claims.profile == PROFILE_CITY_ADMIN {
             let claims_policies =
-                match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
+                match get_user_policies_strict(self.user_repository.as_ref(), claims).await? {
                     Some(p) => p,
                     None => {
                         info!("[UserService] No policies found for CITY_ADMIN");
-                        return Ok(PaginatedResponse::success(
-                            Vec::<UserDataCreatedWithoutPassword>::new(),
-                            pagination.page,
-                            pagination.page_size,
-                            0,
-                        )
-                        .into_response());
+                        return Ok(PaginatedResult {
+                            items: Vec::<UserDataCreatedWithoutPassword>::new(),
+                            page: pagination.page,
+                            page_size: pagination.page_size,
+                            total_items: 0,
+                        });
                     }
                 };
 
@@ -551,36 +572,33 @@ impl UserService {
             .map_err(|_| AppError::InternalServerError)?;
 
         info!("[UserService] Successfully retrieved {} users", users.len());
-        Ok(
-            PaginatedResponse::success(users, pagination.page, pagination.page_size, total_items)
-                .into_response(),
-        )
+        Ok(PaginatedResult {
+            items: users,
+            page: pagination.page,
+            page_size: pagination.page_size,
+            total_items,
+        })
     }
 
     pub async fn search_users(
         &self,
         name: Option<String>,
         registration: Option<String>,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<Vec<UserDataCreatedWithoutPassword>, AppError> {
         info!("[UserService] Starting user search");
 
         let search = Self::parse_search_criteria(name, registration, "Error searching users")?;
-
-        let claims = extract_claims(&req)?;
 
         let (allowed_cities, exclude_root) = if claims.profile == PROFILE_ROOT {
             (None, false)
         } else if claims.profile == PROFILE_CITY_ADMIN {
             let claims_policies =
-                match get_user_policies_strict(self.user_repository.as_ref(), &claims).await? {
+                match get_user_policies_strict(self.user_repository.as_ref(), claims).await? {
                     Some(p) => p,
                     None => {
                         info!("[UserService] No policies found for CITY_ADMIN");
-                        return Ok(ApiResponse::success(
-                            Vec::<UserDataCreatedWithoutPassword>::new(),
-                        )
-                        .into_response());
+                        return Ok(Vec::<UserDataCreatedWithoutPassword>::new());
                     }
                 };
 
@@ -637,7 +655,7 @@ impl UserService {
                     "[UserService] Successfully retrieved {} users from search",
                     users_list.len()
                 );
-                Ok(ApiResponse::success(users_list).into_response())
+                Ok(users_list)
             }
             Err(e) => {
                 error!("[UserService] Failed to search users: {:?}", e);
@@ -649,18 +667,16 @@ impl UserService {
     pub async fn delete_user_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         info!(
             "[UserService] Starting process to delete user with id: {}",
             id
         );
 
-        let claims = extract_claims(&req)?;
-
         let existing = match self.user_repository.get_user_by_id(id).await {
             Ok(user) => user,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
                     id
@@ -681,18 +697,18 @@ impl UserService {
         if claims.profile != PROFILE_ROOT
             && let Some(user_city_id) = existing.city_id
         {
-            let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims)
+            let policies = get_user_policies_strict(self.user_repository.as_ref(), claims)
                 .await?
                 .unwrap_or(serde_json::json!({}));
-            check_policy(&claims, POLICY_DELETE_USERS, user_city_id, &policies)?;
+            check_policy(claims, POLICY_DELETE_USERS, user_city_id, &policies)?;
         }
 
         match self.user_repository.delete_user_by_id(id).await {
             Ok(deleted_user) => {
                 info!("[UserService] User with id {} deleted successfully", id);
-                Ok(ApiResponse::success(deleted_user).into_response())
+                Ok(deleted_user)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[UserService] User with id {} not found for deletion", id);
                 Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
@@ -709,9 +725,8 @@ impl UserService {
     pub async fn update_user_password_by_id(
         &self,
         data: UpdateUserPassword,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        let claims = extract_claims(&req)?;
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         let id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
@@ -734,7 +749,7 @@ impl UserService {
 
         let stored_password_hash = match self.user_repository.get_user_password_by_id(id).await {
             Ok(hash) => hash,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[UserService] User with id {} not found", id);
                 return Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
@@ -794,9 +809,9 @@ impl UserService {
                     "[UserService] Password updated successfully for user with id: {}",
                     id
                 );
-                Ok(ApiResponse::success(user).into_response())
+                Ok(user)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[UserService] User with id {} not found during update", id);
                 Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
@@ -813,14 +828,12 @@ impl UserService {
     pub async fn reset_user_password_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<ResetUserPasswordResponse, AppError> {
         info!(
             "[UserService] Starting password reset for user with id: {}",
             id
         );
-
-        let claims = extract_claims(&req)?;
 
         if claims.profile != PROFILE_ROOT && claims.profile != PROFILE_CITY_ADMIN {
             return Err(AppError::Forbidden(
@@ -830,7 +843,7 @@ impl UserService {
 
         let target_user = match self.user_repository.get_user_by_id(id).await {
             Ok(user) => user,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "User with id '{}' not found",
                     id
@@ -843,7 +856,7 @@ impl UserService {
         };
 
         if claims.profile == PROFILE_CITY_ADMIN {
-            let admin_city_id = extract_city_id_from_claims(&claims)?;
+            let admin_city_id = extract_city_id_from_claims(claims)?;
             if target_user.city_id != Some(admin_city_id) {
                 return Err(AppError::Forbidden(
                     "CITY_ADMIN can only reset passwords for users in the same city".to_string(),
@@ -884,12 +897,9 @@ impl UserService {
                     "[UserService] Password reset successfully for user with id: {}",
                     id
                 );
-                Ok(
-                    ApiResponse::success(ResetUserPasswordResponse { temporary_password })
-                        .into_response(),
-                )
+                Ok(ResetUserPasswordResponse { temporary_password })
             }
-            Err(sqlx::Error::RowNotFound) => Err(AppError::NotFound(format!(
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
                 "User with id '{}' not found",
                 id
             ))),
@@ -905,9 +915,8 @@ impl UserService {
         target_user_id: Uuid,
         policy: &str,
         city_ids: &[Uuid],
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        let claims = extract_claims(&req)?;
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         if !is_valid_policy(policy) {
             return Err(AppError::BadRequest(format!(
                 "Invalid policy name '{}'. Valid policies are: {:?}",
@@ -926,7 +935,7 @@ impl UserService {
             .get_user_by_id(target_user_id)
             .await
             .map_err(|e| {
-                if matches!(e, sqlx::Error::RowNotFound) {
+                if matches!(e, RepositoryError::NotFound) {
                     AppError::NotFound(format!("User with id '{}' not found", target_user_id))
                 } else {
                     AppError::InternalServerError
@@ -947,12 +956,12 @@ impl UserService {
         }
 
         if claims.profile != PROFILE_ROOT {
-            let policies = get_user_policies_strict(self.user_repository.as_ref(), &claims)
+            let policies = get_user_policies_strict(self.user_repository.as_ref(), claims)
                 .await?
                 .ok_or_else(|| AppError::Forbidden("User has no policies".to_string()))?;
 
             if let Some(target_city_id) = target_user.city_id {
-                check_policy(&claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
+                check_policy(claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
             }
 
             let arr = policies
@@ -993,7 +1002,7 @@ impl UserService {
             .update_user_policies_by_id(target_user_id, policies)
             .await
             .map_err(|_| AppError::InternalServerError)?;
-        Ok(ApiResponse::success(updated).into_response())
+        Ok(updated)
     }
 
     pub async fn remove_user_policy_cities(
@@ -1001,9 +1010,8 @@ impl UserService {
         target_user_id: Uuid,
         policy: &str,
         city_ids: &[Uuid],
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
-        let claims = extract_claims(&req)?;
+        claims: &ClaimsToUserToken,
+    ) -> Result<UserDataCreatedWithoutPassword, AppError> {
         if !is_valid_policy(policy) {
             return Err(AppError::BadRequest(format!(
                 "Invalid policy name '{}'. Valid policies are: {:?}",
@@ -1022,7 +1030,7 @@ impl UserService {
             .get_user_by_id(target_user_id)
             .await
             .map_err(|e| {
-                if matches!(e, sqlx::Error::RowNotFound) {
+                if matches!(e, RepositoryError::NotFound) {
                     AppError::NotFound(format!("User with id '{}' not found", target_user_id))
                 } else {
                     AppError::InternalServerError
@@ -1049,12 +1057,12 @@ impl UserService {
                 ));
             }
 
-            let policies = get_user_policies_strict(&**self.user_repository, &claims)
+            let policies = get_user_policies_strict(&*self.user_repository, claims)
                 .await?
                 .ok_or_else(|| AppError::Forbidden("User has no policies".to_string()))?;
 
             if let Some(target_city_id) = target_user.city_id {
-                check_policy(&claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
+                check_policy(claims, POLICY_UPDATE_USERS, target_city_id, &policies)?;
             }
 
             let arr = policies
@@ -1095,6 +1103,6 @@ impl UserService {
             .update_user_policies_by_id(target_user_id, policies)
             .await
             .map_err(|_| AppError::InternalServerError)?;
-        Ok(ApiResponse::success(updated).into_response())
+        Ok(updated)
     }
 }

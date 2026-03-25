@@ -1,6 +1,10 @@
 pub mod attendance_offenders;
-pub mod attendance_victims;
 pub mod auth;
+pub mod auth_context;
+pub mod authorization;
+pub mod error_mapping;
+pub mod helpers;
+pub mod attendance_victims;
 pub mod cities;
 pub mod extensions;
 pub mod offenders;

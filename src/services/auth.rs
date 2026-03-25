@@ -1,46 +1,50 @@
-use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use log::info;
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::adapters::password_hasher::PasswordHasherPort;
-use crate::adapters::token_generator::TokenGeneratorPort;
 use crate::config::config_env::Config;
+use crate::core::commands::auth::Login;
+use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::adapters::token_generator::TokenClaimsInput;
+use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
 use crate::core::contracts::repository::auth::AuthRepository;
-use crate::core::contracts::repository::work_sessions::WorkSessionRepository;
-use crate::core::entities::auth::{Login, LoginResponse};
-use crate::repositories::auth::PgAuthRepository;
-use crate::repositories::work_sessions::PgWorkSessionRepository;
+use crate::core::contracts::repository::work_sessions::{
+    WorkSessionReadRepository, WorkSessionWriteRepository,
+};
 use crate::utils::errors::AppError;
-use crate::utils::responses::ApiResponse;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::responses::auth::LoginResponse;
 use crate::validators::common::PROFILE_ROOT;
 pub struct AuthService {
-    auth_repository: web::Data<PgAuthRepository>,
-    work_session_repository: web::Data<PgWorkSessionRepository>,
-    config: web::Data<Config>,
-    password_hasher: Box<dyn PasswordHasherPort>,
-    token_generator: Box<dyn TokenGeneratorPort>,
+    auth_repository: Arc<dyn AuthRepository>,
+    work_session_read_repository: Arc<dyn WorkSessionReadRepository>,
+    work_session_write_repository: Arc<dyn WorkSessionWriteRepository>,
+    config: Arc<Config>,
+    password_hasher: Arc<dyn PasswordHasherPort>,
+    token_generator: Arc<dyn TokenGeneratorPort>,
 }
 
 impl AuthService {
     pub fn new(
-        auth_repository: web::Data<PgAuthRepository>,
-        work_session_repository: web::Data<PgWorkSessionRepository>,
-        config: web::Data<Config>,
-        password_hasher: Box<dyn PasswordHasherPort>,
-        token_generator: Box<dyn TokenGeneratorPort>,
+        auth_repository: Arc<dyn AuthRepository>,
+        work_session_read_repository: Arc<dyn WorkSessionReadRepository>,
+        work_session_write_repository: Arc<dyn WorkSessionWriteRepository>,
+        config: Arc<Config>,
+        password_hasher: Arc<dyn PasswordHasherPort>,
+        token_generator: Arc<dyn TokenGeneratorPort>,
     ) -> Self {
         Self {
             auth_repository,
-            work_session_repository,
+            work_session_read_repository,
+            work_session_write_repository,
             config,
             password_hasher,
             token_generator,
         }
     }
 
-    pub async fn login(&self, data: Login) -> Result<HttpResponse, AppError> {
+    pub async fn login(&self, data: Login) -> Result<LoginResponse, AppError> {
         let normalized_email = data.email.trim().to_lowercase();
         info!(
             "[Service] Starting login process with email: {}",
@@ -60,7 +64,7 @@ impl AuthService {
                 info!("[Service] User found with email: {}", normalized_email);
                 user
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[Service] User not found with email: {}", normalized_email);
                 return Err(AppError::Unauthorized("Invalid credentials".into()));
             }
@@ -149,19 +153,19 @@ impl AuthService {
             }
 
             match self
-                .work_session_repository
+                .work_session_read_repository
                 .is_user_in_active_session(user.id)
                 .await
             {
                 Ok(true) => {
                     match self
-                        .work_session_repository
+                        .work_session_read_repository
                         .get_active_session_by_user(user.id)
                         .await
                     {
                         Ok(session) => {
                             match self
-                                .work_session_repository
+                                .work_session_read_repository
                                 .get_session_by_id(session.id)
                                 .await
                             {
@@ -188,7 +192,7 @@ impl AuthService {
                     let session_id = Uuid::new_v4();
                     let session_member_registration_id = Uuid::new_v4();
                     match self
-                        .work_session_repository
+                        .work_session_write_repository
                         .create_auto_login_session(
                             session_id,
                             session_member_registration_id,
@@ -197,8 +201,26 @@ impl AuthService {
                         .await
                     {
                         Ok(session) => {
-                            info!("[Service] Work session created on login: {}", session.id);
-                            Some(session)
+                            match self
+                                .work_session_read_repository
+                                .get_session_by_id(session.id)
+                                .await
+                            {
+                                Ok(session_with_members) => {
+                                    info!(
+                                        "[Service] Work session created on login: {}",
+                                        session_with_members.id
+                                    );
+                                    Some(session_with_members)
+                                }
+                                Err(e) => {
+                                    log::error!(
+                                        "[Service] Failed to get created work session details: {:?}",
+                                        e
+                                    );
+                                    None
+                                }
+                            }
                         }
                         Err(e) => {
                             log::error!(
@@ -229,6 +251,6 @@ impl AuthService {
             work_session,
         };
 
-        Ok(ApiResponse::success(response).into_response())
+        Ok(response)
     }
 }

@@ -1,23 +1,24 @@
-use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::core::contracts::repository::victims::VictimRepository;
-
-use crate::core::entities::victims::{
-    AddressData, AddressType, CreateVictim, PhoneData, UpdateVictim,
+use crate::core::commands::victims::{CreateVictim, UpdateVictim};
+use crate::core::contracts::repository::users::UserRepository;
+use crate::core::contracts::repository::victims::{VictimReadRepository, VictimWriteRepository};
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::common::{
+    normalize_flag_from_list, resolve_city_id_from_addresses, AddressData, PaginatedResult,
+    PhoneData,
 };
-use crate::repositories::users::PgUserRepository;
-use crate::repositories::victims::PgVictimRepository;
-
-use crate::utils::{
-    authorization::{check_policy, get_allowed_cities_for_policy},
-    db_error_mapper::map_constraint,
-    errors::AppError,
-    pagination::{PaginationParams, normalize_pagination},
-    responses::{ApiResponse, PaginatedResponse},
-    service_helpers::{extract_claims, get_user_policies_with_defaults},
+use crate::core::value_objects::search::SearchCriteria;
+use crate::utils::errors::AppError;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::read_models::victims::{
+    VictimAddressResponse, VictimPhoneResponse, VictimWithDetails,
 };
+use crate::services::auth_context::AuthContext;
+use crate::services::error_mapping::map_constraint;
+use crate::utils::pagination::Pagination;
 use crate::validators::{
     common::{
         POLICY_CREATE_VICTIMS, POLICY_DELETE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS,
@@ -27,125 +28,41 @@ use crate::validators::{
 };
 
 pub struct VictimService {
-    victim_repository: web::Data<PgVictimRepository>,
-    user_repository: web::Data<PgUserRepository>,
-}
-
-enum VictimSearchCriteria {
-    Name(String),
-    Cpf(String),
+    victim_read_repository: Arc<dyn VictimReadRepository>,
+    victim_write_repository: Arc<dyn VictimWriteRepository>,
+    user_repository: Arc<dyn UserRepository>,
 }
 
 impl VictimService {
     pub fn new(
-        victim_repository: web::Data<PgVictimRepository>,
-        user_repository: web::Data<PgUserRepository>,
+        victim_read_repository: Arc<dyn VictimReadRepository>,
+        victim_write_repository: Arc<dyn VictimWriteRepository>,
+        user_repository: Arc<dyn UserRepository>,
     ) -> Self {
         Self {
-            victim_repository,
+            victim_read_repository,
+            victim_write_repository,
             user_repository,
-        }
-    }
-
-    fn derive_city_id_from_addresses(addresses: &Option<Vec<AddressData>>) -> Option<Uuid> {
-        let addresses = addresses.as_ref()?;
-
-        for address in addresses {
-            if address.address_type == AddressType::Residential {
-                return Some(address.city_id);
-            }
-        }
-
-        for address in addresses {
-            if address.address_type == AddressType::Work {
-                return Some(address.city_id);
-            }
-        }
-
-        None
-    }
-
-    fn resolve_city_id(
-        addresses: &Option<Vec<AddressData>>,
-        fallback_city_id: Option<Uuid>,
-        error_context: &str,
-    ) -> Result<Uuid, AppError> {
-        if let Some(city_id) = Self::derive_city_id_from_addresses(addresses) {
-            return Ok(city_id);
-        }
-
-        if let Some(city_id) = fallback_city_id {
-            return Ok(city_id);
-        }
-
-        Err(AppError::BadRequest(format!(
-            "{}: no Residential or Work address provided; please send city_id in the request body",
-            error_context
-        )))
-    }
-
-    fn normalize_flag_from_list(values: &Option<Vec<String>>) -> (bool, Option<Vec<String>>) {
-        match values {
-            Some(list) if !list.is_empty() => (true, Some(list.clone())),
-            _ => (false, None),
-        }
-    }
-
-    fn parse_search_criteria(
-        name: Option<String>,
-        cpf: Option<String>,
-        error_context: &str,
-    ) -> Result<VictimSearchCriteria, AppError> {
-        match (name, cpf) {
-            (Some(_name), Some(_)) => Err(AppError::BadRequest(format!(
-                "{}: provide either 'name' or 'cpf', not both",
-                error_context
-            ))),
-            (None, None) => Err(AppError::BadRequest(format!(
-                "{}: query parameter 'name' or 'cpf' is required",
-                error_context
-            ))),
-            (Some(name), None) => {
-                let trimmed = name.trim();
-                if trimmed.is_empty() {
-                    return Err(AppError::BadRequest(format!(
-                        "{}: query parameter 'name' cannot be empty",
-                        error_context
-                    )));
-                }
-                Ok(VictimSearchCriteria::Name(trimmed.to_string()))
-            }
-            (None, Some(cpf)) => {
-                let trimmed = cpf.trim();
-                if trimmed.is_empty() {
-                    return Err(AppError::BadRequest(format!(
-                        "{}: query parameter 'cpf' cannot be empty",
-                        error_context
-                    )));
-                }
-                let normalized = validate_cpf(trimmed, error_context)?;
-                Ok(VictimSearchCriteria::Cpf(normalized))
-            }
         }
     }
 
     pub async fn create_victim(
         &self,
         victim: CreateVictim,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimWithDetails, AppError> {
         let mut victim = victim;
-        let city_id =
-            Self::resolve_city_id(&victim.addresses, victim.city_id, "Error adding victim")?;
+        let city_id = resolve_city_id_from_addresses(&victim.addresses, victim.city_id)
+            .map_err(|e| AppError::BadRequest(format!("Error adding victim: {}", e)))?;
         victim.city_id = Some(city_id);
 
         let (has_special_needs, special_needs_type) =
-            Self::normalize_flag_from_list(&victim.special_needs_type);
+            normalize_flag_from_list(&victim.special_needs_type);
         victim.has_special_needs = has_special_needs;
         victim.special_needs_type = special_needs_type;
 
         let (has_psychiatric_issues, psychiatric_issues_type) =
-            Self::normalize_flag_from_list(&victim.psychiatric_issues_type);
+            normalize_flag_from_list(&victim.psychiatric_issues_type);
         victim.has_psychiatric_issues = has_psychiatric_issues;
         victim.psychiatric_issues_type = psychiatric_issues_type;
         victim.has_children = victim.children_count.is_some();
@@ -160,35 +77,36 @@ impl VictimService {
             victim.full_name
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        check_policy(&claims, POLICY_CREATE_VICTIMS, city_id, &policies)?;
+        auth.check_policy(POLICY_CREATE_VICTIMS, city_id)?;
 
         VictimValidator::validate_required_fields(&victim.full_name, "Error adding victim")?;
 
         info!("[VictimService] Saving victim to database");
 
-        match self.victim_repository.create_victim(victim).await {
+        match self.victim_write_repository.create_victim(victim).await {
             Ok(victim_with_address) => {
+                let victim_with_address = victim_with_address.into_details();
                 info!(
                     "[VictimService] Victim created successfully with ID: {}",
                     victim_with_address.id
                 );
-                Ok(ApiResponse::created(victim_with_address).into_response())
+                Ok(victim_with_address)
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.is_unique_violation()
-                        && db_err.constraint() == Some("idx_victims_cpf_unique")
-                    {
-                        error!("[VictimService] Attempt to create victim with duplicate CPF");
-                        return Err(AppError::Conflict(
-                            "A victim with this CPF already exists.".to_string(),
-                        ));
-                    }
-                    if let Some(app_err) = map_constraint(
-                        db_err.constraint(),
+                if let RepositoryError::UniqueViolation { constraint } = &e
+                    && constraint.as_deref() == Some("idx_victims_cpf_unique")
+                {
+                    error!("[VictimService] Attempt to create victim with duplicate CPF");
+                    return Err(AppError::Conflict(
+                        "A victim with this CPF already exists.".to_string(),
+                    ));
+                }
+                if let RepositoryError::UniqueViolation { constraint }
+                | RepositoryError::ForeignKeyViolation { constraint } = &e
+                    && let Some(app_err) = map_constraint(
+                        constraint.as_deref(),
                         &[
                             ("fk_victims_city", "Error adding victim: city_id not found"),
                             (
@@ -196,9 +114,9 @@ impl VictimService {
                                 "Error adding victim: address city_id not found",
                             ),
                         ],
-                    ) {
-                        return Err(app_err);
-                    }
+                    )
+                {
+                    return Err(app_err);
                 }
                 error!("[VictimService] Failed to save victim: {:?}", e);
                 Err(AppError::InternalServerError)
@@ -209,30 +127,22 @@ impl VictimService {
     pub async fn get_victim_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimWithDetails, AppError> {
         info!(
             "[VictimService] Starting find victim by id process for id: {}",
             id
         );
 
-        let claims = extract_claims(&req)?;
-
-        match self.victim_repository.get_victim_by_id(id).await {
+        match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
-                let policies =
-                    get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-                check_policy(
-                    &claims,
-                    POLICY_READ_VICTIMS,
-                    victim_with_address.city_id,
-                    &policies,
-                )?;
+                let auth = AuthContext::load(&*self.user_repository, claims).await?;
+                auth.check_policy(POLICY_READ_VICTIMS, victim_with_address.city_id)?;
 
                 info!("[VictimService] Victim with id {} found successfully", id);
-                Ok(ApiResponse::success(victim_with_address).into_response())
+                Ok(victim_with_address)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[VictimService] Victim with id {} not found", id);
                 Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
@@ -251,18 +161,16 @@ impl VictimService {
 
     pub async fn get_all_victims(
         &self,
-        params: PaginationParams,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        pagination: Pagination,
+        claims: &ClaimsToUserToken,
+    ) -> Result<PaginatedResult<VictimWithDetails>, AppError> {
         info!("[VictimService] Starting process to get victims");
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        let pagination = normalize_pagination(&params);
-        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies);
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        let allowed_cities = auth.allowed_cities(POLICY_READ_VICTIMS);
 
         let total_items = self
-            .victim_repository
+            .victim_read_repository
             .count_victims(allowed_cities.as_deref())
             .await
             .map_err(|e| {
@@ -271,7 +179,7 @@ impl VictimService {
             })?;
 
         let victims_list = self
-            .victim_repository
+            .victim_read_repository
             .get_victims_paginated(
                 allowed_cities.as_deref(),
                 pagination.page_size,
@@ -287,37 +195,38 @@ impl VictimService {
             "[VictimService] Successfully retrieved {} victims (paged)",
             victims_list.len()
         );
-        Ok(PaginatedResponse::success(
-            victims_list,
-            pagination.page,
-            pagination.page_size,
+        Ok(PaginatedResult {
+            items: victims_list,
+            page: pagination.page,
+            page_size: pagination.page_size,
             total_items,
-        )
-        .into_response())
+        })
     }
 
     pub async fn search_victims(
         &self,
         name: Option<String>,
         cpf: Option<String>,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<Vec<VictimWithDetails>, AppError> {
         info!("[VictimService] Starting victim search");
 
-        let search = Self::parse_search_criteria(name, cpf, "Error searching victims")?;
+        let search = SearchCriteria::parse(name, cpf)
+            .map_err(|e| AppError::BadRequest(format!("Error searching victims: {}", e)))?;
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
         let victims = match search {
-            VictimSearchCriteria::Name(name) => {
-                self.victim_repository.get_victims_by_name(&name).await
+            SearchCriteria::ByName(name) => {
+                self.victim_read_repository.get_victims_by_name(&name).await
             }
-            VictimSearchCriteria::Cpf(cpf) => self.victim_repository.get_victims_by_cpf(&cpf).await,
+            SearchCriteria::ByCpf(cpf) => {
+                self.victim_read_repository.get_victims_by_cpf(&cpf).await
+            }
         };
 
         let victims = if let Some(allowed_cities) =
-            get_allowed_cities_for_policy(&claims, POLICY_READ_VICTIMS, &policies)
+            auth.allowed_cities(POLICY_READ_VICTIMS)
         {
             match victims {
                 Ok(list) => {
@@ -339,7 +248,7 @@ impl VictimService {
                     "[VictimService] Successfully retrieved {} victims from search",
                     victims_list.len()
                 );
-                Ok(ApiResponse::success(victims_list).into_response())
+                Ok(victims_list)
             }
             Err(e) => {
                 error!("[VictimService] Failed to search victims: {:?}", e);
@@ -352,24 +261,23 @@ impl VictimService {
         &self,
         data: UpdateVictim,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimWithDetails, AppError> {
         info!("[VictimService] Starting victim update for id: {}", id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let mut data = data;
-        let city_id =
-            Self::resolve_city_id(&data.addresses, data.city_id, "Error updating victim")?;
+        let city_id = resolve_city_id_from_addresses(&data.addresses, data.city_id)
+            .map_err(|e| AppError::BadRequest(format!("Error updating victim: {}", e)))?;
         data.city_id = Some(city_id);
 
         let (has_special_needs, special_needs_type) =
-            Self::normalize_flag_from_list(&data.special_needs_type);
+            normalize_flag_from_list(&data.special_needs_type);
         data.has_special_needs = has_special_needs;
         data.special_needs_type = special_needs_type;
 
         let (has_psychiatric_issues, psychiatric_issues_type) =
-            Self::normalize_flag_from_list(&data.psychiatric_issues_type);
+            normalize_flag_from_list(&data.psychiatric_issues_type);
         data.has_psychiatric_issues = has_psychiatric_issues;
         data.psychiatric_issues_type = psychiatric_issues_type;
         data.has_children = data.children_count.is_some();
@@ -379,20 +287,15 @@ impl VictimService {
             data.cpf = Some(normalized);
         }
 
-        check_policy(&claims, POLICY_UPDATE_VICTIMS, city_id, &policies)?;
+        auth.check_policy(POLICY_UPDATE_VICTIMS, city_id)?;
 
         VictimValidator::validate_required_fields(&data.full_name, "Error updating victim")?;
 
-        match self.victim_repository.get_victim_by_id(id).await {
+        match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                check_policy(
-                    &claims,
-                    POLICY_UPDATE_VICTIMS,
-                    existing_victim.city_id,
-                    &policies,
-                )?;
+                auth.check_policy(POLICY_UPDATE_VICTIMS, existing_victim.city_id)?;
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     id
@@ -406,15 +309,20 @@ impl VictimService {
 
         info!("[VictimService] Updating victim in database");
 
-        match self.victim_repository.update_victim_by_id(data, id).await {
+        match self
+            .victim_write_repository
+            .update_victim_by_id(data, id)
+            .await
+        {
             Ok(victim_with_address) => {
+                let victim_with_address = victim_with_address.into_details();
                 info!(
                     "[VictimService] Victim updated successfully with ID: {}",
                     victim_with_address.id
                 );
-                Ok(ApiResponse::success(victim_with_address).into_response())
+                Ok(victim_with_address)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[VictimService] Victim with id {} not found for update", id);
                 Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
@@ -422,9 +330,10 @@ impl VictimService {
                 )))
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
+                if let RepositoryError::UniqueViolation { constraint }
+                | RepositoryError::ForeignKeyViolation { constraint } = &e
                     && let Some(app_err) = map_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[
                             (
                                 "fk_victims_city",
@@ -448,22 +357,19 @@ impl VictimService {
     pub async fn delete_victim_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimWithDetails, AppError> {
         info!(
             "[VictimService] Starting process to delete victim with id: {}",
             id
         );
 
-        let claims = extract_claims(&req)?;
-
-        match self.victim_repository.get_victim_by_id(id).await {
+        match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim) => {
-                let policies =
-                    get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-                check_policy(&claims, POLICY_DELETE_VICTIMS, victim.city_id, &policies)?;
+                let auth = AuthContext::load(&*self.user_repository, claims).await?;
+                auth.check_policy(POLICY_DELETE_VICTIMS, victim.city_id)?;
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     id
@@ -475,12 +381,13 @@ impl VictimService {
             }
         }
 
-        match self.victim_repository.delete_victim_by_id(id).await {
+        match self.victim_write_repository.delete_victim_by_id(id).await {
             Ok(deleted_victim) => {
+                let deleted_victim = deleted_victim.into_details();
                 info!("[VictimService] Victim with id {} deleted successfully", id);
-                Ok(ApiResponse::success(deleted_victim).into_response())
+                Ok(deleted_victim)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!(
                     "[VictimService] Victim with id {} not found for deletion",
                     id
@@ -501,18 +408,21 @@ impl VictimService {
         &self,
         victim_id: Uuid,
         phone_data: PhoneData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimPhoneResponse, AppError> {
         info!("[VictimService] Adding phone to victim: {}", victim_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_victim_by_id(victim_id).await {
+        match self
+            .victim_read_repository
+            .get_victim_by_id(victim_id)
+            .await
+        {
             Ok(victim) => {
-                check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     victim_id
@@ -522,11 +432,11 @@ impl VictimService {
         }
 
         match self
-            .victim_repository
+            .victim_write_repository
             .create_phone(victim_id, phone_data)
             .await
         {
-            Ok(phone) => Ok(ApiResponse::created(phone).into_response()),
+            Ok(phone) => Ok(phone.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -535,35 +445,33 @@ impl VictimService {
         &self,
         phone_id: Uuid,
         phone_data: PhoneData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimPhoneResponse, AppError> {
         info!("[VictimService] Updating phone: {}", phone_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_phone_by_id(phone_id).await {
+        match self.victim_write_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
                 match self
-                    .victim_repository
+                    .victim_read_repository
                     .get_victim_by_id(phone.victim_id)
                     .await
                 {
                     Ok(victim) => {
-                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
-                                "Victim with id '{}' not found",
-                                phone.victim_id
-                            ))),
+                            RepositoryError::NotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", phone.victim_id),
+                            )),
                             _ => Err(AppError::InternalServerError),
                         };
                     }
                 }
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Phone with id '{}' not found",
                     phone_id
@@ -573,11 +481,11 @@ impl VictimService {
         }
 
         match self
-            .victim_repository
+            .victim_write_repository
             .update_phone_by_id(phone_id, phone_data)
             .await
         {
-            Ok(phone) => Ok(ApiResponse::success(phone).into_response()),
+            Ok(phone) => Ok(phone.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -585,35 +493,33 @@ impl VictimService {
     pub async fn delete_phone(
         &self,
         phone_id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimPhoneResponse, AppError> {
         info!("[VictimService] Deleting phone: {}", phone_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_phone_by_id(phone_id).await {
+        match self.victim_write_repository.get_phone_by_id(phone_id).await {
             Ok(phone) => {
                 match self
-                    .victim_repository
+                    .victim_read_repository
                     .get_victim_by_id(phone.victim_id)
                     .await
                 {
                     Ok(victim) => {
-                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
-                                "Victim with id '{}' not found",
-                                phone.victim_id
-                            ))),
+                            RepositoryError::NotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", phone.victim_id),
+                            )),
                             _ => Err(AppError::InternalServerError),
                         };
                     }
                 }
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Phone with id '{}' not found",
                     phone_id
@@ -622,8 +528,12 @@ impl VictimService {
             Err(_) => return Err(AppError::InternalServerError),
         }
 
-        match self.victim_repository.delete_phone_by_id(phone_id).await {
-            Ok(phone) => Ok(ApiResponse::success(phone).into_response()),
+        match self
+            .victim_write_repository
+            .delete_phone_by_id(phone_id)
+            .await
+        {
+            Ok(phone) => Ok(phone.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -632,18 +542,21 @@ impl VictimService {
         &self,
         victim_id: Uuid,
         address_data: AddressData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimAddressResponse, AppError> {
         info!("[VictimService] Adding address to victim: {}", victim_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_victim_by_id(victim_id).await {
+        match self
+            .victim_read_repository
+            .get_victim_by_id(victim_id)
+            .await
+        {
             Ok(victim) => {
-                check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     victim_id
@@ -653,11 +566,11 @@ impl VictimService {
         }
 
         match self
-            .victim_repository
+            .victim_write_repository
             .create_address(victim_id, address_data)
             .await
         {
-            Ok(address) => Ok(ApiResponse::created(address).into_response()),
+            Ok(address) => Ok(address.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -666,35 +579,37 @@ impl VictimService {
         &self,
         address_id: Uuid,
         address_data: AddressData,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimAddressResponse, AppError> {
         info!("[VictimService] Updating address: {}", address_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_address_by_id(address_id).await {
+        match self
+            .victim_write_repository
+            .get_address_by_id(address_id)
+            .await
+        {
             Ok(address) => {
                 match self
-                    .victim_repository
+                    .victim_read_repository
                     .get_victim_by_id(address.victim_id)
                     .await
                 {
                     Ok(victim) => {
-                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
-                                "Victim with id '{}' not found",
-                                address.victim_id
-                            ))),
+                            RepositoryError::NotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", address.victim_id),
+                            )),
                             _ => Err(AppError::InternalServerError),
                         };
                     }
                 }
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Address with id '{}' not found",
                     address_id
@@ -704,11 +619,11 @@ impl VictimService {
         }
 
         match self
-            .victim_repository
+            .victim_write_repository
             .update_address_by_id(address_id, address_data)
             .await
         {
-            Ok(address) => Ok(ApiResponse::success(address).into_response()),
+            Ok(address) => Ok(address.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }
@@ -716,35 +631,37 @@ impl VictimService {
     pub async fn delete_address(
         &self,
         address_id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<VictimAddressResponse, AppError> {
         info!("[VictimService] Deleting address: {}", address_id);
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        match self.victim_repository.get_address_by_id(address_id).await {
+        match self
+            .victim_write_repository
+            .get_address_by_id(address_id)
+            .await
+        {
             Ok(address) => {
                 match self
-                    .victim_repository
+                    .victim_read_repository
                     .get_victim_by_id(address.victim_id)
                     .await
                 {
                     Ok(victim) => {
-                        check_policy(&claims, POLICY_UPDATE_VICTIMS, victim.city_id, &policies)?;
+                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
-                            sqlx::Error::RowNotFound => Err(AppError::NotFound(format!(
-                                "Victim with id '{}' not found",
-                                address.victim_id
-                            ))),
+                            RepositoryError::NotFound => Err(AppError::NotFound(
+                                format!("Victim with id '{}' not found", address.victim_id),
+                            )),
                             _ => Err(AppError::InternalServerError),
                         };
                     }
                 }
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
                     "Address with id '{}' not found",
                     address_id
@@ -754,11 +671,11 @@ impl VictimService {
         }
 
         match self
-            .victim_repository
+            .victim_write_repository
             .delete_address_by_id(address_id)
             .await
         {
-            Ok(address) => Ok(ApiResponse::success(address).into_response()),
+            Ok(address) => Ok(address.to_response()),
             Err(_) => Err(AppError::InternalServerError),
         }
     }

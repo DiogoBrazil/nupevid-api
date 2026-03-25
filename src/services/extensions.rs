@@ -1,40 +1,36 @@
-use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
+use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::core::commands::protective_measures::{CreateExtension, UpdateExtension};
 use crate::core::contracts::repository::extensions::ExtensionRepository;
-use crate::core::contracts::repository::protective_measures::ProtectiveMeasureRepository;
-use crate::core::contracts::repository::victims::VictimRepository;
-use crate::core::entities::protective_measures::{CreateExtension, UpdateExtension};
-use crate::repositories::extensions::PgExtensionRepository;
-use crate::repositories::protective_measures::PgProtectiveMeasureRepository;
-use crate::repositories::users::PgUserRepository;
-use crate::repositories::victims::PgVictimRepository;
-use crate::utils::{
-    authorization::check_policy,
-    db_error_mapper::map_constraint,
-    errors::AppError,
-    responses::ApiResponse,
-    service_helpers::{extract_claims, get_user_policies_with_defaults},
-};
+use crate::core::contracts::repository::protective_measures::ProtectiveMeasureReadRepository;
+use crate::core::contracts::repository::users::UserRepository;
+use crate::core::contracts::repository::victims::VictimReadRepository;
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
+use crate::utils::errors::AppError;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::services::auth_context::AuthContext;
+use crate::services::error_mapping::map_constraint;
 use crate::validators::common::{
     POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_DELETE_PROTECTIVE_MEASURES,
     POLICY_READ_PROTECTIVE_MEASURES, POLICY_UPDATE_PROTECTIVE_MEASURES,
 };
 
 pub struct ExtensionService {
-    extension_repository: web::Data<PgExtensionRepository>,
-    protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
-    victim_repository: web::Data<PgVictimRepository>,
-    user_repository: web::Data<PgUserRepository>,
+    extension_repository: Arc<dyn ExtensionRepository>,
+    protective_measure_repository: Arc<dyn ProtectiveMeasureReadRepository>,
+    victim_repository: Arc<dyn VictimReadRepository>,
+    user_repository: Arc<dyn UserRepository>,
 }
 
 impl ExtensionService {
     pub fn new(
-        extension_repository: web::Data<PgExtensionRepository>,
-        protective_measure_repository: web::Data<PgProtectiveMeasureRepository>,
-        victim_repository: web::Data<PgVictimRepository>,
-        user_repository: web::Data<PgUserRepository>,
+        extension_repository: Arc<dyn ExtensionRepository>,
+        protective_measure_repository: Arc<dyn ProtectiveMeasureReadRepository>,
+        victim_repository: Arc<dyn VictimReadRepository>,
+        user_repository: Arc<dyn UserRepository>,
     ) -> Self {
         Self {
             extension_repository,
@@ -48,14 +44,12 @@ impl ExtensionService {
         &self,
         protective_measure_id: Uuid,
         data: CreateExtension,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<ProtectiveMeasureExtension, AppError> {
         info!(
             "[Service] Creating extension {} for protective measure: {}",
             data.extension_number, protective_measure_id
         );
-
-        let claims = extract_claims(&req)?;
 
         let protective_measure = match self
             .protective_measure_repository
@@ -66,7 +60,7 @@ impl ExtensionService {
                 info!("[Service] Protective measure found");
                 pm
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!(
                     "[Service] Protective measure not found: {}",
                     protective_measure_id
@@ -90,7 +84,7 @@ impl ExtensionService {
             .await
         {
             Ok(v) => v,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!(
                     "[Service] Victim not found: {}",
                     protective_measure.victim_id
@@ -106,14 +100,8 @@ impl ExtensionService {
             }
         };
 
-        let policies =
-            get_user_policies_with_defaults(self.user_repository.as_ref(), &claims).await?;
-        check_policy(
-            &claims,
-            POLICY_CREATE_PROTECTIVE_MEASURES,
-            victim.city_id,
-            &policies,
-        )?;
+        let auth = AuthContext::load(self.user_repository.as_ref(), claims).await?;
+        auth.check_policy(POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id)?;
 
         match self
             .extension_repository
@@ -125,12 +113,13 @@ impl ExtensionService {
                     "[Service] Extension created successfully with ID: {}",
                     extension.id
                 );
-                Ok(ApiResponse::created(extension).into_response())
+                Ok(extension)
             }
             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e
+                if let RepositoryError::UniqueViolation { constraint }
+                | RepositoryError::ForeignKeyViolation { constraint } = &e
                     && let Some(app_err) = map_constraint(
-                        db_err.constraint(),
+                        constraint.as_deref(),
                         &[(
                             "fk_extensions_protective_measure",
                             "Error adding extension: protective_measure_id not found",
@@ -148,15 +137,13 @@ impl ExtensionService {
     pub async fn get_extension_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<ProtectiveMeasureExtension, AppError> {
         info!("[Service] Getting extension with ID: {}", id);
-
-        let claims = extract_claims(&req)?;
 
         let extension = match self.extension_repository.get_extension_by_id(id).await {
             Ok(ext) => ext,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[Service] Extension not found with ID: {}", id);
                 return Err(AppError::NotFound("Extension not found".to_string()));
             }
@@ -184,29 +171,22 @@ impl ExtensionService {
                 AppError::InternalServerError
             })?;
 
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(
-            &claims,
-            POLICY_READ_PROTECTIVE_MEASURES,
-            victim.city_id,
-            &policies,
-        )?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
 
         info!("[Service] Extension found with ID: {}", id);
-        Ok(ApiResponse::success(extension).into_response())
+        Ok(extension)
     }
 
     pub async fn get_extensions_by_measure(
         &self,
         protective_measure_id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<Vec<ProtectiveMeasureExtension>, AppError> {
         info!(
             "[Service] Getting extensions for protective measure: {}",
             protective_measure_id
         );
-
-        let claims = extract_claims(&req)?;
 
         let protective_measure = match self
             .protective_measure_repository
@@ -214,7 +194,7 @@ impl ExtensionService {
             .await
         {
             Ok(pm) => pm,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!(
                     "[Service] Protective measure not found: {}",
                     protective_measure_id
@@ -238,13 +218,8 @@ impl ExtensionService {
                 AppError::InternalServerError
             })?;
 
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(
-            &claims,
-            POLICY_READ_PROTECTIVE_MEASURES,
-            victim.city_id,
-            &policies,
-        )?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
 
         match self
             .extension_repository
@@ -257,7 +232,7 @@ impl ExtensionService {
                     extensions.len(),
                     protective_measure_id
                 );
-                Ok(ApiResponse::success(extensions).into_response())
+                Ok(extensions)
             }
             Err(e) => {
                 error!("[Service] Database error: {:?}", e);
@@ -270,18 +245,16 @@ impl ExtensionService {
         &self,
         id: Uuid,
         data: UpdateExtension,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<ProtectiveMeasureExtension, AppError> {
         info!("[Service] Updating extension with ID: {}", id);
-
-        let claims = extract_claims(&req)?;
 
         let extension = match self.extension_repository.get_extension_by_id(id).await {
             Ok(ext) => {
                 info!("[Service] Extension found");
                 ext
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[Service] Extension not found: {}", id);
                 return Err(AppError::NotFound("Extension not found".to_string()));
             }
@@ -309,13 +282,8 @@ impl ExtensionService {
                 AppError::InternalServerError
             })?;
 
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(
-            &claims,
-            POLICY_UPDATE_PROTECTIVE_MEASURES,
-            victim.city_id,
-            &policies,
-        )?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        auth.check_policy(POLICY_UPDATE_PROTECTIVE_MEASURES, victim.city_id)?;
 
         match self
             .extension_repository
@@ -324,7 +292,7 @@ impl ExtensionService {
         {
             Ok(extension) => {
                 info!("[Service] Extension updated successfully with ID: {}", id);
-                Ok(ApiResponse::success(extension).into_response())
+                Ok(extension)
             }
             Err(e) => {
                 error!("[Service] Error updating extension: {:?}", e);
@@ -336,15 +304,13 @@ impl ExtensionService {
     pub async fn delete_extension_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<ProtectiveMeasureExtension, AppError> {
         info!("[Service] Deleting extension with ID: {}", id);
-
-        let claims = extract_claims(&req)?;
 
         let extension = match self.extension_repository.get_extension_by_id(id).await {
             Ok(ext) => ext,
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[Service] Extension not found: {}", id);
                 return Err(AppError::NotFound("Extension not found".to_string()));
             }
@@ -372,20 +338,15 @@ impl ExtensionService {
                 AppError::InternalServerError
             })?;
 
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-        check_policy(
-            &claims,
-            POLICY_DELETE_PROTECTIVE_MEASURES,
-            victim.city_id,
-            &policies,
-        )?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        auth.check_policy(POLICY_DELETE_PROTECTIVE_MEASURES, victim.city_id)?;
 
         match self.extension_repository.delete_extension_by_id(id).await {
             Ok(extension) => {
                 info!("[Service] Extension deleted successfully with ID: {}", id);
-                Ok(ApiResponse::success(extension).into_response())
+                Ok(extension)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[Service] Extension not found: {}", id);
                 Err(AppError::NotFound("Extension not found".to_string()))
             }

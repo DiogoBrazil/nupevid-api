@@ -1,33 +1,31 @@
-use actix_web::{HttpRequest, HttpResponse, web};
 use log::{error, info};
+use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::core::commands::cities::{CreateCity, UpdateCity};
 use crate::core::contracts::repository::cities::CityRepository;
-use crate::core::entities::cities::{CreateCity, UpdateCity};
-use crate::repositories::cities::PgCityRepository;
-use crate::repositories::users::PgUserRepository;
-
-use crate::utils::{
-    authorization::{check_policy, get_allowed_cities_for_policy},
-    errors::AppError,
-    pagination::{PaginationParams, normalize_pagination},
-    responses::{ApiResponse, PaginatedResponse},
-    service_helpers::{extract_claims, get_user_policies_with_defaults},
-};
+use crate::core::contracts::repository::users::UserRepository;
+use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::cities::City;
+use crate::core::entities::common::PaginatedResult;
+use crate::utils::errors::AppError;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::services::auth_context::AuthContext;
+use crate::utils::pagination::Pagination;
 use crate::validators::{
     city_validator::CityValidator,
     common::{POLICY_READ_CITIES, PROFILE_ROOT},
 };
 
 pub struct CityService {
-    city_repository: web::Data<PgCityRepository>,
-    user_repository: web::Data<PgUserRepository>,
+    city_repository: Arc<dyn CityRepository>,
+    user_repository: Arc<dyn UserRepository>,
 }
 
 impl CityService {
     pub fn new(
-        city_repository: web::Data<PgCityRepository>,
-        user_repository: web::Data<PgUserRepository>,
+        city_repository: Arc<dyn CityRepository>,
+        user_repository: Arc<dyn UserRepository>,
     ) -> Self {
         Self {
             city_repository,
@@ -38,11 +36,10 @@ impl CityService {
     pub async fn create_city(
         &self,
         city: CreateCity,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<City, AppError> {
         info!("[CityService] Starting city creation: {}", city.name);
 
-        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can create cities");
             return Err(AppError::Forbidden(
@@ -89,7 +86,7 @@ impl CityService {
                     "[CityService] City created successfully with ID: {}",
                     city.id
                 );
-                Ok(ApiResponse::created(city).into_response())
+                Ok(city)
             }
             Err(e) => {
                 error!("[CityService] Failed to save city: {:?}", e);
@@ -101,25 +98,24 @@ impl CityService {
     pub async fn get_city_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<City, AppError> {
         info!(
             "[CityService] Starting find city by id process for id: {}",
             id
         );
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
         match self.city_repository.get_city_by_id(id).await {
             Ok(city) => {
                 if claims.profile != PROFILE_ROOT {
-                    check_policy(&claims, POLICY_READ_CITIES, city.id, &policies)?;
+                    auth.check_policy(POLICY_READ_CITIES, city.id)?;
                 }
                 info!("[CityService] City with id {} found successfully", id);
-                Ok(ApiResponse::success(city).into_response())
+                Ok(city)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[CityService] City with id {} not found", id);
                 Err(AppError::NotFound(format!(
                     "City with id '{}' not found",
@@ -135,16 +131,13 @@ impl CityService {
 
     pub async fn get_all_cities(
         &self,
-        params: PaginationParams,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        pagination: Pagination,
+        claims: &ClaimsToUserToken,
+    ) -> Result<PaginatedResult<City>, AppError> {
         info!("[CityService] Starting process to get all cities");
 
-        let claims = extract_claims(&req)?;
-        let policies = get_user_policies_with_defaults(&**self.user_repository, &claims).await?;
-
-        let pagination = normalize_pagination(&params);
-        let allowed_cities = get_allowed_cities_for_policy(&claims, POLICY_READ_CITIES, &policies);
+        let auth = AuthContext::load(&*self.user_repository, claims).await?;
+        let allowed_cities = auth.allowed_cities(POLICY_READ_CITIES);
 
         let total_items = self
             .city_repository
@@ -166,21 +159,23 @@ impl CityService {
             "[CityService] Successfully retrieved {} cities",
             cities.len()
         );
-        Ok(
-            PaginatedResponse::success(cities, pagination.page, pagination.page_size, total_items)
-                .into_response(),
-        )
+
+        Ok(PaginatedResult {
+            items: cities,
+            page: pagination.page,
+            page_size: pagination.page_size,
+            total_items,
+        })
     }
 
     pub async fn update_city_by_id(
         &self,
         data: UpdateCity,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<City, AppError> {
         info!("[CityService] Starting city update for id: {}", id);
 
-        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can update cities");
             return Err(AppError::Forbidden(
@@ -229,9 +224,9 @@ impl CityService {
                     "[CityService] City updated successfully with ID: {}",
                     city.id
                 );
-                Ok(ApiResponse::success(city).into_response())
+                Ok(city)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 error!("[CityService] City with id {} not found for update", id);
                 Err(AppError::NotFound(format!(
                     "City with id '{}' not found",
@@ -248,14 +243,13 @@ impl CityService {
     pub async fn delete_city_by_id(
         &self,
         id: Uuid,
-        req: HttpRequest,
-    ) -> Result<HttpResponse, AppError> {
+        claims: &ClaimsToUserToken,
+    ) -> Result<City, AppError> {
         info!(
             "[CityService] Starting process to delete city with id: {}",
             id
         );
 
-        let claims = extract_claims(&req)?;
         if claims.profile != PROFILE_ROOT {
             error!("[CityService] Only ROOT can delete cities");
             return Err(AppError::Forbidden(
@@ -266,9 +260,9 @@ impl CityService {
         match self.city_repository.delete_city_by_id(id).await {
             Ok(deleted_city) => {
                 info!("[CityService] City with id {} deleted successfully", id);
-                Ok(ApiResponse::success(deleted_city).into_response())
+                Ok(deleted_city)
             }
-            Err(sqlx::Error::RowNotFound) => {
+            Err(RepositoryError::NotFound) => {
                 info!("[CityService] City with id {} not found for deletion", id);
                 Err(AppError::NotFound(format!(
                     "City with id '{}' not found",
