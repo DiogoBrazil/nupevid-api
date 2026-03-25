@@ -1,19 +1,18 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
+use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::core::entities::work_session_members::{TeamMemberFunction, UpdateMemberFunction};
-use crate::core::entities::work_sessions::{
-    CreateWorkSession, ListWorkSessionsQuery, UpdateWorkSessionMembers,
-};
+use crate::core::commands::work_session_members::UpdateMemberFunction;
+use crate::core::commands::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
+use crate::core::entities::work_session_members::TeamMemberFunction;
+use crate::core::queries::common::IncludeComplementQuery;
+use crate::core::queries::work_sessions::ListWorkSessionsQuery;
 use crate::services::work_sessions::WorkSessionService;
+use crate::utils::controller_helpers::{
+    created, include_complement, paginated, request_claims, request_pagination_from_parts, success,
+};
 use crate::utils::errors::AppError;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct IncludeComplementQuery {
-    pub include_complement_for_entities: Option<bool>,
-}
 
 pub async fn create_work_session(
     data: web::Json<CreateWorkSession>,
@@ -22,13 +21,11 @@ pub async fn create_work_session(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create work session");
-    service
-        .create_work_session(
-            data.into_inner(),
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
-        )
-        .await
+    let claims = request_claims(&req)?;
+    let session = service
+        .create_work_session(data.into_inner(), &claims, include_complement(&query))
+        .await?;
+    Ok(created(session))
 }
 
 pub async fn get_active_session(
@@ -37,9 +34,11 @@ pub async fn get_active_session(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get active work session");
-    service
-        .get_active_session(req, query.include_complement_for_entities.unwrap_or(false))
-        .await
+    let claims = request_claims(&req)?;
+    let session = service
+        .get_active_session(&claims, include_complement(&query))
+        .await?;
+    Ok(success(session))
 }
 
 pub async fn get_session_by_id(
@@ -53,13 +52,11 @@ pub async fn get_session_by_id(
         "[Controller] Received request to get work session: {}",
         session_id
     );
-    service
-        .get_session_by_id(
-            session_id,
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
-        )
-        .await
+    let claims = request_claims(&req)?;
+    let session = service
+        .get_session_by_id(session_id, &claims, include_complement(&query))
+        .await?;
+    Ok(success(session))
 }
 
 pub async fn list_sessions(
@@ -68,7 +65,11 @@ pub async fn list_sessions(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to list work sessions");
-    service.list_sessions(query.into_inner(), req).await
+    let claims = request_claims(&req)?;
+    let query = query.into_inner();
+    let pagination = request_pagination_from_parts(query.page, query.page_size);
+    let result = service.list_sessions(query, pagination, &claims).await?;
+    Ok(paginated(result))
 }
 
 pub async fn end_session(
@@ -76,7 +77,9 @@ pub async fn end_session(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to end work session");
-    service.end_session(req).await
+    let claims = request_claims(&req)?;
+    let message = service.end_session(&claims).await?;
+    Ok(success(message))
 }
 
 #[derive(Deserialize)]
@@ -96,9 +99,11 @@ pub async fn add_member(
         "[Controller] Received request to add member to session: {}",
         session_id
     );
-    service
-        .add_member_to_session(session_id, data.user_id, data.function.clone(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let member = service
+        .add_member_to_session(session_id, data.user_id, data.function.clone(), &claims)
+        .await?;
+    Ok(success(member))
 }
 
 pub async fn remove_member(
@@ -111,9 +116,11 @@ pub async fn remove_member(
         "[Controller] Received request to remove member {} from session: {}",
         member_id, session_id
     );
-    service
-        .remove_member_from_session(session_id, member_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let message = service
+        .remove_member_from_session(session_id, member_id, &claims)
+        .await?;
+    Ok(success(message))
 }
 
 pub async fn update_members(
@@ -127,9 +134,11 @@ pub async fn update_members(
         "[Controller] Received request to update members of session: {}",
         session_id
     );
-    service
-        .update_members(session_id, data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let session = service
+        .update_members(session_id, data.into_inner(), &claims)
+        .await?;
+    Ok(success(session))
 }
 
 pub async fn update_member_function(
@@ -143,9 +152,11 @@ pub async fn update_member_function(
         "[Controller] Received request to update function of member {} in session: {}",
         user_id, session_id
     );
-    service
-        .update_member_function(session_id, user_id, data.function.clone(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let message = service
+        .update_member_function(session_id, user_id, data.function.clone(), &claims)
+        .await?;
+    Ok(success(message))
 }
 
 pub async fn update_work_session(
@@ -160,12 +171,14 @@ pub async fn update_work_session(
         "[Controller] Received request to update work session: {}",
         session_id
     );
-    service
+    let claims = request_claims(&req)?;
+    let session = service
         .update_work_session(
             session_id,
             data.into_inner(),
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
+            &claims,
+            include_complement(&query),
         )
-        .await
+        .await?;
+    Ok(success(session))
 }

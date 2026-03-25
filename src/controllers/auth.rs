@@ -1,8 +1,9 @@
 use actix_web::{HttpResponse, web};
 use log::info;
 
-use crate::core::entities::auth::Login;
+use crate::core::commands::auth::Login;
 use crate::services::auth::AuthService;
+use crate::utils::controller_helpers::success;
 use crate::utils::errors::AppError;
 
 pub async fn login(
@@ -13,5 +14,6 @@ pub async fn login(
         "[Controller] Received request to login user with email: {}",
         data.email
     );
-    service.login(data.into_inner()).await
+    let response = service.login(data.into_inner()).await?;
+    Ok(success(response))
 }

@@ -2,25 +2,16 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
-use crate::core::entities::protective_measures::{
+use crate::core::commands::protective_measures::{
     CreateProtectiveMeasure, UpdateProtectiveMeasure,
 };
+use crate::core::queries::common::IncludeComplementQuery;
+use crate::core::queries::protective_measures::ProtectiveMeasuresQuery;
 use crate::services::protective_measures::ProtectiveMeasureService;
+use crate::utils::controller_helpers::{
+    created, include_complement, paginated, request_claims, request_pagination_from_parts, success,
+};
 use crate::utils::errors::AppError;
-use crate::utils::pagination::PaginationParams;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct IncludeComplementQuery {
-    pub include_complement_for_entities: Option<bool>,
-}
-
-#[derive(Deserialize)]
-pub struct ProtectiveMeasuresQuery {
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
-    pub include_complement_for_entities: Option<bool>,
-}
 
 pub async fn create_protective_measure(
     measure_data: web::Json<CreateProtectiveMeasure>,
@@ -29,13 +20,15 @@ pub async fn create_protective_measure(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create protective measure");
-    service
+    let claims = request_claims(&req)?;
+    let measure = service
         .create_protective_measure(
             measure_data.into_inner(),
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
+            &claims,
+            include_complement(&query),
         )
-        .await
+        .await?;
+    Ok(created(measure))
 }
 
 pub async fn get_protective_measure_by_id(
@@ -49,13 +42,11 @@ pub async fn get_protective_measure_by_id(
         "[Controller] Received request to get protective measure with id: {}",
         measure_id
     );
-    service
-        .get_protective_measure_by_id(
-            measure_id,
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
-        )
-        .await
+    let claims = request_claims(&req)?;
+    let measure = service
+        .get_protective_measure_by_id(measure_id, &claims, include_complement(&query))
+        .await?;
+    Ok(success(measure))
 }
 
 pub async fn get_all_protective_measures(
@@ -65,17 +56,16 @@ pub async fn get_all_protective_measures(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all protective measures");
     let query = query.into_inner();
-    let pagination = PaginationParams {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    service
+    let claims = request_claims(&req)?;
+    let pagination = request_pagination_from_parts(query.page, query.page_size);
+    let result = service
         .get_all_protective_measures(
             pagination,
-            req,
+            &claims,
             query.include_complement_for_entities.unwrap_or(false),
         )
-        .await
+        .await?;
+    Ok(paginated(result))
 }
 
 pub async fn get_protective_measures_by_victim(
@@ -89,13 +79,11 @@ pub async fn get_protective_measures_by_victim(
         "[Controller] Received request to get protective measures for victim: {}",
         victim_id
     );
-    service
-        .get_protective_measures_by_victim(
-            victim_id,
-            req,
-            query.include_complement_for_entities.unwrap_or(false),
-        )
-        .await
+    let claims = request_claims(&req)?;
+    let measures = service
+        .get_protective_measures_by_victim(victim_id, &claims, include_complement(&query))
+        .await?;
+    Ok(success(measures))
 }
 
 pub async fn update_protective_measure_by_id(
@@ -109,9 +97,11 @@ pub async fn update_protective_measure_by_id(
         "[Controller] Received request to update protective measure with id: {}",
         measure_id
     );
-    service
-        .update_protective_measure_by_id(measure_data.into_inner(), measure_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let measure = service
+        .update_protective_measure_by_id(measure_data.into_inner(), measure_id, &claims)
+        .await?;
+    Ok(success(measure))
 }
 
 pub async fn delete_protective_measure_by_id(
@@ -124,7 +114,9 @@ pub async fn delete_protective_measure_by_id(
         "[Controller] Received request to delete protective measure with id: {}",
         measure_id
     );
-    service
-        .delete_protective_measure_by_id(measure_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let measure = service
+        .delete_protective_measure_by_id(measure_id, &claims)
+        .await?;
+    Ok(success(measure))
 }

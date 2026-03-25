@@ -1,18 +1,16 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
-use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::core::entities::offenders::{AddressData, CreateOffender, PhoneData, UpdateOffender};
+use crate::core::commands::offenders::{CreateOffender, UpdateOffender};
+use crate::core::entities::offenders::{AddressData, PhoneData};
+use crate::core::queries::offenders::OffenderSearchQuery;
 use crate::services::offenders::OffenderService;
+use crate::utils::controller_helpers::{
+    created, paginated, request_claims, request_pagination, success,
+};
 use crate::utils::errors::AppError;
 use crate::utils::pagination::PaginationParams;
-
-#[derive(Deserialize)]
-pub struct OffenderSearchQuery {
-    pub name: Option<String>,
-    pub cpf: Option<String>,
-}
 
 pub async fn create_offender(
     offender_data: web::Json<CreateOffender>,
@@ -20,9 +18,11 @@ pub async fn create_offender(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create offender");
-    offender_service
-        .create_offender(offender_data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let offender = offender_service
+        .create_offender(offender_data.into_inner(), &claims)
+        .await?;
+    Ok(created(offender))
 }
 
 pub async fn get_offender_by_id(
@@ -35,7 +35,11 @@ pub async fn get_offender_by_id(
         "[Controller] Received request to get offender with id: {}",
         offender_id
     );
-    offender_service.get_offender_by_id(offender_id, req).await
+    let claims = request_claims(&req)?;
+    let offender = offender_service
+        .get_offender_by_id(offender_id, &claims)
+        .await?;
+    Ok(success(offender))
 }
 
 pub async fn get_all_offenders(
@@ -44,9 +48,12 @@ pub async fn get_all_offenders(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all offenders");
-    offender_service
-        .get_all_offenders(query.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let pagination = request_pagination(&query.into_inner());
+    let result = offender_service
+        .get_all_offenders(pagination, &claims)
+        .await?;
+    Ok(paginated(result))
 }
 
 pub async fn search_offenders(
@@ -56,9 +63,11 @@ pub async fn search_offenders(
 ) -> Result<HttpResponse, AppError> {
     let query = query.into_inner();
     info!("[Controller] Received request to search offenders");
-    offender_service
-        .search_offenders(query.name, query.cpf, req)
-        .await
+    let claims = request_claims(&req)?;
+    let offenders = offender_service
+        .search_offenders(query.name, query.cpf, &claims)
+        .await?;
+    Ok(success(offenders))
 }
 
 pub async fn get_offenders_by_victim_id(
@@ -71,9 +80,11 @@ pub async fn get_offenders_by_victim_id(
         "[Controller] Received request to get offenders for victim: {}",
         victim_id
     );
-    offender_service
-        .get_offenders_by_victim_id(victim_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let offenders = offender_service
+        .get_offenders_by_victim_id(victim_id, &claims)
+        .await?;
+    Ok(success(offenders))
 }
 
 pub async fn update_offender_by_id(
@@ -87,9 +98,11 @@ pub async fn update_offender_by_id(
         "[Controller] Received request to update offender with id: {}",
         offender_id
     );
-    offender_service
-        .update_offender_by_id(offender_data.into_inner(), offender_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let offender = offender_service
+        .update_offender_by_id(offender_data.into_inner(), offender_id, &claims)
+        .await?;
+    Ok(success(offender))
 }
 
 pub async fn delete_offender_by_id(
@@ -102,9 +115,11 @@ pub async fn delete_offender_by_id(
         "[Controller] Received request to delete offender with id: {}",
         offender_id
     );
-    offender_service
-        .delete_offender_by_id(offender_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let offender = offender_service
+        .delete_offender_by_id(offender_id, &claims)
+        .await?;
+    Ok(success(offender))
 }
 
 pub async fn add_phone_to_offender(
@@ -118,9 +133,11 @@ pub async fn add_phone_to_offender(
         "[Controller] Received request to add phone to offender {}",
         offender_id
     );
-    offender_service
-        .create_phone(offender_id, phone_data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let phone = offender_service
+        .create_phone(offender_id, phone_data.into_inner(), &claims)
+        .await?;
+    Ok(created(phone))
 }
 
 pub async fn update_offender_phone(
@@ -131,9 +148,11 @@ pub async fn update_offender_phone(
 ) -> Result<HttpResponse, AppError> {
     let (_offender_id, phone_id) = path.into_inner();
     info!("[Controller] Received request to update phone {}", phone_id);
-    offender_service
-        .update_phone(phone_id, phone_data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let phone = offender_service
+        .update_phone(phone_id, phone_data.into_inner(), &claims)
+        .await?;
+    Ok(success(phone))
 }
 
 pub async fn delete_offender_phone(
@@ -143,7 +162,9 @@ pub async fn delete_offender_phone(
 ) -> Result<HttpResponse, AppError> {
     let (_offender_id, phone_id) = path.into_inner();
     info!("[Controller] Received request to delete phone {}", phone_id);
-    offender_service.delete_phone(phone_id, req).await
+    let claims = request_claims(&req)?;
+    let phone = offender_service.delete_phone(phone_id, &claims).await?;
+    Ok(success(phone))
 }
 
 pub async fn add_address_to_offender(
@@ -157,9 +178,11 @@ pub async fn add_address_to_offender(
         "[Controller] Received request to add address to offender {}",
         offender_id
     );
-    offender_service
-        .create_address(offender_id, address_data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let address = offender_service
+        .create_address(offender_id, address_data.into_inner(), &claims)
+        .await?;
+    Ok(created(address))
 }
 
 pub async fn update_offender_address(
@@ -173,9 +196,11 @@ pub async fn update_offender_address(
         "[Controller] Received request to update address {}",
         address_id
     );
-    offender_service
-        .update_address(address_id, address_data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let address = offender_service
+        .update_address(address_id, address_data.into_inner(), &claims)
+        .await?;
+    Ok(success(address))
 }
 
 pub async fn delete_offender_address(
@@ -188,5 +213,7 @@ pub async fn delete_offender_address(
         "[Controller] Received request to delete address {}",
         address_id
     );
-    offender_service.delete_address(address_id, req).await
+    let claims = request_claims(&req)?;
+    let address = offender_service.delete_address(address_id, &claims).await?;
+    Ok(success(address))
 }

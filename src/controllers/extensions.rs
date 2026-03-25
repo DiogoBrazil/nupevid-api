@@ -2,8 +2,9 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
-use crate::core::entities::protective_measures::{CreateExtension, UpdateExtension};
+use crate::core::commands::protective_measures::{CreateExtension, UpdateExtension};
 use crate::services::extensions::ExtensionService;
+use crate::utils::controller_helpers::{created, request_claims, success};
 use crate::utils::errors::AppError;
 
 pub async fn create_extension(
@@ -17,9 +18,11 @@ pub async fn create_extension(
         "[Controller] Creating extension for protective measure: {}",
         protective_measure_id
     );
-    service
-        .create_extension(protective_measure_id, body.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let extension = service
+        .create_extension(protective_measure_id, body.into_inner(), &claims)
+        .await?;
+    Ok(created(extension))
 }
 
 pub async fn get_extension_by_id(
@@ -29,7 +32,9 @@ pub async fn get_extension_by_id(
 ) -> Result<HttpResponse, AppError> {
     let (_protective_measure_id, extension_id) = path.into_inner();
     info!("[Controller] Getting extension with ID: {}", extension_id);
-    service.get_extension_by_id(extension_id, req).await
+    let claims = request_claims(&req)?;
+    let extension = service.get_extension_by_id(extension_id, &claims).await?;
+    Ok(success(extension))
 }
 
 pub async fn get_extensions_by_measure(
@@ -42,9 +47,11 @@ pub async fn get_extensions_by_measure(
         "[Controller] Getting extensions for protective measure: {}",
         protective_measure_id
     );
-    service
-        .get_extensions_by_measure(protective_measure_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let extensions = service
+        .get_extensions_by_measure(protective_measure_id, &claims)
+        .await?;
+    Ok(success(extensions))
 }
 
 pub async fn update_extension_by_id(
@@ -55,9 +62,11 @@ pub async fn update_extension_by_id(
 ) -> Result<HttpResponse, AppError> {
     let (_protective_measure_id, extension_id) = path.into_inner();
     info!("[Controller] Updating extension with ID: {}", extension_id);
-    service
-        .update_extension_by_id(extension_id, body.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let extension = service
+        .update_extension_by_id(extension_id, body.into_inner(), &claims)
+        .await?;
+    Ok(success(extension))
 }
 
 pub async fn delete_extension_by_id(
@@ -67,5 +76,9 @@ pub async fn delete_extension_by_id(
 ) -> Result<HttpResponse, AppError> {
     let (_protective_measure_id, extension_id) = path.into_inner();
     info!("[Controller] Deleting extension with ID: {}", extension_id);
-    service.delete_extension_by_id(extension_id, req).await
+    let claims = request_claims(&req)?;
+    let extension = service
+        .delete_extension_by_id(extension_id, &claims)
+        .await?;
+    Ok(success(extension))
 }

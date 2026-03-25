@@ -2,11 +2,14 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
-use crate::core::entities::attendance_members::AddAttendanceMember;
-use crate::core::entities::attendance_offenders::{
+use crate::core::commands::attendance_offenders::{
     CreateAttendanceOffender, UpdateAttendanceOffender,
 };
+use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::services::attendance_offenders::AttendanceOffenderService;
+use crate::utils::controller_helpers::{
+    created, paginated, request_claims, request_pagination, success,
+};
 use crate::utils::errors::AppError;
 use crate::utils::pagination::PaginationParams;
 
@@ -16,9 +19,11 @@ pub async fn create_attendance_offender(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create attendance offender");
-    service
-        .create_attendance_offender(data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendance = service
+        .create_attendance_offender(data.into_inner(), &claims)
+        .await?;
+    Ok(created(attendance))
 }
 
 pub async fn get_attendance_offender_by_id(
@@ -31,9 +36,11 @@ pub async fn get_attendance_offender_by_id(
         "[Controller] Received request to get attendance offender with id: {}",
         attendance_id
     );
-    service
-        .get_attendance_offender_by_id(attendance_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendance = service
+        .get_attendance_offender_by_id(attendance_id, &claims)
+        .await?;
+    Ok(success(attendance))
 }
 
 pub async fn get_all_attendance_offenders(
@@ -42,9 +49,12 @@ pub async fn get_all_attendance_offenders(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all attendance offenders");
-    service
-        .get_all_attendance_offenders(query.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let pagination = request_pagination(&query.into_inner());
+    let result = service
+        .get_all_attendance_offenders(pagination, &claims)
+        .await?;
+    Ok(paginated(result))
 }
 
 pub async fn get_attendance_offenders_by_offender(
@@ -57,9 +67,11 @@ pub async fn get_attendance_offenders_by_offender(
         "[Controller] Received request to get attendance offenders for offender: {}",
         offender_id
     );
-    service
-        .get_attendance_offenders_by_offender(offender_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendances = service
+        .get_attendance_offenders_by_offender(offender_id, &claims)
+        .await?;
+    Ok(success(attendances))
 }
 
 pub async fn get_attendance_offenders_by_victim(
@@ -72,9 +84,11 @@ pub async fn get_attendance_offenders_by_victim(
         "[Controller] Received request to get attendance offenders for victim: {}",
         victim_id
     );
-    service
-        .get_attendance_offenders_by_victim(victim_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendances = service
+        .get_attendance_offenders_by_victim(victim_id, &claims)
+        .await?;
+    Ok(success(attendances))
 }
 
 pub async fn update_attendance_offender_by_id(
@@ -88,9 +102,11 @@ pub async fn update_attendance_offender_by_id(
         "[Controller] Received request to update attendance offender with id: {}",
         attendance_id
     );
-    service
-        .update_attendance_offender_by_id(data.into_inner(), attendance_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendance = service
+        .update_attendance_offender_by_id(data.into_inner(), attendance_id, &claims)
+        .await?;
+    Ok(success(attendance))
 }
 
 pub async fn delete_attendance_offender_by_id(
@@ -103,9 +119,11 @@ pub async fn delete_attendance_offender_by_id(
         "[Controller] Received request to delete attendance offender with id: {}",
         attendance_id
     );
-    service
-        .delete_attendance_offender_by_id(attendance_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let attendance = service
+        .delete_attendance_offender_by_id(attendance_id, &claims)
+        .await?;
+    Ok(success(attendance))
 }
 
 pub async fn get_attendance_members(
@@ -118,7 +136,11 @@ pub async fn get_attendance_members(
         "[Controller] Received request to get members of attendance offender: {}",
         attendance_id
     );
-    service.get_attendance_members(attendance_id, req).await
+    let claims = request_claims(&req)?;
+    let members = service
+        .get_attendance_members(attendance_id, &claims)
+        .await?;
+    Ok(success(members))
 }
 
 pub async fn add_attendance_member(
@@ -132,9 +154,11 @@ pub async fn add_attendance_member(
         "[Controller] Received request to add member to attendance offender: {}",
         attendance_id
     );
-    service
-        .add_attendance_member(attendance_id, data.into_inner(), req)
-        .await
+    let claims = request_claims(&req)?;
+    let message = service
+        .add_attendance_member(attendance_id, data.into_inner(), &claims)
+        .await?;
+    Ok(success(message))
 }
 
 pub async fn remove_attendance_member(
@@ -147,7 +171,9 @@ pub async fn remove_attendance_member(
         "[Controller] Received request to remove member {} from attendance offender: {}",
         user_id, attendance_id
     );
-    service
-        .remove_attendance_member(attendance_id, user_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let message = service
+        .remove_attendance_member(attendance_id, user_id, &claims)
+        .await?;
+    Ok(success(message))
 }
