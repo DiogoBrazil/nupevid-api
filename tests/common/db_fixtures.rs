@@ -60,7 +60,7 @@ pub async fn insert_victim(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uui
     id
 }
 
-/// Insert a test offender associated with the given city and victim, return its id.
+/// Insert a test offender associated with the given city, return its id.
 pub async fn insert_offender(pool: &PgPool, full_name: &str, city_id: Uuid) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(

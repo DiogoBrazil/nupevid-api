@@ -507,6 +507,9 @@ async fn member_non_commander_cannot_remove_member() {
 
     let remove_resp = test::call_service(&app, remove_req).await;
     assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(remove_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
 #[actix_rt::test]
@@ -596,6 +599,9 @@ async fn member_non_commander_cannot_update_members() {
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
 #[actix_rt::test]
@@ -668,4 +674,7 @@ async fn member_non_commander_cannot_end_session() {
 
     let end_resp = test::call_service(&app, end_req).await;
     assert_eq!(end_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(end_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }

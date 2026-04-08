@@ -91,17 +91,27 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_unicode_password() {
+    fn test_hash_password_with_common_characters() {
         let hasher = Argon2PasswordHasher::new();
         let password = "cabo@123";
 
         let hash = hasher
             .hash_password(password)
-            .expect("Failed to hash unicode password");
+            .expect("Failed to hash password");
         let result = hasher
             .verify_password(&hash, password)
-            .expect("Failed to verify unicode password");
+            .expect("Failed to verify password");
 
-        assert!(result, "Unicode password should hash and verify correctly");
+        assert!(result, "Common password should hash and verify correctly");
+    }
+
+    #[test]
+    fn test_verify_password_with_malformed_hash_returns_error() {
+        let hasher = Argon2PasswordHasher::new();
+        let result = hasher.verify_password("not_a_valid_hash", "any_password");
+        assert!(
+            result.is_err(),
+            "verify_password should return Err for a malformed hash"
+        );
     }
 }

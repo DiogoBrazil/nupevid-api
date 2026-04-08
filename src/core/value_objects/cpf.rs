@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn validate_cpf_masked_success() {
         let result = validate_cpf_masked("529.982.247-25");
-        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "529.982.247-25");
     }
 
     #[test]
@@ -95,5 +95,23 @@ mod tests {
     fn validate_cpf_masked_invalid_digits() {
         let result = validate_cpf_masked("111.111.111-11");
         assert_eq!(result.unwrap_err(), CpfValidationError::InvalidDigits);
+    }
+
+    #[test]
+    fn validate_cpf_masked_empty_string() {
+        let result = validate_cpf_masked("");
+        assert_eq!(result.unwrap_err(), CpfValidationError::InvalidLength);
+    }
+
+    #[test]
+    fn validate_cpf_masked_whitespace_only() {
+        let result = validate_cpf_masked("   ");
+        assert_eq!(result.unwrap_err(), CpfValidationError::InvalidLength);
+    }
+
+    #[test]
+    fn validate_cpf_masked_with_letters() {
+        let result = validate_cpf_masked("529.982.247-AB");
+        assert_eq!(result.unwrap_err(), CpfValidationError::InvalidFormat);
     }
 }

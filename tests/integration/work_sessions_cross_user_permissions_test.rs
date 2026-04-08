@@ -35,6 +35,9 @@ async fn city_user_cannot_view_other_city_user_session() {
     let get_resp = test::call_service(&app, get_req).await;
     // CITY_USER doesn't have view_other_work_sessions permission
     assert_eq!(get_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(get_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
 /// Phase 11 - Test 2: CITY_ADMIN can view other users' sessions in same city
