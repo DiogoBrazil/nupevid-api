@@ -27,13 +27,8 @@ use crate::core::contracts::repository::victims::VictimReadRepository;
 use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::map_constraint;
 use crate::utils::pagination::Pagination;
-use crate::validators::{
-    common::{
-        POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_DELETE_PROTECTIVE_MEASURES,
-        POLICY_READ_PROTECTIVE_MEASURES, POLICY_UPDATE_PROTECTIVE_MEASURES,
-    },
-    protective_measure_validator::ProtectiveMeasureValidator,
-};
+use crate::core::value_objects::policies::Policy;
+use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
 
 pub struct ProtectiveMeasureService {
     measure_read_repository: Arc<dyn ProtectiveMeasureReadRepository>,
@@ -117,7 +112,7 @@ impl ProtectiveMeasureService {
         }
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::CreateProtectiveMeasures, victim.city_id)?;
 
         ProtectiveMeasureValidator::validate_required_fields(
             &measure.process_number,
@@ -249,7 +244,7 @@ impl ProtectiveMeasureService {
                     })?;
 
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
+                auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;
 
                 info!(
                     "[ProtectiveMeasureService] Protective measure found: {}",
@@ -278,7 +273,7 @@ impl ProtectiveMeasureService {
         info!("[ProtectiveMeasureService] Getting all protective measures");
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        let allowed_cities = auth.allowed_cities(POLICY_READ_PROTECTIVE_MEASURES);
+        let allowed_cities = auth.allowed_cities(&Policy::ReadProtectiveMeasures);
 
         let total_items = self
             .measure_read_repository
@@ -342,7 +337,7 @@ impl ProtectiveMeasureService {
         };
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;
 
         match self
             .measure_read_repository
@@ -418,7 +413,7 @@ impl ProtectiveMeasureService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_UPDATE_PROTECTIVE_MEASURES, existing_victim.city_id)?;
+        auth.check_policy(&Policy::UpdateProtectiveMeasures, existing_victim.city_id)?;
 
         if data.victim_id != existing_measure.victim_id {
             let new_victim = match self
@@ -442,7 +437,7 @@ impl ProtectiveMeasureService {
                 }
             };
 
-            auth.check_policy(POLICY_UPDATE_PROTECTIVE_MEASURES, new_victim.city_id)?;
+            auth.check_policy(&Policy::UpdateProtectiveMeasures, new_victim.city_id)?;
         }
 
         if data.offender_id != existing_measure.offender_id {
@@ -649,7 +644,7 @@ impl ProtectiveMeasureService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_DELETE_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::DeleteProtectiveMeasures, victim.city_id)?;
 
         match self
             .measure_write_repository
