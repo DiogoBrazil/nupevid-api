@@ -4,14 +4,16 @@ use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 use crate::core::read_models::users::UserComplement;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDataCreatedWithoutPassword {
     pub id: Uuid,
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub city_id: Option<Uuid>,
     pub permission_policies: JsonValue,
