@@ -4,14 +4,16 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::core::entities::users::UserDataCreatedWithoutPassword;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct UserDataCreatedWithoutPasswordRow {
     pub id: Uuid,
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub city_id: Option<Uuid>,
     pub permission_policies: JsonValue,

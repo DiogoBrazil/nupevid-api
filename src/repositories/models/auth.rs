@@ -3,14 +3,16 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::core::entities::auth::CompleteUserData;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct CompleteUserDataRow {
     pub id: Uuid,
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub password: String,
     pub city_id: Option<Uuid>,

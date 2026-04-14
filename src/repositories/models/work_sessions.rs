@@ -8,6 +8,8 @@ use crate::core::entities::work_session_members::{
 };
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::users::UserComplement;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct WorkSessionRow {
@@ -62,10 +64,10 @@ pub struct WorkSessionMemberWithUserRowModel {
     pub id: Uuid,
     pub function: Option<TeamMemberFunction>,
     pub user_id: Uuid,
-    pub user_rank: String,
+    pub user_rank: Rank,
     pub user_registration: String,
     pub user_full_name: String,
-    pub user_profile: String,
+    pub user_profile: Profile,
     pub user_email: String,
     pub user_city_id: Option<Uuid>,
     pub user_permission_policies: JsonValue,
