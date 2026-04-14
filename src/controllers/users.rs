@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
 use crate::core::queries::users::UserSearchQuery;
+use crate::core::value_objects::policies::Policy;
 use crate::services::users::UserService;
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
@@ -138,11 +139,19 @@ pub async fn append_user_policy_cities(
     service: web::Data<UserService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
-    let (user_id, policy) = path.into_inner();
+    let (user_id, policy_str) = path.into_inner();
     info!(
         "[Controller] Append cities to user policy '{}' for user: {}",
-        policy, user_id
+        policy_str, user_id
     );
+    let policy: Policy = serde_json::from_value(serde_json::Value::String(policy_str.clone()))
+        .map_err(|_| {
+            AppError::BadRequest(format!(
+                "Invalid policy name '{}'. Valid policies are: {:?}",
+                policy_str,
+                Policy::all().iter().map(|p| p.as_str()).collect::<Vec<_>>()
+            ))
+        })?;
     let claims = request_claims(&req)?;
     let user = service
         .append_user_policy_cities(user_id, &policy, &body.city_ids, &claims)
@@ -156,11 +165,19 @@ pub async fn remove_user_policy_cities(
     service: web::Data<UserService>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
-    let (user_id, policy) = path.into_inner();
+    let (user_id, policy_str) = path.into_inner();
     info!(
         "[Controller] Remove cities from user policy '{}' for user: {}",
-        policy, user_id
+        policy_str, user_id
     );
+    let policy: Policy = serde_json::from_value(serde_json::Value::String(policy_str.clone()))
+        .map_err(|_| {
+            AppError::BadRequest(format!(
+                "Invalid policy name '{}'. Valid policies are: {:?}",
+                policy_str,
+                Policy::all().iter().map(|p| p.as_str()).collect::<Vec<_>>()
+            ))
+        })?;
     let claims = request_claims(&req)?;
     let user = service
         .remove_user_policy_cities(user_id, &policy, &body.city_ids, &claims)
