@@ -1,5 +1,10 @@
+pub mod battalions;
+pub mod cities;
 pub mod cpf;
-pub mod military;
 pub mod policies;
+pub mod profiles;
+pub mod ranks;
+pub mod registrations;
 pub mod search;
+pub mod states;
 pub mod team_composition;

@@ -1,179 +1,225 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use uuid::Uuid;
 
-// Profile constants
-pub const PROFILE_ROOT: &str = "ROOT";
-pub const PROFILE_CITY_ADMIN: &str = "CITY_ADMIN";
-pub const PROFILE_CITY_USER: &str = "CITY_USER";
+use crate::core::value_objects::profiles::Profile;
 
-pub const VALID_PROFILES: [&str; 3] = [PROFILE_ROOT, PROFILE_CITY_ADMIN, PROFILE_CITY_USER];
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Policy {
+    // Cities
+    #[serde(rename = "create_cities")]
+    CreateCities,
+    #[serde(rename = "read_cities")]
+    ReadCities,
+    #[serde(rename = "update_cities")]
+    UpdateCities,
+    #[serde(rename = "delete_cities")]
+    DeleteCities,
 
-// Cities policies
-pub const POLICY_CREATE_CITIES: &str = "create_cities";
-pub const POLICY_READ_CITIES: &str = "read_cities";
-pub const POLICY_UPDATE_CITIES: &str = "update_cities";
-pub const POLICY_DELETE_CITIES: &str = "delete_cities";
+    // Users
+    #[serde(rename = "create_users")]
+    CreateUsers,
+    #[serde(rename = "read_users")]
+    ReadUsers,
+    #[serde(rename = "update_users")]
+    UpdateUsers,
+    #[serde(rename = "delete_users")]
+    DeleteUsers,
 
-// Users policies
-pub const POLICY_CREATE_USERS: &str = "create_users";
-pub const POLICY_READ_USERS: &str = "read_users";
-pub const POLICY_UPDATE_USERS: &str = "update_users";
-pub const POLICY_DELETE_USERS: &str = "delete_users";
+    // Victims
+    #[serde(rename = "create_victims")]
+    CreateVictims,
+    #[serde(rename = "read_victims")]
+    ReadVictims,
+    #[serde(rename = "update_victims")]
+    UpdateVictims,
+    #[serde(rename = "delete_victims")]
+    DeleteVictims,
 
-// Victims policies
-pub const POLICY_CREATE_VICTIMS: &str = "create_victims";
-pub const POLICY_READ_VICTIMS: &str = "read_victims";
-pub const POLICY_UPDATE_VICTIMS: &str = "update_victims";
-pub const POLICY_DELETE_VICTIMS: &str = "delete_victims";
+    // Offenders
+    #[serde(rename = "create_offenders")]
+    CreateOffenders,
+    #[serde(rename = "read_offenders")]
+    ReadOffenders,
+    #[serde(rename = "update_offenders")]
+    UpdateOffenders,
+    #[serde(rename = "delete_offenders")]
+    DeleteOffenders,
 
-// Offenders policies
-pub const POLICY_CREATE_OFFENDERS: &str = "create_offenders";
-pub const POLICY_READ_OFFENDERS: &str = "read_offenders";
-pub const POLICY_UPDATE_OFFENDERS: &str = "update_offenders";
-pub const POLICY_DELETE_OFFENDERS: &str = "delete_offenders";
+    // Attendances
+    #[serde(rename = "create_attendances")]
+    CreateAttendances,
+    #[serde(rename = "read_attendances")]
+    ReadAttendances,
+    #[serde(rename = "update_attendances")]
+    UpdateAttendances,
+    #[serde(rename = "delete_attendances")]
+    DeleteAttendances,
 
-// Attendances policies
-pub const POLICY_CREATE_ATTENDANCES: &str = "create_attendances";
-pub const POLICY_READ_ATTENDANCES: &str = "read_attendances";
-pub const POLICY_UPDATE_ATTENDANCES: &str = "update_attendances";
-pub const POLICY_DELETE_ATTENDANCES: &str = "delete_attendances";
+    // Protective Measures
+    #[serde(rename = "create_protective_measures")]
+    CreateProtectiveMeasures,
+    #[serde(rename = "read_protective_measures")]
+    ReadProtectiveMeasures,
+    #[serde(rename = "update_protective_measures")]
+    UpdateProtectiveMeasures,
+    #[serde(rename = "delete_protective_measures")]
+    DeleteProtectiveMeasures,
 
-// Protective Measures policies
-pub const POLICY_CREATE_PROTECTIVE_MEASURES: &str = "create_protective_measures";
-pub const POLICY_READ_PROTECTIVE_MEASURES: &str = "read_protective_measures";
-pub const POLICY_UPDATE_PROTECTIVE_MEASURES: &str = "update_protective_measures";
-pub const POLICY_DELETE_PROTECTIVE_MEASURES: &str = "delete_protective_measures";
+    // Work Sessions
+    #[serde(rename = "create_work_sessions")]
+    CreateWorkSessions,
+    #[serde(rename = "update_work_sessions")]
+    UpdateWorkSessions,
+    #[serde(rename = "end_work_sessions")]
+    EndWorkSessions,
+    #[serde(rename = "view_other_work_sessions")]
+    ViewOtherWorkSessions,
 
-// Work Sessions policies
-pub const POLICY_CREATE_WORK_SESSIONS: &str = "create_work_sessions";
-pub const POLICY_UPDATE_WORK_SESSIONS: &str = "update_work_sessions";
-pub const POLICY_END_WORK_SESSIONS: &str = "end_work_sessions";
-pub const POLICY_VIEW_OTHER_WORK_SESSIONS: &str = "view_other_work_sessions";
-
-// Attendance Members policies
-pub const POLICY_MANAGE_ATTENDANCE_MEMBERS: &str = "manage_attendance_members";
-
-// All valid policies array
-pub const VALID_POLICIES: [&str; 29] = [
-    POLICY_CREATE_CITIES,
-    POLICY_READ_CITIES,
-    POLICY_UPDATE_CITIES,
-    POLICY_DELETE_CITIES,
-    POLICY_CREATE_USERS,
-    POLICY_READ_USERS,
-    POLICY_UPDATE_USERS,
-    POLICY_DELETE_USERS,
-    POLICY_CREATE_VICTIMS,
-    POLICY_READ_VICTIMS,
-    POLICY_UPDATE_VICTIMS,
-    POLICY_DELETE_VICTIMS,
-    POLICY_CREATE_OFFENDERS,
-    POLICY_READ_OFFENDERS,
-    POLICY_UPDATE_OFFENDERS,
-    POLICY_DELETE_OFFENDERS,
-    POLICY_CREATE_ATTENDANCES,
-    POLICY_READ_ATTENDANCES,
-    POLICY_UPDATE_ATTENDANCES,
-    POLICY_DELETE_ATTENDANCES,
-    POLICY_CREATE_PROTECTIVE_MEASURES,
-    POLICY_READ_PROTECTIVE_MEASURES,
-    POLICY_UPDATE_PROTECTIVE_MEASURES,
-    POLICY_DELETE_PROTECTIVE_MEASURES,
-    POLICY_CREATE_WORK_SESSIONS,
-    POLICY_UPDATE_WORK_SESSIONS,
-    POLICY_END_WORK_SESSIONS,
-    POLICY_VIEW_OTHER_WORK_SESSIONS,
-    POLICY_MANAGE_ATTENDANCE_MEMBERS,
-];
-
-// Policies that are inherent to ROOT and must not be assignable
-pub const NON_ASSIGNABLE_POLICIES: [&str; 3] = [
-    POLICY_CREATE_CITIES,
-    POLICY_UPDATE_CITIES,
-    POLICY_DELETE_CITIES,
-];
-
-// Default CRUD policies for CITY_ADMIN
-pub const CITY_ADMIN_DEFAULT_POLICIES: [&str; 26] = [
-    POLICY_READ_CITIES,
-    POLICY_CREATE_USERS,
-    POLICY_READ_USERS,
-    POLICY_UPDATE_USERS,
-    POLICY_DELETE_USERS,
-    POLICY_CREATE_VICTIMS,
-    POLICY_READ_VICTIMS,
-    POLICY_UPDATE_VICTIMS,
-    POLICY_DELETE_VICTIMS,
-    POLICY_CREATE_OFFENDERS,
-    POLICY_READ_OFFENDERS,
-    POLICY_UPDATE_OFFENDERS,
-    POLICY_DELETE_OFFENDERS,
-    POLICY_CREATE_ATTENDANCES,
-    POLICY_READ_ATTENDANCES,
-    POLICY_UPDATE_ATTENDANCES,
-    POLICY_DELETE_ATTENDANCES,
-    POLICY_CREATE_PROTECTIVE_MEASURES,
-    POLICY_READ_PROTECTIVE_MEASURES,
-    POLICY_UPDATE_PROTECTIVE_MEASURES,
-    POLICY_DELETE_PROTECTIVE_MEASURES,
-    POLICY_CREATE_WORK_SESSIONS,
-    POLICY_UPDATE_WORK_SESSIONS,
-    POLICY_END_WORK_SESSIONS,
-    POLICY_VIEW_OTHER_WORK_SESSIONS,
-    POLICY_MANAGE_ATTENDANCE_MEMBERS,
-];
-
-pub const CITY_USER_DEFAULT_POLICIES: [&str; 10] = [
-    POLICY_READ_CITIES,
-    POLICY_READ_VICTIMS,
-    POLICY_READ_OFFENDERS,
-    POLICY_READ_ATTENDANCES,
-    POLICY_READ_PROTECTIVE_MEASURES,
-    POLICY_READ_USERS,
-    POLICY_CREATE_WORK_SESSIONS,
-    POLICY_UPDATE_WORK_SESSIONS,
-    POLICY_END_WORK_SESSIONS,
-    POLICY_MANAGE_ATTENDANCE_MEMBERS,
-];
-
-pub fn is_valid_policy(policy: &str) -> bool {
-    VALID_POLICIES.contains(&policy)
+    // Attendance Members
+    #[serde(rename = "manage_attendance_members")]
+    ManageAttendanceMembers,
 }
 
-pub fn is_valid_profile(profile: &str) -> bool {
-    VALID_PROFILES.contains(&profile)
-}
-
-pub fn is_assignable_policy(policy: &str) -> bool {
-    !NON_ASSIGNABLE_POLICIES.contains(&policy)
-}
-
-pub fn generate_default_policies(
-    profile: &str,
-    city_id: Option<Uuid>,
-) -> HashMap<String, Vec<Uuid>> {
-    let mut policies: HashMap<String, Vec<Uuid>> = HashMap::new();
-
-    match profile {
-        PROFILE_ROOT => {
-            // ROOT has implicit access to all policies, no need to store them
+impl Policy {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Policy::CreateCities => "create_cities",
+            Policy::ReadCities => "read_cities",
+            Policy::UpdateCities => "update_cities",
+            Policy::DeleteCities => "delete_cities",
+            Policy::CreateUsers => "create_users",
+            Policy::ReadUsers => "read_users",
+            Policy::UpdateUsers => "update_users",
+            Policy::DeleteUsers => "delete_users",
+            Policy::CreateVictims => "create_victims",
+            Policy::ReadVictims => "read_victims",
+            Policy::UpdateVictims => "update_victims",
+            Policy::DeleteVictims => "delete_victims",
+            Policy::CreateOffenders => "create_offenders",
+            Policy::ReadOffenders => "read_offenders",
+            Policy::UpdateOffenders => "update_offenders",
+            Policy::DeleteOffenders => "delete_offenders",
+            Policy::CreateAttendances => "create_attendances",
+            Policy::ReadAttendances => "read_attendances",
+            Policy::UpdateAttendances => "update_attendances",
+            Policy::DeleteAttendances => "delete_attendances",
+            Policy::CreateProtectiveMeasures => "create_protective_measures",
+            Policy::ReadProtectiveMeasures => "read_protective_measures",
+            Policy::UpdateProtectiveMeasures => "update_protective_measures",
+            Policy::DeleteProtectiveMeasures => "delete_protective_measures",
+            Policy::CreateWorkSessions => "create_work_sessions",
+            Policy::UpdateWorkSessions => "update_work_sessions",
+            Policy::EndWorkSessions => "end_work_sessions",
+            Policy::ViewOtherWorkSessions => "view_other_work_sessions",
+            Policy::ManageAttendanceMembers => "manage_attendance_members",
         }
-        PROFILE_CITY_ADMIN => {
-            if let Some(cid) = city_id {
-                for policy in CITY_ADMIN_DEFAULT_POLICIES.iter() {
-                    policies.insert(policy.to_string(), vec![cid]);
-                }
-            }
-        }
-        PROFILE_CITY_USER => {
-            if let Some(cid) = city_id {
-                for policy in CITY_USER_DEFAULT_POLICIES.iter() {
-                    policies.insert(policy.to_string(), vec![cid]);
-                }
-            }
-        }
-        _ => {}
     }
 
-    policies
+    pub fn is_assignable(&self) -> bool {
+        !matches!(
+            self,
+            Policy::CreateCities | Policy::UpdateCities | Policy::DeleteCities
+        )
+    }
+
+    pub fn all() -> &'static [Policy] {
+        &[
+            Policy::CreateCities,
+            Policy::ReadCities,
+            Policy::UpdateCities,
+            Policy::DeleteCities,
+            Policy::CreateUsers,
+            Policy::ReadUsers,
+            Policy::UpdateUsers,
+            Policy::DeleteUsers,
+            Policy::CreateVictims,
+            Policy::ReadVictims,
+            Policy::UpdateVictims,
+            Policy::DeleteVictims,
+            Policy::CreateOffenders,
+            Policy::ReadOffenders,
+            Policy::UpdateOffenders,
+            Policy::DeleteOffenders,
+            Policy::CreateAttendances,
+            Policy::ReadAttendances,
+            Policy::UpdateAttendances,
+            Policy::DeleteAttendances,
+            Policy::CreateProtectiveMeasures,
+            Policy::ReadProtectiveMeasures,
+            Policy::UpdateProtectiveMeasures,
+            Policy::DeleteProtectiveMeasures,
+            Policy::CreateWorkSessions,
+            Policy::UpdateWorkSessions,
+            Policy::EndWorkSessions,
+            Policy::ViewOtherWorkSessions,
+            Policy::ManageAttendanceMembers,
+        ]
+    }
+
+    pub fn default_for_profile(
+        profile: &Profile,
+        city_id: Option<Uuid>,
+    ) -> HashMap<Policy, Vec<Uuid>> {
+        let mut policies: HashMap<Policy, Vec<Uuid>> = HashMap::new();
+
+        let policy_list: &[Policy] = match profile {
+            Profile::Root => return policies,
+            Profile::CityAdmin => &[
+                Policy::ReadCities,
+                Policy::CreateUsers,
+                Policy::ReadUsers,
+                Policy::UpdateUsers,
+                Policy::DeleteUsers,
+                Policy::CreateVictims,
+                Policy::ReadVictims,
+                Policy::UpdateVictims,
+                Policy::DeleteVictims,
+                Policy::CreateOffenders,
+                Policy::ReadOffenders,
+                Policy::UpdateOffenders,
+                Policy::DeleteOffenders,
+                Policy::CreateAttendances,
+                Policy::ReadAttendances,
+                Policy::UpdateAttendances,
+                Policy::DeleteAttendances,
+                Policy::CreateProtectiveMeasures,
+                Policy::ReadProtectiveMeasures,
+                Policy::UpdateProtectiveMeasures,
+                Policy::DeleteProtectiveMeasures,
+                Policy::CreateWorkSessions,
+                Policy::UpdateWorkSessions,
+                Policy::EndWorkSessions,
+                Policy::ViewOtherWorkSessions,
+                Policy::ManageAttendanceMembers,
+            ],
+            Profile::CityUser => &[
+                Policy::ReadCities,
+                Policy::ReadVictims,
+                Policy::ReadOffenders,
+                Policy::ReadAttendances,
+                Policy::ReadProtectiveMeasures,
+                Policy::ReadUsers,
+                Policy::CreateWorkSessions,
+                Policy::UpdateWorkSessions,
+                Policy::EndWorkSessions,
+                Policy::ManageAttendanceMembers,
+            ],
+        };
+
+        if let Some(cid) = city_id {
+            for policy in policy_list {
+                policies.insert(policy.clone(), vec![cid]);
+            }
+        }
+
+        policies
+    }
+}
+
+impl fmt::Display for Policy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
