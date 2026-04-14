@@ -2,14 +2,18 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub type PermissionPolicies = HashMap<String, Vec<Uuid>>;
+use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
+
+pub type PermissionPolicies = HashMap<Policy, Vec<Uuid>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateUser {
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub password: String,
     pub city_id: Option<Uuid>,
@@ -19,10 +23,10 @@ pub struct CreateUser {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateUser {
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub city_id: Option<Uuid>,
     #[serde(default)]
