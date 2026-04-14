@@ -12,10 +12,9 @@ use crate::utils::errors::AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::services::auth_context::AuthContext;
 use crate::utils::pagination::Pagination;
-use crate::validators::{
-    city_validator::CityValidator,
-    common::{POLICY_READ_CITIES, PROFILE_ROOT},
-};
+use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::profiles::Profile;
+use crate::validators::city_validator::CityValidator;
 
 pub struct CityService {
     city_repository: Arc<dyn CityRepository>,
@@ -40,7 +39,7 @@ impl CityService {
     ) -> Result<City, AppError> {
         info!("[CityService] Starting city creation: {}", city.name);
 
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             error!("[CityService] Only ROOT can create cities");
             return Err(AppError::Forbidden(
                 "Only ROOT can create cities".to_string(),
@@ -109,8 +108,8 @@ impl CityService {
 
         match self.city_repository.get_city_by_id(id).await {
             Ok(city) => {
-                if claims.profile != PROFILE_ROOT {
-                    auth.check_policy(POLICY_READ_CITIES, city.id)?;
+                if claims.profile != Profile::Root {
+                    auth.check_policy(&Policy::ReadCities, city.id)?;
                 }
                 info!("[CityService] City with id {} found successfully", id);
                 Ok(city)
@@ -137,7 +136,7 @@ impl CityService {
         info!("[CityService] Starting process to get all cities");
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        let allowed_cities = auth.allowed_cities(POLICY_READ_CITIES);
+        let allowed_cities = auth.allowed_cities(&Policy::ReadCities);
 
         let total_items = self
             .city_repository
@@ -176,7 +175,7 @@ impl CityService {
     ) -> Result<City, AppError> {
         info!("[CityService] Starting city update for id: {}", id);
 
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             error!("[CityService] Only ROOT can update cities");
             return Err(AppError::Forbidden(
                 "Only ROOT can update cities".to_string(),
@@ -250,7 +249,7 @@ impl CityService {
             id
         );
 
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             error!("[CityService] Only ROOT can delete cities");
             return Err(AppError::Forbidden(
                 "Only ROOT can delete cities".to_string(),
