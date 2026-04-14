@@ -16,16 +16,11 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::read_models::victims::{
     VictimAddressResponse, VictimPhoneResponse, VictimWithDetails,
 };
+use crate::core::value_objects::policies::Policy;
 use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::map_constraint;
 use crate::utils::pagination::Pagination;
-use crate::validators::{
-    common::{
-        POLICY_CREATE_VICTIMS, POLICY_DELETE_VICTIMS, POLICY_READ_VICTIMS, POLICY_UPDATE_VICTIMS,
-    },
-    cpf_validator::validate_cpf,
-    victim_validator::VictimValidator,
-};
+use crate::validators::{cpf_validator::validate_cpf, victim_validator::VictimValidator};
 
 pub struct VictimService {
     victim_read_repository: Arc<dyn VictimReadRepository>,
@@ -79,7 +74,7 @@ impl VictimService {
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        auth.check_policy(POLICY_CREATE_VICTIMS, city_id)?;
+        auth.check_policy(&Policy::CreateVictims, city_id)?;
 
         VictimValidator::validate_required_fields(&victim.full_name, "Error adding victim")?;
 
@@ -137,7 +132,7 @@ impl VictimService {
         match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_READ_VICTIMS, victim_with_address.city_id)?;
+                auth.check_policy(&Policy::ReadVictims, victim_with_address.city_id)?;
 
                 info!("[VictimService] Victim with id {} found successfully", id);
                 Ok(victim_with_address)
@@ -167,7 +162,7 @@ impl VictimService {
         info!("[VictimService] Starting process to get victims");
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        let allowed_cities = auth.allowed_cities(POLICY_READ_VICTIMS);
+        let allowed_cities = auth.allowed_cities(&Policy::ReadVictims);
 
         let total_items = self
             .victim_read_repository
@@ -226,7 +221,7 @@ impl VictimService {
         };
 
         let victims = if let Some(allowed_cities) =
-            auth.allowed_cities(POLICY_READ_VICTIMS)
+            auth.allowed_cities(&Policy::ReadVictims)
         {
             match victims {
                 Ok(list) => {
@@ -287,13 +282,13 @@ impl VictimService {
             data.cpf = Some(normalized);
         }
 
-        auth.check_policy(POLICY_UPDATE_VICTIMS, city_id)?;
+        auth.check_policy(&Policy::UpdateVictims, city_id)?;
 
         VictimValidator::validate_required_fields(&data.full_name, "Error updating victim")?;
 
         match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                auth.check_policy(POLICY_UPDATE_VICTIMS, existing_victim.city_id)?;
+                auth.check_policy(&Policy::UpdateVictims, existing_victim.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -367,7 +362,7 @@ impl VictimService {
         match self.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim) => {
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_DELETE_VICTIMS, victim.city_id)?;
+                auth.check_policy(&Policy::DeleteVictims, victim.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -420,7 +415,7 @@ impl VictimService {
             .await
         {
             Ok(victim) => {
-                auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -459,7 +454,7 @@ impl VictimService {
                     .await
                 {
                     Ok(victim) => {
-                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                        auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -507,7 +502,7 @@ impl VictimService {
                     .await
                 {
                     Ok(victim) => {
-                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                        auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -554,7 +549,7 @@ impl VictimService {
             .await
         {
             Ok(victim) => {
-                auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -597,7 +592,7 @@ impl VictimService {
                     .await
                 {
                     Ok(victim) => {
-                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                        auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -649,7 +644,7 @@ impl VictimService {
                     .await
                 {
                     Ok(victim) => {
-                        auth.check_policy(POLICY_UPDATE_VICTIMS, victim.city_id)?;
+                        auth.check_policy(&Policy::UpdateVictims, victim.city_id)?;
                     }
                     Err(e) => {
                         return match e {
