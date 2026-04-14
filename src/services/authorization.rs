@@ -3,26 +3,27 @@ use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::profiles::Profile;
 use crate::utils::errors::AppError;
-use crate::validators::common::{PROFILE_CITY_ADMIN, PROFILE_CITY_USER, PROFILE_ROOT};
 
 pub fn check_policy(
     claims: &ClaimsToUserToken,
-    policy_name: &str,
+    policy: &Policy,
     city_id: Uuid,
     user_policies: &JsonValue,
 ) -> Result<(), AppError> {
     info!(
         "[Authorization] Checking policy '{}' for city '{}' by user '{}'",
-        policy_name, city_id, claims.id
+        policy, city_id, claims.id
     );
 
-    if claims.profile == PROFILE_ROOT {
+    if claims.profile == Profile::Root {
         info!("[Authorization] ROOT user - implicit access granted");
         return Ok(());
     }
 
-    if let Some(city_ids) = user_policies.get(policy_name)
+    if let Some(city_ids) = user_policies.get(policy.as_str())
         && let Some(city_array) = city_ids.as_array()
     {
         for cid in city_array {
@@ -32,7 +33,7 @@ pub fn check_policy(
             {
                 info!(
                     "[Authorization] Policy '{}' found for city '{}'",
-                    policy_name, city_id
+                    policy, city_id
                 );
                 return Ok(());
             }
@@ -41,32 +42,32 @@ pub fn check_policy(
 
     warn!(
         "[Authorization] Policy '{}' not found for city '{}' for user '{}'",
-        policy_name, city_id, claims.id
+        policy, city_id, claims.id
     );
     Err(AppError::Forbidden(format!(
         "You don't have permission to perform '{}' for this city",
-        policy_name
+        policy
     )))
 }
 
 pub fn get_allowed_cities_for_policy(
     claims: &ClaimsToUserToken,
-    policy_name: &str,
+    policy: &Policy,
     user_policies: &JsonValue,
 ) -> Option<Vec<Uuid>> {
     info!(
         "[Authorization] Getting allowed cities for policy '{}' by user '{}'",
-        policy_name, claims.id
+        policy, claims.id
     );
 
-    if claims.profile == PROFILE_ROOT {
+    if claims.profile == Profile::Root {
         info!("[Authorization] ROOT user - access to all cities");
         return None;
     }
 
     let mut allowed_cities = Vec::new();
 
-    if let Some(city_ids) = user_policies.get(policy_name)
+    if let Some(city_ids) = user_policies.get(policy.as_str())
         && let Some(city_array) = city_ids.as_array()
     {
         for cid in city_array {
@@ -81,71 +82,66 @@ pub fn get_allowed_cities_for_policy(
     info!(
         "[Authorization] Found {} allowed cities for policy '{}'",
         allowed_cities.len(),
-        policy_name
+        policy
     );
     Some(allowed_cities)
 }
 
 pub fn validate_user_creation_permission(
-    creator_profile: &str,
-    target_profile: &str,
+    creator_profile: &Profile,
+    target_profile: &Profile,
 ) -> Result<(), AppError> {
     info!(
         "[Authorization] Validating user creation permission: '{}' creating '{}'",
         creator_profile, target_profile
     );
 
-    if creator_profile == PROFILE_ROOT {
-        info!("[Authorization] ROOT user - allowed to create any profile");
-        return Ok(());
-    }
-
-    if creator_profile == PROFILE_CITY_USER {
-        error!("[Authorization] CITY_USER cannot create users");
-        return Err(AppError::Forbidden(
-            "CITY_USER profile is not allowed to create users".to_string(),
-        ));
-    }
-
-    if creator_profile == PROFILE_CITY_ADMIN {
-        if target_profile == PROFILE_ROOT {
-            error!("[Authorization] CITY_ADMIN cannot create ROOT users");
-            return Err(AppError::Forbidden(
-                "CITY_ADMIN is not allowed to create ROOT users".to_string(),
-            ));
+    match creator_profile {
+        Profile::Root => {
+            info!("[Authorization] ROOT user - allowed to create any profile");
+            Ok(())
         }
-
-        if target_profile == PROFILE_CITY_ADMIN {
-            error!("[Authorization] CITY_ADMIN cannot create other CITY_ADMIN users");
-            return Err(AppError::Forbidden(
-                "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string(),
-            ));
+        Profile::CityUser => {
+            error!("[Authorization] CITY_USER cannot create users");
+            Err(AppError::Forbidden(
+                "CITY_USER profile is not allowed to create users".to_string(),
+            ))
         }
-
-        info!("[Authorization] CITY_ADMIN creating CITY_USER - allowed");
-        return Ok(());
+        Profile::CityAdmin => match target_profile {
+            Profile::Root => {
+                error!("[Authorization] CITY_ADMIN cannot create ROOT users");
+                Err(AppError::Forbidden(
+                    "CITY_ADMIN is not allowed to create ROOT users".to_string(),
+                ))
+            }
+            Profile::CityAdmin => {
+                error!("[Authorization] CITY_ADMIN cannot create other CITY_ADMIN users");
+                Err(AppError::Forbidden(
+                    "CITY_ADMIN is not allowed to create other CITY_ADMIN users".to_string(),
+                ))
+            }
+            Profile::CityUser => {
+                info!("[Authorization] CITY_ADMIN creating CITY_USER - allowed");
+                Ok(())
+            }
+        },
     }
-
-    error!(
-        "[Authorization] Unknown profile '{}' attempted to create user",
-        creator_profile
-    );
-    Err(AppError::Forbidden("Permission denied".to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::value_objects::ranks::Rank;
     use serde_json::json;
 
-    fn create_test_claims(profile: &str, city_id: Option<&str>) -> ClaimsToUserToken {
+    fn create_test_claims(profile: Profile, city_id: Option<&str>) -> ClaimsToUserToken {
         ClaimsToUserToken {
             id: "test-user-id".to_string(),
             exp: 9999999999,
-            rank: "CAP PM".to_string(),
+            rank: Rank::CapPm,
             registration: "100012345".to_string(),
             full_name: "Test User".to_string(),
-            profile: profile.to_string(),
+            profile,
             email: "test@test.com".to_string(),
             city_id: city_id.map(|s| s.to_string()),
         }
@@ -153,24 +149,24 @@ mod tests {
 
     #[test]
     fn test_root_has_implicit_access() {
-        let claims = create_test_claims("ROOT", None);
+        let claims = create_test_claims(Profile::Root, None);
         let policies = json!({});
         let city_id = Uuid::new_v4();
 
-        let result = check_policy(&claims, "read_victims", city_id, &policies);
+        let result = check_policy(&claims, &Policy::ReadVictims, city_id, &policies);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_city_admin_with_policy() {
         let city_id = Uuid::new_v4();
-        let claims = create_test_claims("CITY_ADMIN", Some(&city_id.to_string()));
+        let claims = create_test_claims(Profile::CityAdmin, Some(&city_id.to_string()));
         let policies = json!({
             "read_victims": [city_id.to_string()],
             "create_victims": [city_id.to_string()]
         });
 
-        let result = check_policy(&claims, "read_victims", city_id, &policies);
+        let result = check_policy(&claims, &Policy::ReadVictims, city_id, &policies);
         assert!(result.is_ok());
     }
 
@@ -178,15 +174,15 @@ mod tests {
     fn test_city_admin_without_policy() {
         let city_id = Uuid::new_v4();
         let other_city_id = Uuid::new_v4();
-        let claims = create_test_claims("CITY_ADMIN", Some(&city_id.to_string()));
+        let claims = create_test_claims(Profile::CityAdmin, Some(&city_id.to_string()));
         let policies = json!({
             "read_victims": [city_id.to_string()]
         });
 
-        let result = check_policy(&claims, "read_victims", other_city_id, &policies);
+        let result = check_policy(&claims, &Policy::ReadVictims, other_city_id, &policies);
         assert!(result.is_err());
 
-        let result = check_policy(&claims, "delete_victims", city_id, &policies);
+        let result = check_policy(&claims, &Policy::DeleteVictims, city_id, &policies);
         assert!(result.is_err());
     }
 
@@ -194,12 +190,12 @@ mod tests {
     fn test_get_allowed_cities_for_policy() {
         let city_id1 = Uuid::new_v4();
         let city_id2 = Uuid::new_v4();
-        let claims = create_test_claims("CITY_ADMIN", Some(&city_id1.to_string()));
+        let claims = create_test_claims(Profile::CityAdmin, Some(&city_id1.to_string()));
         let policies = json!({
             "read_victims": [city_id1.to_string(), city_id2.to_string()]
         });
 
-        let allowed = get_allowed_cities_for_policy(&claims, "read_victims", &policies);
+        let allowed = get_allowed_cities_for_policy(&claims, &Policy::ReadVictims, &policies);
         assert!(allowed.is_some());
         let cities = allowed.unwrap();
         assert_eq!(cities.len(), 2);
@@ -209,10 +205,10 @@ mod tests {
 
     #[test]
     fn test_root_get_allowed_cities_returns_none() {
-        let claims = create_test_claims("ROOT", None);
+        let claims = create_test_claims(Profile::Root, None);
         let policies = json!({});
 
-        let allowed = get_allowed_cities_for_policy(&claims, "read_victims", &policies);
+        let allowed = get_allowed_cities_for_policy(&claims, &Policy::ReadVictims, &policies);
         assert!(allowed.is_none());
     }
 }
