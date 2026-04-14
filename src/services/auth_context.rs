@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::value_objects::policies::Policy;
 use crate::utils::errors::AppError;
 
 use super::authorization::{check_policy, get_allowed_cities_for_policy};
@@ -25,11 +26,11 @@ impl AuthContext {
         })
     }
 
-    pub fn check_policy(&self, policy: &str, city_id: Uuid) -> Result<(), AppError> {
+    pub fn check_policy(&self, policy: &Policy, city_id: Uuid) -> Result<(), AppError> {
         check_policy(&self.claims, policy, city_id, &self.policies)
     }
 
-    pub fn allowed_cities(&self, policy: &str) -> Option<Vec<Uuid>> {
+    pub fn allowed_cities(&self, policy: &Policy) -> Option<Vec<Uuid>> {
         get_allowed_cities_for_policy(&self.claims, policy, &self.policies)
     }
 }

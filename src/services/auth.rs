@@ -15,7 +15,7 @@ use crate::core::contracts::repository::work_sessions::{
 use crate::utils::errors::AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::responses::auth::LoginResponse;
-use crate::validators::common::PROFILE_ROOT;
+use crate::core::value_objects::profiles::Profile;
 pub struct AuthService {
     auth_repository: Arc<dyn AuthRepository>,
     work_session_read_repository: Arc<dyn WorkSessionReadRepository>,
@@ -146,7 +146,7 @@ impl AuthService {
         let work_session = if data.auto_create_session {
             info!("[Service] Auto-creating work session for user: {}", user.id);
 
-            if user.profile != PROFILE_ROOT && user.city_id.is_none() {
+            if user.profile != Profile::Root && user.city_id.is_none() {
                 return Err(AppError::Forbidden(
                     "User must be associated with a city".to_string(),
                 ));
