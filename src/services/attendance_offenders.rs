@@ -27,10 +27,7 @@ use crate::core::read_models::victims::VictimWithDetails;
 use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::{map_constraint, map_unique_constraint};
 use crate::utils::pagination::Pagination;
-use crate::validators::common::{
-    POLICY_CREATE_ATTENDANCES, POLICY_DELETE_ATTENDANCES, POLICY_MANAGE_ATTENDANCE_MEMBERS,
-    POLICY_READ_ATTENDANCES, POLICY_UPDATE_ATTENDANCES,
-};
+use crate::core::value_objects::policies::Policy;
 
 pub struct AttendanceOffenderService {
     attendance_offender_read_repository: Arc<dyn AttendanceOffenderReadRepository>,
@@ -108,7 +105,7 @@ impl AttendanceOffenderService {
         }
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_CREATE_ATTENDANCES, offender.city_id)?;
+        auth.check_policy(&Policy::CreateAttendances, offender.city_id)?;
 
         let active_session = self.work_session_repository
             .get_active_session_by_user(user_id)
@@ -199,7 +196,7 @@ impl AttendanceOffenderService {
                     })?;
 
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_READ_ATTENDANCES, offender.city_id)?;
+                auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
 
                 Ok(attendance_with_address)
             }
@@ -217,7 +214,7 @@ impl AttendanceOffenderService {
         claims: &ClaimsToUserToken,
     ) -> Result<PaginatedResult<AttendanceOffenderWithAddress>, AppError> {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        let allowed_cities = auth.allowed_cities(POLICY_READ_ATTENDANCES);
+        let allowed_cities = auth.allowed_cities(&Policy::ReadAttendances);
 
         let total_items = self
             .attendance_offender_read_repository
@@ -251,7 +248,7 @@ impl AttendanceOffenderService {
         let offender = self.verify_offender_access(claims, offender_id).await?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_READ_ATTENDANCES, offender.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
 
         match self
             .attendance_offender_read_repository
@@ -271,7 +268,7 @@ impl AttendanceOffenderService {
         let victim = self.verify_victim_access(claims, victim_id).await?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_READ_ATTENDANCES, victim.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
 
         match self
             .attendance_offender_read_repository
@@ -314,18 +311,18 @@ impl AttendanceOffenderService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_UPDATE_ATTENDANCES, existing_offender.city_id)?;
+        auth.check_policy(&Policy::UpdateAttendances, existing_offender.city_id)?;
 
         if data.offender_id != existing.offender_id {
             let new_offender = self
                 .verify_offender_access(claims, data.offender_id)
                 .await?;
-            auth.check_policy(POLICY_UPDATE_ATTENDANCES, new_offender.city_id)?;
+            auth.check_policy(&Policy::UpdateAttendances, new_offender.city_id)?;
         }
 
         if data.victim_id != existing.victim_id {
             let victim = self.verify_victim_access(claims, data.victim_id).await?;
-            auth.check_policy(POLICY_UPDATE_ATTENDANCES, victim.city_id)?;
+            auth.check_policy(&Policy::UpdateAttendances, victim.city_id)?;
         }
 
         if data.protective_measure_id != existing.protective_measure_id
@@ -425,7 +422,7 @@ impl AttendanceOffenderService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_DELETE_ATTENDANCES, offender.city_id)?;
+        auth.check_policy(&Policy::DeleteAttendances, offender.city_id)?;
 
         match self
             .attendance_offender_write_repository
@@ -464,7 +461,7 @@ impl AttendanceOffenderService {
         let offender = self
             .verify_offender_access(claims, attendance.offender_id)
             .await?;
-        auth.check_policy(POLICY_READ_ATTENDANCES, offender.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
 
         let members = self
             .attendance_member_repository
@@ -507,7 +504,7 @@ impl AttendanceOffenderService {
         let offender = self
             .verify_offender_access(claims, attendance.offender_id)
             .await?;
-        auth.check_policy(POLICY_MANAGE_ATTENDANCE_MEMBERS, offender.city_id)?;
+        auth.check_policy(&Policy::ManageAttendanceMembers, offender.city_id)?;
 
         let user_to_add = self
             .user_repository
@@ -582,7 +579,7 @@ impl AttendanceOffenderService {
         let offender = self
             .verify_offender_access(claims, attendance.offender_id)
             .await?;
-        auth.check_policy(POLICY_MANAGE_ATTENDANCE_MEMBERS, offender.city_id)?;
+        auth.check_policy(&Policy::ManageAttendanceMembers, offender.city_id)?;
 
         match self
             .attendance_member_repository
