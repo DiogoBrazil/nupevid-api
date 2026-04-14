@@ -13,10 +13,7 @@ use crate::utils::errors::AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::map_constraint;
-use crate::validators::common::{
-    POLICY_CREATE_PROTECTIVE_MEASURES, POLICY_DELETE_PROTECTIVE_MEASURES,
-    POLICY_READ_PROTECTIVE_MEASURES, POLICY_UPDATE_PROTECTIVE_MEASURES,
-};
+use crate::core::value_objects::policies::Policy;
 
 pub struct ExtensionService {
     extension_repository: Arc<dyn ExtensionRepository>,
@@ -101,7 +98,7 @@ impl ExtensionService {
         };
 
         let auth = AuthContext::load(self.user_repository.as_ref(), claims).await?;
-        auth.check_policy(POLICY_CREATE_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::CreateProtectiveMeasures, victim.city_id)?;
 
         match self
             .extension_repository
@@ -172,7 +169,7 @@ impl ExtensionService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;
 
         info!("[Service] Extension found with ID: {}", id);
         Ok(extension)
@@ -219,7 +216,7 @@ impl ExtensionService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_READ_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;
 
         match self
             .extension_repository
@@ -283,7 +280,7 @@ impl ExtensionService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_UPDATE_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::UpdateProtectiveMeasures, victim.city_id)?;
 
         match self
             .extension_repository
@@ -339,7 +336,7 @@ impl ExtensionService {
             })?;
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        auth.check_policy(POLICY_DELETE_PROTECTIVE_MEASURES, victim.city_id)?;
+        auth.check_policy(&Policy::DeleteProtectiveMeasures, victim.city_id)?;
 
         match self.extension_repository.delete_extension_by_id(id).await {
             Ok(extension) => {
