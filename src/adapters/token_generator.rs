@@ -36,10 +36,10 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         let claims = ClaimsToUserToken {
             id: claims.id.to_string(),
             exp: expiration,
-            rank: claims.rank.to_string(),
+            rank: claims.rank.clone(),
             registration: claims.registration.to_string(),
             full_name: claims.full_name.to_string(),
-            profile: claims.profile.to_string(),
+            profile: claims.profile.clone(),
             email: claims.email.to_string(),
             city_id: claims.city_id.map(|s| s.to_string()),
         };
