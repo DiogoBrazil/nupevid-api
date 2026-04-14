@@ -1,6 +1,8 @@
 use crate::core::commands::users::CreateUser;
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::repository::users::UserRepository;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 use crate::repositories::users::PgUserRepository;
 use log::{error, info};
 use sqlx::PgPool;
@@ -22,10 +24,10 @@ pub async fn seed_admin_user(pool: &PgPool, hasher: &dyn PasswordHasherPort) {
                 };
 
                 let admin = CreateUser {
-                    rank: "ST PM".to_string(),
+                    rank: Rank::StPm,
                     registration: "1000012345".to_string(),
                     full_name: "admin".to_string(),
-                    profile: "ROOT".to_string(),
+                    profile: Profile::Root,
                     email: email.to_string(),
                     password: password_hash,
                     city_id: None,
