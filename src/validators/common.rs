@@ -2,11 +2,16 @@ use crate::utils::errors::AppError;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-// Re-export policies from core/value_objects
+// Re-export policies and profiles from core/value_objects
 pub use crate::core::value_objects::policies::*;
+pub use crate::core::value_objects::profiles::*;
 
-// Re-export military from core/value_objects
-pub use crate::core::value_objects::military::*;
+// Re-export value objects
+pub use crate::core::value_objects::battalions::*;
+pub use crate::core::value_objects::cities::*;
+pub use crate::core::value_objects::ranks::*;
+pub use crate::core::value_objects::registrations::*;
+pub use crate::core::value_objects::states::*;
 
 lazy_static! {
     static ref EMAIL_VALIDATION_REGEX: Regex =
