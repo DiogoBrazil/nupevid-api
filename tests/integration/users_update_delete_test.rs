@@ -3,6 +3,8 @@ use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[actix_rt::test]
@@ -93,10 +95,10 @@ async fn non_root_cannot_access_or_modify_root_user() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CAP PM".to_string(),
+        rank: Rank::CapPm,
         registration: "100009990".to_string(),
         full_name: "City Admin".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "city.admin@test.com".to_string(),
         city_id: None,
     };

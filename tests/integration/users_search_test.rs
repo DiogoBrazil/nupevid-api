@@ -3,6 +3,8 @@ use uuid::Uuid;
 
 use crate::common::test_helpers;
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn build_user_payload(full_name: &str, registration: &str, email: &str) -> serde_json::Value {
@@ -239,10 +241,10 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CAP PM".to_string(),
+        rank: Rank::CapPm,
         registration: "100077774".to_string(),
         full_name: "City Admin".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "city.admin@test.com".to_string(),
         city_id: Some(city_a_id.to_string()),
     };

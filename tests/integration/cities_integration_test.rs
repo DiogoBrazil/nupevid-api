@@ -2,6 +2,8 @@ use actix_web::{http::StatusCode, test};
 
 use crate::common::test_helpers;
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -61,10 +63,10 @@ async fn non_root_cannot_create_city() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CB PM".to_string(),
+        rank: Rank::CbPm,
         registration: "100009999".to_string(),
         full_name: "Any User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "any.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };

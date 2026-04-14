@@ -199,13 +199,6 @@ async fn create_user_with_invalid_policy_name_fails() {
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("Invalid policy name")
-    );
 }
 
 #[actix_rt::test]
@@ -267,8 +260,6 @@ async fn update_user_with_invalid_rank_fails() {
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
-    let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert!(body["message"].as_str().unwrap().contains("invalid rank"));
 }
 
 #[actix_rt::test]

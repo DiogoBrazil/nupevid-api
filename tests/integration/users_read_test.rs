@@ -3,6 +3,8 @@ use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[actix_rt::test]
@@ -143,10 +145,10 @@ async fn non_root_list_users_should_not_include_root() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CB PM".to_string(),
+        rank: Rank::CbPm,
         registration: "100009991".to_string(),
         full_name: "Any User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "any.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };
@@ -363,10 +365,10 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };

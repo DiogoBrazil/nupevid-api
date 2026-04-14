@@ -1,6 +1,8 @@
 use actix_web::{http::StatusCode, test};
 
 use crate::common::{fixtures, test_helpers};
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 
 #[actix_rt::test]
 async fn test_create_user_success() {
@@ -274,10 +276,10 @@ async fn test_city_user_cannot_create_users() {
             .unwrap()
             .as_secs() as usize
             + 3600,
-        rank: "SD PM".to_string(),
+        rank: Rank::SdPm,
         registration: "100022000".to_string(),
         full_name: "City User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "city.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };

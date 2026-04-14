@@ -30,6 +30,8 @@ use nupevid_api::core::contracts::repository::work_sessions::{
     WorkSessionReadRepository, WorkSessionWriteRepository,
 };
 use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::repositories::{
     attendance_members::PgAttendanceMemberRepository,
@@ -271,10 +273,10 @@ pub fn build_root_claims() -> ClaimsToUserToken {
     ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
-        rank: "CEL PM".to_string(),
+        rank: Rank::CelPm,
         registration: "100000001".to_string(),
         full_name: "Root User".to_string(),
-        profile: "ROOT".to_string(),
+        profile: Profile::Root,
         email: "root@test.com".to_string(),
         city_id: None,
     }
@@ -284,10 +286,10 @@ pub fn build_city_admin_claims(city_id: Uuid) -> ClaimsToUserToken {
     ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
-        rank: "CAP PM".to_string(),
+        rank: Rank::CapPm,
         registration: "100000002".to_string(),
         full_name: "City Admin".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "city.admin@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     }
@@ -297,10 +299,10 @@ pub fn build_city_user_claims(city_id: Uuid) -> ClaimsToUserToken {
     ClaimsToUserToken {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
-        rank: "SD PM".to_string(),
+        rank: Rank::SdPm,
         registration: "100000003".to_string(),
         full_name: "City User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "city.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     }

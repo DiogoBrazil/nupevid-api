@@ -16,8 +16,8 @@ async fn insert_test_user(pool: &PgPool, email: &str, plain_password: &str) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, false)",
     )
     .bind(Uuid::new_v4())
-    .bind("Sargento")
-    .bind(12345_i32)
+    .bind("SD PM")
+    .bind("100012345")
     .bind("Test User")
     .bind("ROOT")
     .bind(email)
@@ -59,8 +59,8 @@ async fn login_success_root_user() {
     assert!(body["data"]["id"].as_str().is_some());
     assert_eq!(body["data"]["email"].as_str().unwrap(), email);
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Test User");
-    assert_eq!(body["data"]["rank"].as_str().unwrap(), "Sargento");
-    assert_eq!(body["data"]["registration"].as_str().unwrap(), "12345");
+    assert_eq!(body["data"]["rank"].as_str().unwrap(), "SD PM");
+    assert_eq!(body["data"]["registration"].as_str().unwrap(), "100012345");
     assert_eq!(body["data"]["profile"].as_str().unwrap(), "ROOT");
 }
 

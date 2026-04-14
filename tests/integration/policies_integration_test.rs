@@ -25,10 +25,10 @@ fn build_token_for_user(
                 .as_secs() as usize)
                 + 3600
         },
-        rank: rank.to_string(),
+        rank: rank.try_into().expect("Invalid rank"),
         registration: registration.to_string(),
         full_name: full_name.to_string(),
-        profile: profile.to_string(),
+        profile: profile.try_into().expect("Invalid profile"),
         email: email.to_string(),
         city_id: city_id.map(|c| c.to_string()),
     };
