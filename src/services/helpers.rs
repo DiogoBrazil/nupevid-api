@@ -6,7 +6,8 @@ use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::ClaimsToUserToken;
 use crate::utils::errors::AppError;
 use crate::core::contracts::repository::error::RepositoryError;
-use crate::validators::common::{PROFILE_ROOT, generate_default_policies};
+use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::profiles::Profile;
 
 pub fn extract_city_id_from_claims(claims: &ClaimsToUserToken) -> Result<Uuid, AppError> {
     claims
@@ -23,7 +24,7 @@ pub async fn get_user_policies_strict<T: UserRepository + ?Sized>(
     user_repository: &T,
     claims: &ClaimsToUserToken,
 ) -> Result<Option<JsonValue>, AppError> {
-    if claims.profile == PROFILE_ROOT {
+    if claims.profile == Profile::Root {
         return Ok(None);
     }
 
@@ -44,7 +45,7 @@ pub async fn get_user_policies_with_defaults<T: UserRepository + ?Sized>(
     user_repository: &T,
     claims: &ClaimsToUserToken,
 ) -> Result<JsonValue, AppError> {
-    if claims.profile == PROFILE_ROOT {
+    if claims.profile == Profile::Root {
         return Ok(serde_json::json!({}));
     }
 
@@ -66,6 +67,6 @@ pub async fn get_user_policies_with_defaults<T: UserRepository + ?Sized>(
         None
     };
 
-    let defaults = generate_default_policies(&claims.profile, city_id);
+    let defaults = Policy::default_for_profile(&claims.profile, city_id);
     Ok(serde_json::json!(defaults))
 }
