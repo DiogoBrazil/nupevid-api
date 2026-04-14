@@ -19,10 +19,8 @@ use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::map_unique_constraint;
 use crate::services::helpers::extract_city_id_from_claims;
 use crate::utils::pagination::Pagination;
-use crate::validators::common::{
-    POLICY_CREATE_WORK_SESSIONS, POLICY_END_WORK_SESSIONS, POLICY_UPDATE_WORK_SESSIONS,
-    POLICY_VIEW_OTHER_WORK_SESSIONS, PROFILE_ROOT,
-};
+use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::profiles::Profile;
 use crate::validators::work_session_validator::WorkSessionValidator;
 
 pub struct WorkSessionService {
@@ -55,9 +53,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(self.user_repository.as_ref(), claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_CREATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::CreateWorkSessions, user_city_id)?;
         }
 
         if !data.members.iter().any(|member| member.user_id == user_id) {
@@ -77,7 +75,7 @@ impl WorkSessionService {
 
         self.validate_members_same_city(
             &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
-            claims.profile == PROFILE_ROOT,
+            claims.profile == Profile::Root,
         )
         .await?;
 
@@ -213,9 +211,9 @@ impl WorkSessionService {
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id && claims.profile != PROFILE_ROOT {
+            if session.created_by_user_id != user_id && claims.profile != Profile::Root {
                 let user_city_id = extract_city_id_from_claims(claims)?;
-                auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)?;
+                auth.check_policy(&Policy::ViewOtherWorkSessions, user_city_id)?;
             }
 
             let members = self
@@ -238,9 +236,9 @@ impl WorkSessionService {
                     _ => AppError::InternalServerError,
                 })?;
 
-            if session.created_by_user_id != user_id && claims.profile != PROFILE_ROOT {
+            if session.created_by_user_id != user_id && claims.profile != Profile::Root {
                 let user_city_id = extract_city_id_from_claims(claims)?;
-                auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)?;
+                auth.check_policy(&Policy::ViewOtherWorkSessions, user_city_id)?;
             }
 
             Ok(WorkSessionResponse::Simple(session))
@@ -259,13 +257,13 @@ impl WorkSessionService {
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        let can_view_others = if claims.profile == PROFILE_ROOT {
+        let can_view_others = if claims.profile == Profile::Root {
             true
         } else if let Some(city_id_str) = &claims.city_id {
             let user_city_id = Uuid::parse_str(city_id_str)
                 .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
 
-            auth.check_policy(POLICY_VIEW_OTHER_WORK_SESSIONS, user_city_id)
+            auth.check_policy(&Policy::ViewOtherWorkSessions, user_city_id)
                 .is_ok()
         } else {
             false
@@ -273,7 +271,7 @@ impl WorkSessionService {
 
         if !can_view_others {
             query.user_id = Some(user_id);
-        } else if claims.profile == PROFILE_ROOT {
+        } else if claims.profile == Profile::Root {
         } else if let Some(city_id_str) = &claims.city_id {
             let user_city_id = Uuid::parse_str(city_id_str)
                 .map_err(|_| AppError::Unauthorized("Invalid city id in token".to_string()))?;
@@ -364,9 +362,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_END_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::EndWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -421,9 +419,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::UpdateWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -468,7 +466,7 @@ impl WorkSessionService {
 
         let mut all_user_ids: Vec<Uuid> = current_members.iter().map(|m| m.user_id).collect();
         all_user_ids.push(user_id);
-        self.validate_members_same_city(&all_user_ids, claims.profile == PROFILE_ROOT)
+        self.validate_members_same_city(&all_user_ids, claims.profile == Profile::Root)
             .await?;
 
         let members_with_functions: Vec<(Uuid, Option<TeamMemberFunction>)> = current_members
@@ -525,9 +523,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::UpdateWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -597,9 +595,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::UpdateWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -643,7 +641,7 @@ impl WorkSessionService {
 
         self.validate_members_same_city(
             &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
-            claims.profile == PROFILE_ROOT,
+            claims.profile == Profile::Root,
         )
         .await?;
 
@@ -696,9 +694,9 @@ impl WorkSessionService {
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::UpdateWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -782,9 +780,9 @@ impl WorkSessionService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
         let requesting_user_id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-        if claims.profile != PROFILE_ROOT {
+        if claims.profile != Profile::Root {
             let user_city_id = extract_city_id_from_claims(claims)?;
-            auth.check_policy(POLICY_UPDATE_WORK_SESSIONS, user_city_id)?;
+            auth.check_policy(&Policy::UpdateWorkSessions, user_city_id)?;
         }
 
         let session = self
@@ -838,7 +836,7 @@ impl WorkSessionService {
 
         self.validate_members_same_city(
             &data.members.iter().map(|m| m.user_id).collect::<Vec<_>>(),
-            claims.profile == PROFILE_ROOT,
+            claims.profile == Profile::Root,
         )
         .await?;
 
