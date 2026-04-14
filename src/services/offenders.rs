@@ -21,11 +21,8 @@ use crate::core::read_models::offenders::{
 use crate::services::auth_context::AuthContext;
 use crate::services::error_mapping::map_constraint;
 use crate::utils::pagination::Pagination;
+use crate::core::value_objects::policies::Policy;
 use crate::validators::{
-    common::{
-        POLICY_CREATE_OFFENDERS, POLICY_DELETE_OFFENDERS, POLICY_READ_OFFENDERS,
-        POLICY_UPDATE_OFFENDERS,
-    },
     cpf_validator::validate_cpf,
     offender_validator::OffenderValidator,
 };
@@ -76,7 +73,7 @@ impl OffenderService {
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
-        auth.check_policy(POLICY_CREATE_OFFENDERS, city_id)?;
+        auth.check_policy(&Policy::CreateOffenders, city_id)?;
 
         OffenderValidator::validate_required_fields(&offender.full_name, "Error adding offender")?;
 
@@ -133,7 +130,7 @@ impl OffenderService {
         match self.offender_read_repository.get_offender_by_id(id).await {
             Ok(offender_with_details) => {
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_READ_OFFENDERS, offender_with_details.city_id)?;
+                auth.check_policy(&Policy::ReadOffenders, offender_with_details.city_id)?;
 
                 info!(
                     "[OffenderService] Offender with id {} found successfully",
@@ -166,7 +163,7 @@ impl OffenderService {
         info!("[OffenderService] Starting process to get offenders");
 
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
-        let allowed_cities = auth.allowed_cities(POLICY_READ_OFFENDERS);
+        let allowed_cities = auth.allowed_cities(&Policy::ReadOffenders);
 
         let total_items = self
             .offender_read_repository
@@ -229,7 +226,7 @@ impl OffenderService {
         };
 
         let offenders = if let Some(allowed_cities) =
-            auth.allowed_cities(POLICY_READ_OFFENDERS)
+            auth.allowed_cities(&Policy::ReadOffenders)
         {
             match offenders {
                 Ok(list) => {
@@ -273,7 +270,7 @@ impl OffenderService {
         let auth = AuthContext::load(&*self.user_repository, claims).await?;
 
         let offenders = if let Some(allowed_cities) =
-            auth.allowed_cities(POLICY_READ_OFFENDERS)
+            auth.allowed_cities(&Policy::ReadOffenders)
         {
             match self
                 .offender_read_repository
@@ -338,13 +335,13 @@ impl OffenderService {
             data.cpf = Some(normalized);
         }
 
-        auth.check_policy(POLICY_UPDATE_OFFENDERS, city_id)?;
+        auth.check_policy(&Policy::UpdateOffenders, city_id)?;
 
         OffenderValidator::validate_required_fields(&data.full_name, "Error updating offender")?;
 
         match self.offender_read_repository.get_offender_by_id(id).await {
             Ok(existing_offender) => {
-                auth.check_policy(POLICY_UPDATE_OFFENDERS, existing_offender.city_id)?;
+                auth.check_policy(&Policy::UpdateOffenders, existing_offender.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -424,7 +421,7 @@ impl OffenderService {
         match self.offender_read_repository.get_offender_by_id(id).await {
             Ok(offender) => {
                 let auth = AuthContext::load(&*self.user_repository, claims).await?;
-                auth.check_policy(POLICY_DELETE_OFFENDERS, offender.city_id)?;
+                auth.check_policy(&Policy::DeleteOffenders, offender.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -487,7 +484,7 @@ impl OffenderService {
             .await
         {
             Ok(offender) => {
-                auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -530,7 +527,7 @@ impl OffenderService {
                     .await
                 {
                     Ok(offender) => {
-                        auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                        auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -582,7 +579,7 @@ impl OffenderService {
                     .await
                 {
                     Ok(offender) => {
-                        auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                        auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -632,7 +629,7 @@ impl OffenderService {
             .await
         {
             Ok(offender) => {
-                auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -675,7 +672,7 @@ impl OffenderService {
                     .await
                 {
                     Ok(offender) => {
-                        auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                        auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
                     }
                     Err(e) => {
                         return match e {
@@ -727,7 +724,7 @@ impl OffenderService {
                     .await
                 {
                     Ok(offender) => {
-                        auth.check_policy(POLICY_UPDATE_OFFENDERS, offender.city_id)?;
+                        auth.check_policy(&Policy::UpdateOffenders, offender.city_id)?;
                     }
                     Err(e) => {
                         return match e {
