@@ -19,7 +19,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/victim/{victim_id}")
                     .route(web::get().to(protective_measures::get_protective_measures_by_victim)),
             )
-            // Extension routes
             .service(
                 web::resource("/{id}/extensions")
                     .route(web::post().to(extensions::create_extension))
