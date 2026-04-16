@@ -8,6 +8,8 @@ pub mod extensions;
 pub mod models;
 pub mod offenders;
 pub mod protective_measures;
+pub mod queries;
+pub mod sqlx_types;
 pub mod users;
 pub mod victims;
 pub mod work_sessions;

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use log::info;
 use sqlx::PgPool;
 
-use crate::config::querys::auth::AuthQueries;
+use crate::repositories::queries::auth::AuthQueries;
 use super::models::auth::CompleteUserDataRow;
 
 #[derive(Clone)]

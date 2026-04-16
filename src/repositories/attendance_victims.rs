@@ -3,7 +3,7 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::attendance_victims::{
+use crate::repositories::queries::attendance_victims::{
     AttendanceVictimAddressesQueries, AttendanceVictimsQueries,
 };
 use crate::core::commands::attendance_victims::{
@@ -19,6 +19,31 @@ use crate::core::entities::attendance_victims::{
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 
 use super::models::attendance_victims::{AttendanceVictimAddressRow, AttendanceVictimRow};
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_attendance_victim_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::ForeignKeyViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("fk_attendances_victim") => {
+                    RepositoryError::ReferencedEntityNotFound("Victim not found".into())
+                }
+                Some("fk_attendance_victims_offender") => {
+                    RepositoryError::ReferencedEntityNotFound("Offender not found".into())
+                }
+                Some("fk_attendance_victims_protective_measure") => {
+                    RepositoryError::ReferencedEntityNotFound("Protective measure not found".into())
+                }
+                Some("fk_attendance_addresses_city") | Some("fk_attendance_victim_addresses_city") => {
+                    RepositoryError::ReferencedEntityNotFound("Address city not found".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgAttendanceVictimRepository {
@@ -40,7 +65,7 @@ impl PgAttendanceVictimRepository {
         .bind(attendance_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+        .map_err(map_attendance_victim_error)?
         .map(Into::into);
         Ok(address)
     }
@@ -64,7 +89,7 @@ impl PgAttendanceVictimRepository {
                 .bind(&address.complement)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into();
 
         Ok(created)
@@ -80,7 +105,7 @@ impl PgAttendanceVictimRepository {
         .bind(attendance_id)
         .fetch_one(&mut **tx)
         .await
-        .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+        .map_err(map_attendance_victim_error)?;
         Ok(result.0)
     }
 
@@ -101,7 +126,7 @@ impl PgAttendanceVictimRepository {
         .bind(&address.complement)
         .fetch_one(&mut **tx)
         .await
-        .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+        .map_err(map_attendance_victim_error)?
         .into();
 
         Ok(updated)
@@ -121,7 +146,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
                 .bind(id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into();
 
         let address = self.get_address_by_attendance_id(id).await?;
@@ -132,7 +157,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
             address.is_some()
         );
 
-        Ok(attendance.with_address(address))
+        Ok(AttendanceVictimWithAddress::from_entity(attendance, address))
     }
 
     async fn get_all_attendance_victims(
@@ -144,7 +169,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
             sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::GET_ALL_ATTENDANCE_VICTIMS)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect();
@@ -153,7 +178,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(attendance.with_address(address));
+            result.push(AttendanceVictimWithAddress::from_entity(attendance, address));
         }
 
         info!("[Repository] Found {} attendance victims", result.len());
@@ -177,7 +202,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
                     .bind(offset)
                     .fetch_all(&self.pool)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .map_err(map_attendance_victim_error)?
                     .into_iter()
                     .map(Into::into)
                     .collect()
@@ -187,7 +212,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect(),
@@ -197,7 +222,7 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(attendance.with_address(address));
+            result.push(AttendanceVictimWithAddress::from_entity(attendance, address));
         }
 
         Ok(result)
@@ -213,12 +238,12 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
                     .bind(cities)
                     .fetch_one(&self.pool)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .map_err(map_attendance_victim_error)?
             }
             None => sqlx::query_scalar(AttendanceVictimsQueries::COUNT_ATTENDANCE_VICTIMS)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+                .map_err(map_attendance_victim_error)?,
         };
         Ok(total)
     }
@@ -226,27 +251,38 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
     async fn get_attendance_victims_by_victim(
         &self,
         victim_id: Uuid,
+        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceVictimWithAddress>, RepositoryError> {
         info!(
             "[Repository] Fetching attendance victims for victim: {}",
             victim_id
         );
 
-        let attendances: Vec<AttendanceVictim> =
-            sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let attendances: Vec<AttendanceVictim> = match protective_measure_id {
+            Some(measure_id) => {
+                sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM_AND_MEASURE)
+                    .bind(victim_id)
+                    .bind(measure_id)
+                    .fetch_all(&self.pool)
+                    .await
+            }
+            None => {
+                sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM)
+                    .bind(victim_id)
+                    .fetch_all(&self.pool)
+                    .await
+            }
+        }
+        .map_err(map_attendance_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         let mut result = Vec::with_capacity(attendances.len());
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(attendance.with_address(address));
+            result.push(AttendanceVictimWithAddress::from_entity(attendance, address));
         }
 
         info!(
@@ -277,7 +313,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         let attendance_created: AttendanceVictim =
             sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::CREATE_ATTENDANCE_VICTIM)
@@ -301,7 +337,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
                 .bind(attendance.offender_violated_protective_measure)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into();
 
         info!("[Repository] Attendance victim inserted, now creating address if provided");
@@ -326,12 +362,12 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             .bind(work_session_id)
             .execute(&mut *tx)
             .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_attendance_victim_error)?;
         }
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance victim {} created successfully",
@@ -358,7 +394,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         let attendance_updated: AttendanceVictim =
             sqlx::query_as::<_, AttendanceVictimRow>(AttendanceVictimsQueries::UPDATE_ATTENDANCE_VICTIM_BY_ID)
@@ -382,7 +418,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
                 .bind(data.offender_violated_protective_measure)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into();
 
         let address = if let Some(addr_data) = &data.address {
@@ -409,7 +445,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance victim {} updated",
@@ -443,7 +479,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         let _: Option<AttendanceVictimAddress> = sqlx::query_as::<_, AttendanceVictimAddressRow>(
             AttendanceVictimAddressesQueries::DELETE_ATTENDANCE_VICTIM_ADDRESS_BY_ATTENDANCE_ID,
@@ -451,7 +487,7 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
         .bind(id)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+        .map_err(map_attendance_victim_error)?
         .map(Into::into);
 
         let deleted_attendance: AttendanceVictim =
@@ -459,12 +495,12 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
                 .bind(id)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_victim_error)?
                 .into();
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_attendance_victim_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance victim {} soft deleted",

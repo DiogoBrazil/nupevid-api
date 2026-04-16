@@ -3,7 +3,7 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::attendance_members::{
+use crate::repositories::queries::attendance_members::{
     AttendanceOffenderMembersQueries, AttendanceVictimMembersQueries,
 };
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
@@ -11,7 +11,24 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::attendance_members::{AttendanceOffenderMember, AttendanceVictimMember};
 use crate::core::read_models::attendance_members::AttendanceMemberWithDetails;
 
-use super::models::attendance_members::{AttendanceOffenderMemberRow, AttendanceVictimMemberRow};
+use super::models::attendance_members::{AttendanceOffenderMemberRow, AttendanceMemberWithDetailsRow, AttendanceVictimMemberRow};
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_attendance_member_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::UniqueViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("attendance_victim_members_attendance_victim_id_user_id_key") |
+                Some("attendance_offender_members_attendance_offender_id_user_id_key") => {
+                    RepositoryError::DuplicateEntry("Member already added to attendance".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgAttendanceMemberRepository {
@@ -47,7 +64,7 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
                 .bind(work_session_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_member_error)?
                 .into();
 
         Ok(member)
@@ -57,14 +74,14 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         &self,
         attendance_id: Uuid,
     ) -> Result<Vec<AttendanceMemberWithDetails>, RepositoryError> {
-        let members: Vec<AttendanceMemberWithDetails> =
+        let rows: Vec<AttendanceMemberWithDetailsRow> =
             sqlx::query_as(AttendanceVictimMembersQueries::GET_MEMBERS_WITH_DETAILS)
                 .bind(attendance_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_attendance_member_error)?;
 
-        Ok(members)
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 
     async fn remove_member_from_victim_attendance(
@@ -78,7 +95,7 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
                 .bind(user_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_member_error)?
                 .into();
 
         Ok(member)
@@ -105,7 +122,7 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
                 .bind(work_session_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_member_error)?
                 .into();
 
         Ok(member)
@@ -115,14 +132,14 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         &self,
         attendance_id: Uuid,
     ) -> Result<Vec<AttendanceMemberWithDetails>, RepositoryError> {
-        let members: Vec<AttendanceMemberWithDetails> =
+        let rows: Vec<AttendanceMemberWithDetailsRow> =
             sqlx::query_as(AttendanceOffenderMembersQueries::GET_MEMBERS_WITH_DETAILS)
                 .bind(attendance_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_attendance_member_error)?;
 
-        Ok(members)
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 
     async fn remove_member_from_offender_attendance(
@@ -136,7 +153,7 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
                 .bind(user_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_attendance_member_error)?
                 .into();
 
         Ok(member)

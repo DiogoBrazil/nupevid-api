@@ -3,13 +3,29 @@ use log::info;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::config::querys::extensions::ExtensionsQueries;
+use crate::repositories::queries::extensions::ExtensionsQueries;
 use crate::core::{
     commands::protective_measures::{CreateExtension, UpdateExtension},
     contracts::repository::{error::RepositoryError, extensions::ExtensionRepository},
     entities::protective_measures::ProtectiveMeasureExtension,
 };
 use super::models::protective_measures::ProtectiveMeasureExtensionRow;
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_extension_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::ForeignKeyViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("fk_extensions_protective_measure") => {
+                    RepositoryError::ReferencedEntityNotFound("Protective measure not found".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgExtensionRepository {
@@ -39,7 +55,7 @@ impl PgExtensionRepository {
                 .bind(&extension.notes)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         Ok(extension_created)
@@ -60,7 +76,7 @@ impl PgExtensionRepository {
                 .bind(&data.notes)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         Ok(extension_updated)
@@ -91,7 +107,7 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(extension.notes)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         info!(
@@ -116,7 +132,7 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         info!(
@@ -141,7 +157,7 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(protective_measure_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect();
@@ -164,7 +180,7 @@ impl ExtensionRepository for PgExtensionRepository {
             sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::GET_ALL_EXTENSIONS)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect();
@@ -196,7 +212,7 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(data.notes)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         info!(
@@ -221,7 +237,7 @@ impl ExtensionRepository for PgExtensionRepository {
                 .bind(id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_extension_error)?
                 .into();
 
         info!(

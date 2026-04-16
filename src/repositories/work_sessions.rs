@@ -3,21 +3,39 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
+use crate::repositories::queries::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
 use crate::core::commands::work_session_members::AddWorkSessionMember;
 use crate::core::commands::work_sessions::CreateWorkSession;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::work_sessions::{
     WorkSessionReadRepository, WorkSessionWriteRepository,
 };
-use crate::core::entities::work_session_members::{
-    TeamMemberFunction, WorkSessionMember, WorkSessionMemberWithUser,
-};
+use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::WorkSession;
-use super::models::work_sessions::{WorkSessionRow, WorkSessionMemberRow, WorkSessionMemberWithUserRowModel};
+use super::models::work_sessions::{WorkSessionRow, WorkSessionMemberRow, WorkSessionMemberWithUserRowModel, WorkSessionMemberWithDetailsRow};
 use crate::core::read_models::work_sessions::{
-    WorkSessionMemberWithDetails, WorkSessionWithMembers,
+    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMembers,
 };
+
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_work_session_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::UniqueViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("unique_active_session_per_user") => {
+                    RepositoryError::Conflict("User already has an active work session".into())
+                }
+                Some("work_session_members_work_session_id_user_id_key") => {
+                    RepositoryError::DuplicateEntry("User already added to session".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgWorkSessionRepository {
@@ -40,7 +58,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(user_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -53,7 +71,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(user_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -66,7 +84,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(user_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(result.0)
     }
@@ -79,12 +97,12 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(session_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let session: WorkSession = row.into();
         let members = self.get_session_members_with_details(session_id).await?;
 
-        Ok(session.with_members(members))
+        Ok(WorkSessionWithMembers::from_entity(session, members))
     }
 
     async fn get_session_by_id_base(
@@ -95,7 +113,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(session_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -108,14 +126,14 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(user_id)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let sessions: Vec<WorkSession> = rows.into_iter().map(Into::into).collect();
         let mut result = Vec::with_capacity(sessions.len());
 
         for session in sessions {
             let members = self.get_session_members_with_details(session.id).await?;
-            result.push(session.with_members(members));
+            result.push(WorkSessionWithMembers::from_entity(session, members));
         }
 
         Ok(result)
@@ -140,7 +158,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
@@ -159,7 +177,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
             .bind(city_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(count)
     }
@@ -173,7 +191,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
                 .bind(session_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
@@ -182,14 +200,14 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
         &self,
         session_id: Uuid,
     ) -> Result<Vec<WorkSessionMemberWithDetails>, RepositoryError> {
-        let members: Vec<WorkSessionMemberWithDetails> =
+        let rows: Vec<WorkSessionMemberWithDetailsRow> =
             sqlx::query_as(WorkSessionMembersQueries::GET_SESSION_MEMBERS_WITH_DETAILS)
                 .bind(session_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
-        Ok(members)
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 
     async fn get_session_members_with_user_details(
@@ -201,7 +219,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
                 .bind(session_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
@@ -225,7 +243,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::CREATE_WORK_SESSION)
             .bind(session_id)
@@ -233,7 +251,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .bind(&data.description)
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         for member in &data.members {
             let session_member_registration_id = Uuid::new_v4();
@@ -245,12 +263,12 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                     .bind(&member.function)
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                    .map_err(map_work_session_error)?;
         }
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -270,7 +288,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::CREATE_WORK_SESSION)
             .bind(session_id)
@@ -278,7 +296,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .bind(Some("Auto-created on login"))
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let _: WorkSessionMemberRow =
             sqlx::query_as(WorkSessionMembersQueries::CREATE_WORK_SESSION_MEMBER)
@@ -288,11 +306,11 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                 .bind(Some(TeamMemberFunction::Commander))
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -307,7 +325,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .bind(session_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -327,7 +345,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                 .bind(function)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         Ok(member.into())
     }
@@ -342,7 +360,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .bind(user_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(member.into())
     }
@@ -360,7 +378,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                 .bind(function)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         Ok(member.into())
     }
@@ -374,14 +392,14 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         let _: sqlx::postgres::PgQueryResult =
             sqlx::query(WorkSessionMembersQueries::DELETE_ALL_MEMBERS)
                 .bind(session_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         let mut result = Vec::with_capacity(members.len());
         for member in members {
@@ -394,14 +412,14 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                     .bind(member.function)
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                    .map_err(map_work_session_error)?;
 
             result.push(new_member.into());
         }
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(result)
     }
@@ -416,7 +434,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         if let Some(desc) = description {
             let _: WorkSessionRow =
@@ -425,7 +443,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                     .bind(desc)
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                    .map_err(map_work_session_error)?;
         }
 
         let _: sqlx::postgres::PgQueryResult =
@@ -433,7 +451,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                 .bind(session_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_work_session_error)?;
 
         for member in members {
             let session_member_registration_id = Uuid::new_v4();
@@ -445,18 +463,18 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                     .bind(member.function)
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                    .map_err(map_work_session_error)?;
         }
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::GET_SESSION_BY_ID)
             .bind(session_id)
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }

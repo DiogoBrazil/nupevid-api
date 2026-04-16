@@ -3,8 +3,8 @@ use log::info;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::config::querys::extensions::ExtensionsQueries;
-use crate::config::querys::protective_measures::ProtectiveMeasuresQueries;
+use crate::repositories::queries::extensions::ExtensionsQueries;
+use crate::repositories::queries::protective_measures::ProtectiveMeasuresQueries;
 use crate::core::{
     commands::protective_measures::{
         CreateExtension, CreateProtectiveMeasure, UpdateExtension, UpdateProtectiveMeasure,
@@ -16,6 +16,28 @@ use crate::core::{
     entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureExtension},
 };
 use super::models::protective_measures::{ProtectiveMeasureRow, ProtectiveMeasureExtensionRow};
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_protective_measure_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::ForeignKeyViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("fk_protective_measures_court_district") => {
+                    RepositoryError::ReferencedEntityNotFound("Court district not found".into())
+                }
+                Some("fk_protective_measures_victim") => {
+                    RepositoryError::ReferencedEntityNotFound("Victim not found".into())
+                }
+                Some("fk_protective_measures_offender") => {
+                    RepositoryError::ReferencedEntityNotFound("Offender not found".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgProtectiveMeasureRepository {
@@ -33,7 +55,7 @@ impl PgProtectiveMeasureRepository {
         self.pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)
+            .map_err(map_protective_measure_error)
     }
 
     pub async fn create_protective_measure_with_tx(
@@ -63,7 +85,7 @@ impl PgProtectiveMeasureRepository {
                 .bind(measure.offender_id)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         Ok(measure_created)
@@ -95,7 +117,7 @@ impl PgProtectiveMeasureRepository {
                 .bind(data.offender_id)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         Ok(measure_updated)
@@ -118,7 +140,7 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                 .bind(id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         info!(
@@ -138,7 +160,7 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
             sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_ALL_PROTECTIVE_MEASURES)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect();
@@ -167,14 +189,14 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                     .bind(offset)
                     .fetch_all(&self.pool)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .map_err(map_protective_measure_error)?
             }
             None => sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED)
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+                .map_err(map_protective_measure_error)?,
         };
         let measures: Vec<ProtectiveMeasure> = rows.into_iter().map(Into::into).collect();
 
@@ -196,12 +218,12 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                     .bind(city_ids)
                     .fetch_one(&self.pool)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .map_err(map_protective_measure_error)?
             }
             None => sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+                .map_err(map_protective_measure_error)?,
         };
 
         Ok(count)
@@ -221,7 +243,7 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                 .bind(victim_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into_iter()
                 .map(Into::into)
                 .collect();
@@ -251,7 +273,7 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                 .bind(exclude_measure_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_protective_measure_error)?;
 
         info!(
             "[Repository] Active measure exists for victim {}: {}",
@@ -295,7 +317,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                 .bind(measure.offender_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         info!(
@@ -315,7 +337,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_protective_measure_error)?;
 
         let created = self
             .create_protective_measure_with_tx(&mut tx, measure)
@@ -332,13 +354,13 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                 .bind(&extension.notes)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
         }
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_protective_measure_error)?;
 
         Ok(created)
     }
@@ -373,7 +395,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                 .bind(data.offender_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         info!(
@@ -395,7 +417,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_protective_measure_error)?;
 
         let updated = self
             .update_protective_measure_by_id_with_tx(&mut tx, data, id)
@@ -411,7 +433,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                     .bind(&extension.notes)
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                    .map_err(map_protective_measure_error)?
                     .into();
         }
 
@@ -426,13 +448,13 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                 .bind(&extension.notes)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
         }
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_protective_measure_error)?;
 
         Ok(updated)
     }
@@ -451,7 +473,7 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
                 .bind(id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_protective_measure_error)?
                 .into();
 
         info!(

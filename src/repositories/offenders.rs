@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use log::info;
 use sqlx::PgPool;
+use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::config::querys::offenders::{
+use crate::repositories::queries::offenders::{
     OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
 };
 use crate::core::commands::offenders::{CreateOffender, UpdateOffender};
@@ -18,6 +19,25 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::read_models::offenders::OffenderWithDetails;
 
 use super::models::offenders::{OffenderRow, OffenderPhoneRow, OffenderAddressRow};
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_offender_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::ForeignKeyViolation { ref constraint } => {
+            match constraint.as_deref() {
+                Some("fk_offenders_city") => {
+                    RepositoryError::ReferencedEntityNotFound("City not found".into())
+                }
+                Some("fk_offender_addresses_city") => {
+                    RepositoryError::ReferencedEntityNotFound("Address city not found".into())
+                }
+                _ => base,
+            }
+        }
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgOffenderRepository {
@@ -43,7 +63,7 @@ impl PgOffenderRepository {
             .bind(&phone_data.phone_type)
             .fetch_one(&mut **tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         Ok(created)
@@ -58,7 +78,7 @@ impl PgOffenderRepository {
                 .bind(offender_id)
                 .fetch_all(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_offender_error)?;
         Ok(())
     }
 
@@ -82,7 +102,7 @@ impl PgOffenderRepository {
                 .bind(&address.address_type)
                 .fetch_one(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         Ok(created)
@@ -97,7 +117,7 @@ impl PgOffenderRepository {
                 .bind(offender_id)
                 .fetch_all(&mut **tx)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+                .map_err(map_offender_error)?;
         Ok(())
     }
 
@@ -110,7 +130,7 @@ impl PgOffenderRepository {
                 .bind(offender_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into_iter().map(Into::into).collect();
         Ok(phones)
     }
@@ -124,9 +144,94 @@ impl PgOffenderRepository {
                 .bind(offender_id)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into_iter().map(Into::into).collect();
         Ok(addresses)
+    }
+
+    async fn get_phones_by_offender_ids(
+        &self,
+        offender_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, Vec<OffenderPhone>>, RepositoryError> {
+        if offender_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let phones: Vec<OffenderPhone> = sqlx::query_as::<_, OffenderPhoneRow>(
+            OffenderPhonesQueries::GET_OFFENDER_PHONES_BY_OFFENDER_IDS,
+        )
+        .bind(offender_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+        let mut grouped = HashMap::new();
+        for phone in phones {
+            grouped
+                .entry(phone.offender_id)
+                .or_insert_with(Vec::new)
+                .push(phone);
+        }
+
+        Ok(grouped)
+    }
+
+    async fn get_addresses_by_offender_ids(
+        &self,
+        offender_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, Vec<OffenderAddress>>, RepositoryError> {
+        if offender_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let addresses: Vec<OffenderAddress> = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::GET_OFFENDER_ADDRESSES_BY_OFFENDER_IDS,
+        )
+        .bind(offender_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+        let mut grouped = HashMap::new();
+        for address in addresses {
+            grouped
+                .entry(address.offender_id)
+                .or_insert_with(Vec::new)
+                .push(address);
+        }
+
+        Ok(grouped)
+    }
+
+    async fn assemble_offenders_with_details(
+        &self,
+        offenders: Vec<Offender>,
+    ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
+        if offenders.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let offender_ids: Vec<Uuid> = offenders.iter().map(|offender| offender.id).collect();
+        let mut phones_by_offender = self.get_phones_by_offender_ids(&offender_ids).await?;
+        let mut addresses_by_offender =
+            self.get_addresses_by_offender_ids(&offender_ids).await?;
+
+        Ok(offenders
+            .into_iter()
+            .map(|offender| {
+                let phones = phones_by_offender.remove(&offender.id).unwrap_or_default();
+                let addresses = addresses_by_offender
+                    .remove(&offender.id)
+                    .unwrap_or_default();
+                OffenderWithDetails::from_entity(offender, phones, addresses)
+            })
+            .collect())
     }
 }
 
@@ -142,7 +247,7 @@ impl OffenderReadRepository for PgOffenderRepository {
             .bind(id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         let phones = self.get_phones_by_offender_id(id).await?;
@@ -155,7 +260,7 @@ impl OffenderReadRepository for PgOffenderRepository {
             addresses.len(),
         );
 
-        Ok(offender.with_details(phones, addresses))
+        Ok(OffenderWithDetails::from_entity(offender, phones, addresses))
     }
 
     async fn get_all_offenders(
@@ -166,16 +271,9 @@ impl OffenderReadRepository for PgOffenderRepository {
         let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_ALL_OFFENDERS)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into_iter().map(Into::into).collect();
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders", result.len());
 
@@ -192,16 +290,9 @@ impl OffenderReadRepository for PgOffenderRepository {
             .bind(city_id)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into_iter().map(Into::into).collect();
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!(
             "[Repository] Found {} offenders for city: {}",
@@ -226,16 +317,9 @@ impl OffenderReadRepository for PgOffenderRepository {
             .bind(pattern)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into_iter().map(Into::into).collect();
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders by name", result.len());
         Ok(result)
@@ -251,16 +335,9 @@ impl OffenderReadRepository for PgOffenderRepository {
             .bind(cpf)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into_iter().map(Into::into).collect();
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders by cpf", result.len());
         Ok(result)
@@ -276,16 +353,9 @@ impl OffenderReadRepository for PgOffenderRepository {
             .bind(victim_id)
             .fetch_all(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into_iter().map(Into::into).collect();
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!(
             "[Repository] Found {} offenders for victim: {}",
@@ -311,24 +381,17 @@ impl OffenderReadRepository for PgOffenderRepository {
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into_iter().map(Into::into).collect(),
             None => sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_PAGED)
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into_iter().map(Into::into).collect(),
         };
-
-        let mut result = Vec::with_capacity(offenders.len());
-
-        for offender in offenders {
-            let phones = self.get_phones_by_offender_id(offender.id).await?;
-            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
-            result.push(offender.with_details(phones, addresses));
-        }
+        let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders (paged)", result.len());
         Ok(result)
@@ -343,11 +406,11 @@ impl OffenderReadRepository for PgOffenderRepository {
                 .bind(cities)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+                .map_err(map_offender_error)?,
             None => sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?,
+                .map_err(map_offender_error)?,
         };
         Ok(total)
     }
@@ -370,7 +433,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         let offender_created: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::CREATE_OFFENDER)
             .bind(offender_id)
@@ -390,7 +453,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .bind(&offender.observation)
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         info!("[Repository] Offender inserted, now creating phones if provided");
@@ -421,7 +484,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} created successfully",
@@ -449,7 +512,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         let offender_updated: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::UPDATE_OFFENDER_BY_ID)
             .bind(id)
@@ -469,7 +532,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .bind(&data.observation)
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         Self::delete_phones_by_offender_id(&mut tx, id).await?;
@@ -502,7 +565,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} updated",
@@ -532,7 +595,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .pool
             .begin()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         Self::delete_phones_by_offender_id(&mut tx, id).await?;
         Self::delete_addresses_by_offender_id(&mut tx, id).await?;
@@ -540,12 +603,12 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .bind(id)
             .fetch_one(&mut *tx)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         tx.commit()
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?;
+            .map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} soft deleted",
@@ -574,7 +637,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .bind(&phone_data.phone_type)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         info!("[Repository] Phone {} created successfully", phone_id);
@@ -591,7 +654,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             .bind(phone_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+            .map_err(map_offender_error)?
             .into();
 
         info!("[Repository] Phone {} found", phone_id);
@@ -612,7 +675,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(&phone_data.phone_type)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!("[Repository] Phone {} updated successfully", phone_id);
@@ -630,7 +693,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(phone_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!("[Repository] Phone {} soft deleted successfully", phone_id);
@@ -661,7 +724,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(&address_data.address_type)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!("[Repository] Address {} created successfully", address_id);
@@ -679,7 +742,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(address_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!("[Repository] Address {} found", address_id);
@@ -705,7 +768,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(&address_data.address_type)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!("[Repository] Address {} updated successfully", address_id);
@@ -723,7 +786,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
                 .bind(address_id)
                 .fetch_one(&self.pool)
                 .await
-                .map_err(crate::repositories::error_mapper::map_sqlx_error)?
+                .map_err(map_offender_error)?
                 .into();
 
         info!(

@@ -3,7 +3,7 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::cities::CitiesQueries;
+use crate::repositories::queries::cities::CitiesQueries;
 use crate::core::{
     commands::cities::{CreateCity, UpdateCity},
     contracts::repository::{cities::CityRepository, error::RepositoryError},
