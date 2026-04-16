@@ -8,6 +8,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub api_key: String,
     pub db_max_connections: u32,
+    pub enable_bootstrap_root: bool,
 }
 
 #[derive(Debug)]
@@ -56,6 +57,9 @@ impl Config {
             .unwrap_or_else(|_| "20".to_string())
             .parse::<u32>()
             .unwrap_or(20);
+        let enable_bootstrap_root = env::var("ENABLE_BOOTSTRAP_ROOT")
+            .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
 
         Ok(Self {
             database_url,
@@ -63,6 +67,7 @@ impl Config {
             jwt_secret,
             api_key,
             db_max_connections,
+            enable_bootstrap_root,
         })
     }
 }
