@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::{PgTypeInfo, PgValueRef};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -82,31 +81,5 @@ impl TryFrom<&str> for Rank {
             "SD PM" => Ok(Rank::SdPm),
             other => Err(format!("Invalid rank: '{}'", other)),
         }
-    }
-}
-
-impl sqlx::Type<sqlx::Postgres> for Rank {
-    fn type_info() -> PgTypeInfo {
-        <String as sqlx::Type<sqlx::Postgres>>::type_info()
-    }
-
-    fn compatible(ty: &PgTypeInfo) -> bool {
-        <String as sqlx::Type<sqlx::Postgres>>::compatible(ty)
-    }
-}
-
-impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Rank {
-    fn decode(value: PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
-        let s = <String as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
-        Rank::try_from(s.as_str()).map_err(|e| e.into())
-    }
-}
-
-impl sqlx::Encode<'_, sqlx::Postgres> for Rank {
-    fn encode_by_ref(
-        &self,
-        buf: &mut <sqlx::Postgres as sqlx::Database>::ArgumentBuffer<'_>,
-    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-        <String as sqlx::Encode<sqlx::Postgres>>::encode(self.as_str().to_string(), buf)
     }
 }
