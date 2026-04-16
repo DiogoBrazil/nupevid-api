@@ -6,45 +6,57 @@ use uuid::Uuid;
 use crate::core::commands::work_session_members::UpdateMemberFunction;
 use crate::core::commands::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
 use crate::core::entities::work_session_members::TeamMemberFunction;
-use crate::core::queries::common::IncludeComplementQuery;
-use crate::core::queries::work_sessions::ListWorkSessionsQuery;
-use crate::services::work_sessions::WorkSessionService;
-use crate::utils::controller_helpers::{
-    created, include_complement, paginated, request_claims, request_pagination_from_parts, success,
+use crate::core::filters::common::IncludeRelatedQuery;
+use crate::core::filters::work_sessions::ListWorkSessionsQuery;
+use crate::presenters::work_sessions::WorkSessionPresenter;
+use crate::usecases::work_sessions::{
+    AddMemberToSessionUseCase, CreateWorkSessionUseCase, EndSessionUseCase,
+    GetActiveSessionUseCase, GetSessionByIdUseCase, ListSessionsUseCase,
+    RemoveMemberFromSessionUseCase, UpdateMemberFunctionUseCase, UpdateMembersUseCase,
+    UpdateWorkSessionUseCase,
 };
-use crate::utils::errors::AppError;
+use crate::utils::controller_helpers::{
+    created, include_related, paginated, request_claims, request_pagination_from_parts, success,
+};
+use crate::utils::pagination::Pagination;
+use crate::core::application_error::ApplicationError as AppError;
 
 pub async fn create_work_session(
     data: web::Json<CreateWorkSession>,
-    query: web::Query<IncludeComplementQuery>,
-    service: web::Data<WorkSessionService>,
+    query: web::Query<IncludeRelatedQuery>,
+    usecase: web::Data<CreateWorkSessionUseCase>,
+    presenter: web::Data<WorkSessionPresenter>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create work session");
     let claims = request_claims(&req)?;
-    let session = service
-        .create_work_session(data.into_inner(), &claims, include_complement(&query))
+    let session = usecase.execute(data.into_inner(), &claims).await?;
+    let response = presenter
+        .build_response(session, include_related(&query))
         .await?;
-    Ok(created(session))
+    Ok(created(response))
 }
 
 pub async fn get_active_session(
-    query: web::Query<IncludeComplementQuery>,
-    service: web::Data<WorkSessionService>,
+    query: web::Query<IncludeRelatedQuery>,
+    usecase: web::Data<GetActiveSessionUseCase>,
+    presenter: web::Data<WorkSessionPresenter>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get active work session");
     let claims = request_claims(&req)?;
-    let session = service
-        .get_active_session(&claims, include_complement(&query))
+    let session = usecase.execute(&claims).await?;
+    let response = presenter
+        .build_response(session, include_related(&query))
         .await?;
-    Ok(success(session))
+    Ok(success(response))
 }
 
 pub async fn get_session_by_id(
     path: web::Path<Uuid>,
-    query: web::Query<IncludeComplementQuery>,
-    service: web::Data<WorkSessionService>,
+    query: web::Query<IncludeRelatedQuery>,
+    usecase: web::Data<GetSessionByIdUseCase>,
+    presenter: web::Data<WorkSessionPresenter>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let session_id = path.into_inner();
@@ -53,32 +65,38 @@ pub async fn get_session_by_id(
         session_id
     );
     let claims = request_claims(&req)?;
-    let session = service
-        .get_session_by_id(session_id, &claims, include_complement(&query))
+    let session = usecase.execute(session_id, &claims).await?;
+    let response = presenter
+        .build_response(session, include_related(&query))
         .await?;
-    Ok(success(session))
+    Ok(success(response))
 }
 
 pub async fn list_sessions(
     query: web::Query<ListWorkSessionsQuery>,
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<ListSessionsUseCase>,
+    presenter: web::Data<WorkSessionPresenter>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to list work sessions");
     let claims = request_claims(&req)?;
     let query = query.into_inner();
+    let include = query.include_related_entities.unwrap_or(false);
     let pagination = request_pagination_from_parts(query.page, query.page_size);
-    let result = service.list_sessions(query, pagination, &claims).await?;
-    Ok(paginated(result))
+    let result = usecase.execute(query, pagination, &claims).await?;
+    let response = presenter
+        .build_responses(result.items, include, Pagination { page: result.page, page_size: result.page_size, offset: 0 }, result.total_items)
+        .await?;
+    Ok(paginated(response))
 }
 
 pub async fn end_session(
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<EndSessionUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to end work session");
     let claims = request_claims(&req)?;
-    let message = service.end_session(&claims).await?;
+    let message = usecase.execute(&claims).await?;
     Ok(success(message))
 }
 
@@ -91,7 +109,7 @@ pub struct AddMemberRequest {
 pub async fn add_member(
     path: web::Path<Uuid>,
     data: web::Json<AddMemberRequest>,
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<AddMemberToSessionUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let session_id = path.into_inner();
@@ -100,15 +118,15 @@ pub async fn add_member(
         session_id
     );
     let claims = request_claims(&req)?;
-    let member = service
-        .add_member_to_session(session_id, data.user_id, data.function.clone(), &claims)
+    let member = usecase
+        .execute(session_id, data.user_id, data.function.clone(), &claims)
         .await?;
     Ok(success(member))
 }
 
 pub async fn remove_member(
     path: web::Path<(Uuid, Uuid)>,
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<RemoveMemberFromSessionUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (session_id, member_id) = path.into_inner();
@@ -117,8 +135,8 @@ pub async fn remove_member(
         member_id, session_id
     );
     let claims = request_claims(&req)?;
-    let message = service
-        .remove_member_from_session(session_id, member_id, &claims)
+    let message = usecase
+        .execute(session_id, member_id, &claims)
         .await?;
     Ok(success(message))
 }
@@ -126,7 +144,7 @@ pub async fn remove_member(
 pub async fn update_members(
     path: web::Path<Uuid>,
     data: web::Json<UpdateWorkSessionMembers>,
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<UpdateMembersUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let session_id = path.into_inner();
@@ -135,8 +153,8 @@ pub async fn update_members(
         session_id
     );
     let claims = request_claims(&req)?;
-    let session = service
-        .update_members(session_id, data.into_inner(), &claims)
+    let session = usecase
+        .execute(session_id, data.into_inner(), &claims)
         .await?;
     Ok(success(session))
 }
@@ -144,7 +162,7 @@ pub async fn update_members(
 pub async fn update_member_function(
     path: web::Path<(Uuid, Uuid)>,
     data: web::Json<UpdateMemberFunction>,
-    service: web::Data<WorkSessionService>,
+    usecase: web::Data<UpdateMemberFunctionUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (session_id, user_id) = path.into_inner();
@@ -153,8 +171,8 @@ pub async fn update_member_function(
         user_id, session_id
     );
     let claims = request_claims(&req)?;
-    let message = service
-        .update_member_function(session_id, user_id, data.function.clone(), &claims)
+    let message = usecase
+        .execute(session_id, user_id, data.function.clone(), &claims)
         .await?;
     Ok(success(message))
 }
@@ -162,8 +180,9 @@ pub async fn update_member_function(
 pub async fn update_work_session(
     path: web::Path<Uuid>,
     data: web::Json<CreateWorkSession>,
-    query: web::Query<IncludeComplementQuery>,
-    service: web::Data<WorkSessionService>,
+    query: web::Query<IncludeRelatedQuery>,
+    usecase: web::Data<UpdateWorkSessionUseCase>,
+    presenter: web::Data<WorkSessionPresenter>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let session_id = path.into_inner();
@@ -172,13 +191,11 @@ pub async fn update_work_session(
         session_id
     );
     let claims = request_claims(&req)?;
-    let session = service
-        .update_work_session(
-            session_id,
-            data.into_inner(),
-            &claims,
-            include_complement(&query),
-        )
+    let session = usecase
+        .execute(session_id, data.into_inner(), &claims)
         .await?;
-    Ok(success(session))
+    let response = presenter
+        .build_response(session, include_related(&query))
+        .await?;
+    Ok(success(response))
 }

@@ -3,13 +3,18 @@ use log::info;
 use uuid::Uuid;
 
 use crate::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
-use crate::core::queries::users::UserSearchQuery;
+use crate::core::filters::users::UserSearchQuery;
 use crate::core::value_objects::policies::Policy;
-use crate::services::users::UserService;
+use crate::usecases::users::{
+    AppendUserPolicyCitiesUseCase, CreateUserUseCase, DeleteUserByIdUseCase,
+    GetAllUsersUseCase, GetUserByIdUseCase, RemoveUserPolicyCitiesUseCase,
+    ResetUserPasswordByIdUseCase, SearchUsersUseCase, UpdateUserPasswordUseCase,
+    UpdateUserUseCase,
+};
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::utils::errors::AppError;
+use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 #[derive(serde::Deserialize)]
@@ -19,7 +24,7 @@ pub struct PolicyCitiesPayload {
 
 pub async fn create_user(
     user: web::Json<CreateUser>,
-    service: web::Data<UserService>,
+    usecase: web::Data<CreateUserUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!(
@@ -27,14 +32,14 @@ pub async fn create_user(
         user.email
     );
     let claims = request_claims(&req)?;
-    let user = service.create_user(user.into_inner(), &claims).await?;
+    let user = usecase.execute(user.into_inner(), &claims).await?;
     Ok(created(user))
 }
 
 pub async fn update_user_by_id(
     path: web::Path<Uuid>,
     data: web::Json<UpdateUser>,
-    service: web::Data<UserService>,
+    usecase: web::Data<UpdateUserUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let user_id = path.into_inner();
@@ -43,15 +48,13 @@ pub async fn update_user_by_id(
         user_id
     );
     let claims = request_claims(&req)?;
-    let user = service
-        .update_user_by_id(data.into_inner(), user_id, &claims)
-        .await?;
+    let user = usecase.execute(data.into_inner(), user_id, &claims).await?;
     Ok(success(user))
 }
 
 pub async fn get_user_by_id(
     path: web::Path<Uuid>,
-    service: web::Data<UserService>,
+    usecase: web::Data<GetUserByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let user_id = path.into_inner();
@@ -60,39 +63,37 @@ pub async fn get_user_by_id(
         user_id
     );
     let claims = request_claims(&req)?;
-    let user = service.get_user_by_id(user_id, &claims).await?;
+    let user = usecase.execute(user_id, &claims).await?;
     Ok(success(user))
 }
 
 pub async fn get_all_users(
     query: web::Query<PaginationParams>,
-    service: web::Data<UserService>,
+    usecase: web::Data<GetAllUsersUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all users");
     let claims = request_claims(&req)?;
     let pagination = request_pagination(&query.into_inner());
-    let result = service.get_all_users(pagination, &claims).await?;
+    let result = usecase.execute(pagination, &claims).await?;
     Ok(paginated(result))
 }
 
 pub async fn search_users(
     query: web::Query<UserSearchQuery>,
-    service: web::Data<UserService>,
+    usecase: web::Data<SearchUsersUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let query = query.into_inner();
     info!("[Controller] Received request to search users");
     let claims = request_claims(&req)?;
-    let users = service
-        .search_users(query.name, query.registration, &claims)
-        .await?;
+    let users = usecase.execute(query.name, query.registration, &claims).await?;
     Ok(success(users))
 }
 
 pub async fn delete_user_by_id(
     path: web::Path<Uuid>,
-    service: web::Data<UserService>,
+    usecase: web::Data<DeleteUserByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let user_id = path.into_inner();
@@ -101,26 +102,24 @@ pub async fn delete_user_by_id(
         user_id
     );
     let claims = request_claims(&req)?;
-    let user = service.delete_user_by_id(user_id, &claims).await?;
+    let user = usecase.execute(user_id, &claims).await?;
     Ok(success(user))
 }
 
 pub async fn update_user_password_by_id(
     data: web::Json<UpdateUserPassword>,
-    service: web::Data<UserService>,
+    usecase: web::Data<UpdateUserPasswordUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to update password for current user");
     let claims = request_claims(&req)?;
-    let user = service
-        .update_user_password_by_id(data.into_inner(), &claims)
-        .await?;
+    let user = usecase.execute(data.into_inner(), &claims).await?;
     Ok(success(user))
 }
 
 pub async fn reset_user_password_by_id(
     path: web::Path<Uuid>,
-    service: web::Data<UserService>,
+    usecase: web::Data<ResetUserPasswordByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let user_id = path.into_inner();
@@ -129,14 +128,14 @@ pub async fn reset_user_password_by_id(
         user_id
     );
     let claims = request_claims(&req)?;
-    let response = service.reset_user_password_by_id(user_id, &claims).await?;
+    let response = usecase.execute(user_id, &claims).await?;
     Ok(success(response))
 }
 
 pub async fn append_user_policy_cities(
     path: web::Path<(Uuid, String)>,
     body: web::Json<PolicyCitiesPayload>,
-    service: web::Data<UserService>,
+    usecase: web::Data<AppendUserPolicyCitiesUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (user_id, policy_str) = path.into_inner();
@@ -153,8 +152,8 @@ pub async fn append_user_policy_cities(
             ))
         })?;
     let claims = request_claims(&req)?;
-    let user = service
-        .append_user_policy_cities(user_id, &policy, &body.city_ids, &claims)
+    let user = usecase
+        .execute(user_id, &policy, &body.city_ids, &claims)
         .await?;
     Ok(success(user))
 }
@@ -162,7 +161,7 @@ pub async fn append_user_policy_cities(
 pub async fn remove_user_policy_cities(
     path: web::Path<(Uuid, String)>,
     body: web::Json<PolicyCitiesPayload>,
-    service: web::Data<UserService>,
+    usecase: web::Data<RemoveUserPolicyCitiesUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let (user_id, policy_str) = path.into_inner();
@@ -179,8 +178,8 @@ pub async fn remove_user_policy_cities(
             ))
         })?;
     let claims = request_claims(&req)?;
-    let user = service
-        .remove_user_policy_cities(user_id, &policy, &body.city_ids, &claims)
+    let user = usecase
+        .execute(user_id, &policy, &body.city_ids, &claims)
         .await?;
     Ok(success(user))
 }
