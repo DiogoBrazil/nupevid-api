@@ -5,34 +5,53 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::read_models::offenders::{
-    OffenderAddressResponse, OffenderComplement, OffenderPhoneResponse, OffenderWithDetails,
-};
-
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "security_force_enum")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SecurityForce {
     #[serde(rename = "Military Police")]
-    #[sqlx(rename = "Military Police")]
     MilitaryPolice,
     #[serde(rename = "Civil Police")]
-    #[sqlx(rename = "Civil Police")]
     CivilPolice,
     #[serde(rename = "Penal Police")]
-    #[sqlx(rename = "Penal Police")]
     PenalPolice,
     #[serde(rename = "Fire Department")]
-    #[sqlx(rename = "Fire Department")]
     FireDepartment,
     #[serde(rename = "Federal Highway Police")]
-    #[sqlx(rename = "Federal Highway Police")]
     FederalHighwayPolice,
     #[serde(rename = "Federal Police")]
-    #[sqlx(rename = "Federal Police")]
     FederalPolice,
     #[serde(rename = "Municipal Guard")]
-    #[sqlx(rename = "Municipal Guard")]
     MunicipalGuard,
+}
+
+impl SecurityForce {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::MilitaryPolice => "Military Police",
+            Self::CivilPolice => "Civil Police",
+            Self::PenalPolice => "Penal Police",
+            Self::FireDepartment => "Fire Department",
+            Self::FederalHighwayPolice => "Federal Highway Police",
+            Self::FederalPolice => "Federal Police",
+            Self::MunicipalGuard => "Municipal Guard",
+        }
+    }
+}
+
+impl TryFrom<&str> for SecurityForce {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Military Police" => Ok(Self::MilitaryPolice),
+            "Civil Police" => Ok(Self::CivilPolice),
+            "Penal Police" => Ok(Self::PenalPolice),
+            "Fire Department" => Ok(Self::FireDepartment),
+            "Federal Highway Police" => Ok(Self::FederalHighwayPolice),
+            "Federal Police" => Ok(Self::FederalPolice),
+            "Municipal Guard" => Ok(Self::MunicipalGuard),
+            other => Err(format!("Invalid security force: '{}'", other)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,16 +63,6 @@ pub struct OffenderPhone {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-}
-
-impl OffenderPhone {
-    pub fn to_response(self) -> OffenderPhoneResponse {
-        OffenderPhoneResponse {
-            id: self.id,
-            phone: self.phone,
-            phone_type: self.phone_type,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,21 +79,6 @@ pub struct OffenderAddress {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-}
-
-impl OffenderAddress {
-    pub fn to_response(self) -> OffenderAddressResponse {
-        OffenderAddressResponse {
-            id: self.id,
-            street: self.street,
-            number: self.number,
-            district: self.district,
-            city_id: self.city_id,
-            zip_code: self.zip_code,
-            complement: self.complement,
-            address_type: self.address_type,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,64 +110,3 @@ pub struct OffenderWriteResult {
     pub addresses: Vec<OffenderAddress>,
 }
 
-impl Offender {
-    pub fn with_details(
-        self,
-        phones: Vec<OffenderPhone>,
-        addresses: Vec<OffenderAddress>,
-    ) -> OffenderWithDetails {
-        OffenderWithDetails {
-            id: self.id,
-            full_name: self.full_name,
-            cpf: self.cpf,
-            birth_date: self.birth_date,
-            city_id: self.city_id,
-            imprisoned: self.imprisoned,
-            occupation: self.occupation,
-            is_public_security_agent: self.is_public_security_agent,
-            security_force: self.security_force,
-            uses_alcohol: self.uses_alcohol,
-            uses_drugs: self.uses_drugs,
-            has_psychiatric_issues: self.has_psychiatric_issues,
-            psychiatric_issues_type: self.psychiatric_issues_type,
-            education_level: self.education_level,
-            observation: self.observation,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            is_deleted: self.is_deleted,
-            phones: phones.into_iter().map(|p| p.to_response()).collect(),
-            addresses: addresses.into_iter().map(|a| a.to_response()).collect(),
-        }
-    }
-}
-
-impl OffenderWriteResult {
-    pub fn into_details(self) -> OffenderWithDetails {
-        self.offender.with_details(self.phones, self.addresses)
-    }
-}
-
-impl OffenderWithDetails {
-    pub fn to_complement(self) -> OffenderComplement {
-        OffenderComplement {
-            id: self.id,
-            full_name: self.full_name,
-            cpf: self.cpf,
-            birth_date: self.birth_date,
-            city_id: self.city_id,
-            imprisoned: self.imprisoned,
-            occupation: self.occupation,
-            is_public_security_agent: self.is_public_security_agent,
-            security_force: self.security_force,
-            uses_alcohol: self.uses_alcohol,
-            uses_drugs: self.uses_drugs,
-            has_psychiatric_issues: self.has_psychiatric_issues,
-            psychiatric_issues_type: self.psychiatric_issues_type,
-            education_level: self.education_level,
-            observation: self.observation,
-            is_deleted: self.is_deleted,
-            phones: self.phones,
-            addresses: self.addresses,
-        }
-    }
-}

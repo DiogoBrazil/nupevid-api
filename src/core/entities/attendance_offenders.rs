@@ -1,19 +1,39 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::Type;
 use uuid::Uuid;
 
-use crate::core::read_models::attendance_offenders::{
-    AttendanceOffenderAddressResponse, AttendanceOffenderWithAddress,
-};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
-#[sqlx(type_name = "violence_aggravator_enum", rename_all = "PascalCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViolenceAggravator {
     AlcoholUse,
     DrugUse,
     PsychiatricIssues,
     Other,
+}
+
+impl ViolenceAggravator {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::AlcoholUse => "AlcoholUse",
+            Self::DrugUse => "DrugUse",
+            Self::PsychiatricIssues => "PsychiatricIssues",
+            Self::Other => "Other",
+        }
+    }
+}
+
+impl TryFrom<&str> for ViolenceAggravator {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "AlcoholUse" => Ok(Self::AlcoholUse),
+            "DrugUse" => Ok(Self::DrugUse),
+            "PsychiatricIssues" => Ok(Self::PsychiatricIssues),
+            "Other" => Ok(Self::Other),
+            other => Err(format!("Invalid violence aggravator: '{}'", other)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,48 +76,3 @@ pub struct AttendanceOffenderWriteResult {
     pub address: Option<AttendanceOffenderAddress>,
 }
 
-impl AttendanceOffenderAddress {
-    pub fn to_response(self) -> AttendanceOffenderAddressResponse {
-        AttendanceOffenderAddressResponse {
-            id: self.id,
-            street: self.street,
-            number: self.number,
-            district: self.district,
-            city_id: self.city_id,
-            zip_code: self.zip_code,
-            complement: self.complement,
-        }
-    }
-}
-
-impl AttendanceOffender {
-    pub fn with_address(
-        self,
-        address: Option<AttendanceOffenderAddress>,
-    ) -> AttendanceOffenderWithAddress {
-        AttendanceOffenderWithAddress {
-            id: self.id,
-            offender_id: self.offender_id,
-            victim_id: self.victim_id,
-            protective_measure_id: self.protective_measure_id,
-            was_offender_present: self.was_offender_present,
-            attendance_date: self.attendance_date,
-            attendance_time: self.attendance_time,
-            is_remote: self.is_remote,
-            assaults_children: self.assaults_children,
-            violence_aggravator: self.violence_aggravator,
-            violence_aggravator_other: self.violence_aggravator_other,
-            description: self.description,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            is_deleted: self.is_deleted,
-            address: address.map(|a| a.to_response()),
-        }
-    }
-}
-
-impl AttendanceOffenderWriteResult {
-    pub fn into_with_address(self) -> AttendanceOffenderWithAddress {
-        self.attendance.with_address(self.address)
-    }
-}

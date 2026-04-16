@@ -2,8 +2,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "violence_type_enum", rename_all = "PascalCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ViolenceType {
     Physical,
     Sexual,
@@ -11,68 +10,144 @@ pub enum ViolenceType {
     Moral,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "relationship_to_victim_enum")]
+impl ViolenceType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Physical => "Physical",
+            Self::Sexual => "Sexual",
+            Self::Psychological => "Psychological",
+            Self::Moral => "Moral",
+        }
+    }
+}
+
+impl TryFrom<&str> for ViolenceType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Physical" => Ok(Self::Physical),
+            "Sexual" => Ok(Self::Sexual),
+            "Psychological" => Ok(Self::Psychological),
+            "Moral" => Ok(Self::Moral),
+            other => Err(format!("Invalid violence type: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum RelationshipToVictim {
     #[serde(rename = "Spouse")]
-    #[sqlx(rename = "Spouse")]
     Spouse,
     #[serde(rename = "Ex-Spouse")]
-    #[sqlx(rename = "Ex-Spouse")]
     ExSpouse,
     #[serde(rename = "Mother")]
-    #[sqlx(rename = "Mother")]
     Mother,
     #[serde(rename = "Father")]
-    #[sqlx(rename = "Father")]
     Father,
     #[serde(rename = "Stepfather")]
-    #[sqlx(rename = "Stepfather")]
     Stepfather,
     #[serde(rename = "Stepmother")]
-    #[sqlx(rename = "Stepmother")]
     Stepmother,
     #[serde(rename = "Son/Daughter")]
-    #[sqlx(rename = "Son/Daughter")]
     SonDaughter,
     #[serde(rename = "Sibling")]
-    #[sqlx(rename = "Sibling")]
     Sibling,
     #[serde(rename = "Cousin")]
-    #[sqlx(rename = "Cousin")]
     Cousin,
     #[serde(rename = "Grandfather")]
-    #[sqlx(rename = "Grandfather")]
     Grandfather,
     #[serde(rename = "Grandmother")]
-    #[sqlx(rename = "Grandmother")]
     Grandmother,
     #[serde(rename = "Brother/Sister-in-law")]
-    #[sqlx(rename = "Brother/Sister-in-law")]
     BrotherSisterInLaw,
     #[serde(rename = "Father/Mother-in-law")]
-    #[sqlx(rename = "Father/Mother-in-law")]
     FatherMotherInLaw,
     #[serde(rename = "Son-in-law")]
-    #[sqlx(rename = "Son-in-law")]
     SonInLaw,
     #[serde(rename = "Daughter-in-law")]
-    #[sqlx(rename = "Daughter-in-law")]
     DaughterInLaw,
     #[serde(rename = "Uncle/Aunt")]
-    #[sqlx(rename = "Uncle/Aunt")]
     UncleAunt,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(
-    type_name = "protective_measure_status_enum",
-    rename_all = "PascalCase"
-)]
+impl RelationshipToVictim {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Spouse => "Spouse",
+            Self::ExSpouse => "Ex-Spouse",
+            Self::Mother => "Mother",
+            Self::Father => "Father",
+            Self::Stepfather => "Stepfather",
+            Self::Stepmother => "Stepmother",
+            Self::SonDaughter => "Son/Daughter",
+            Self::Sibling => "Sibling",
+            Self::Cousin => "Cousin",
+            Self::Grandfather => "Grandfather",
+            Self::Grandmother => "Grandmother",
+            Self::BrotherSisterInLaw => "Brother/Sister-in-law",
+            Self::FatherMotherInLaw => "Father/Mother-in-law",
+            Self::SonInLaw => "Son-in-law",
+            Self::DaughterInLaw => "Daughter-in-law",
+            Self::UncleAunt => "Uncle/Aunt",
+        }
+    }
+}
+
+impl TryFrom<&str> for RelationshipToVictim {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Spouse" => Ok(Self::Spouse),
+            "Ex-Spouse" => Ok(Self::ExSpouse),
+            "Mother" => Ok(Self::Mother),
+            "Father" => Ok(Self::Father),
+            "Stepfather" => Ok(Self::Stepfather),
+            "Stepmother" => Ok(Self::Stepmother),
+            "Son/Daughter" => Ok(Self::SonDaughter),
+            "Sibling" => Ok(Self::Sibling),
+            "Cousin" => Ok(Self::Cousin),
+            "Grandfather" => Ok(Self::Grandfather),
+            "Grandmother" => Ok(Self::Grandmother),
+            "Brother/Sister-in-law" => Ok(Self::BrotherSisterInLaw),
+            "Father/Mother-in-law" => Ok(Self::FatherMotherInLaw),
+            "Son-in-law" => Ok(Self::SonInLaw),
+            "Daughter-in-law" => Ok(Self::DaughterInLaw),
+            "Uncle/Aunt" => Ok(Self::UncleAunt),
+            other => Err(format!("Invalid relationship to victim: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ProtectiveMeasureStatus {
     Valid,
     Revoked,
     Expired,
+}
+
+impl ProtectiveMeasureStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Valid => "Valid",
+            Self::Revoked => "Revoked",
+            Self::Expired => "Expired",
+        }
+    }
+}
+
+impl TryFrom<&str> for ProtectiveMeasureStatus {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Valid" => Ok(Self::Valid),
+            "Revoked" => Ok(Self::Revoked),
+            "Expired" => Ok(Self::Expired),
+            other => Err(format!("Invalid protective measure status: '{}'", other)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

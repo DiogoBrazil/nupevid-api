@@ -1,34 +1,96 @@
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::Type;
 use uuid::Uuid;
 
-use crate::core::read_models::attendance_victims::{
-    AttendanceAddressResponse, AttendanceVictimWithAddress,
-};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
-#[sqlx(type_name = "risk_level", rename_all = "PascalCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RiskLevel {
     High,
     Medium,
     Low,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
-#[sqlx(type_name = "offender_freedom_status", rename_all = "PascalCase")]
+impl RiskLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::High => "High",
+            Self::Medium => "Medium",
+            Self::Low => "Low",
+        }
+    }
+}
+
+impl TryFrom<&str> for RiskLevel {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "High" => Ok(Self::High),
+            "Medium" => Ok(Self::Medium),
+            "Low" => Ok(Self::Low),
+            other => Err(format!("Invalid risk level: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OffenderFreedomStatus {
     Imprisoned,
     Free,
     Monitored,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
-#[sqlx(type_name = "offender_firearm_access", rename_all = "PascalCase")]
+impl OffenderFreedomStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Imprisoned => "Imprisoned",
+            Self::Free => "Free",
+            Self::Monitored => "Monitored",
+        }
+    }
+}
+
+impl TryFrom<&str> for OffenderFreedomStatus {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Imprisoned" => Ok(Self::Imprisoned),
+            "Free" => Ok(Self::Free),
+            "Monitored" => Ok(Self::Monitored),
+            other => Err(format!("Invalid offender freedom status: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OffenderFirearmAccess {
     Yes,
     No,
     Unknown,
+}
+
+impl OffenderFirearmAccess {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Yes => "Yes",
+            Self::No => "No",
+            Self::Unknown => "Unknown",
+        }
+    }
+}
+
+impl TryFrom<&str> for OffenderFirearmAccess {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Yes" => Ok(Self::Yes),
+            "No" => Ok(Self::No),
+            "Unknown" => Ok(Self::Unknown),
+            other => Err(format!("Invalid offender firearm access: '{}'", other)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,55 +139,3 @@ pub struct AttendanceVictimWriteResult {
     pub address: Option<AttendanceVictimAddress>,
 }
 
-impl AttendanceVictimAddress {
-    pub fn to_response(self) -> AttendanceAddressResponse {
-        AttendanceAddressResponse {
-            id: self.id,
-            street: self.street,
-            number: self.number,
-            district: self.district,
-            city_id: self.city_id,
-            zip_code: self.zip_code,
-            complement: self.complement,
-        }
-    }
-}
-
-impl AttendanceVictim {
-    pub fn with_address(
-        self,
-        address: Option<AttendanceVictimAddress>,
-    ) -> AttendanceVictimWithAddress {
-        AttendanceVictimWithAddress {
-            id: self.id,
-            victim_id: self.victim_id,
-            was_victim_present: self.was_victim_present,
-            attendance_date: self.attendance_date,
-            attendance_time: self.attendance_time,
-            description: self.description,
-            latitude: self.latitude,
-            longitude: self.longitude,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            is_deleted: self.is_deleted,
-            address: address.map(|a| a.to_response()),
-            offender_id: self.offender_id,
-            protective_measure_id: self.protective_measure_id,
-            is_remote: self.is_remote,
-            risk_level: self.risk_level,
-            offender_freedom_status: self.offender_freedom_status,
-            offender_has_firearm_access: self.offender_has_firearm_access,
-            needs_legal_assistance: self.needs_legal_assistance,
-            needs_psychological_support: self.needs_psychological_support,
-            was_instructed_about_protective_measure_procedures: self
-                .was_instructed_about_protective_measure_procedures,
-            offender_violated_protective_measure: self.offender_violated_protective_measure,
-        }
-    }
-}
-
-impl AttendanceVictimWriteResult {
-    pub fn into_with_address(self) -> AttendanceVictimWithAddress {
-        self.attendance.with_address(self.address)
-    }
-}

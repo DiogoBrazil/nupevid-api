@@ -23,7 +23,7 @@ pub struct CompleteUserData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClaimsToUserToken {
+pub struct UserClaims {
     pub id: String,
     pub exp: usize,
     pub rank: Rank,
