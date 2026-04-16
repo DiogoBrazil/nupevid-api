@@ -2,16 +2,16 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use log::error;
 use serde::Serialize;
 
-use crate::core::entities::auth::ClaimsToUserToken;
-use crate::core::entities::common::PaginatedResult;
-use crate::core::queries::common::IncludeComplementQuery;
-use crate::utils::errors::AppError;
+use crate::core::entities::auth::UserClaims;
+use crate::core::pagination::PaginatedResult;
+use crate::core::filters::common::IncludeRelatedQuery;
+use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::{Pagination, PaginationParams, normalize_pagination};
 use crate::utils::responses::{ApiResponse, PaginatedResponse};
 
-pub fn request_claims(req: &HttpRequest) -> Result<ClaimsToUserToken, AppError> {
+pub fn request_claims(req: &HttpRequest) -> Result<UserClaims, AppError> {
     req.extensions()
-        .get::<ClaimsToUserToken>()
+        .get::<UserClaims>()
         .cloned()
         .ok_or_else(|| {
             error!("[ServiceHelper] No claims found in request");
@@ -27,8 +27,8 @@ pub fn request_pagination_from_parts(page: Option<i64>, page_size: Option<i64>) 
     request_pagination(&PaginationParams { page, page_size })
 }
 
-pub fn include_complement(query: &IncludeComplementQuery) -> bool {
-    query.include_complement_for_entities.unwrap_or(false)
+pub fn include_related(query: &IncludeRelatedQuery) -> bool {
+    query.include_related_entities.unwrap_or(false)
 }
 
 pub fn created<T: Serialize>(data: T) -> HttpResponse {
