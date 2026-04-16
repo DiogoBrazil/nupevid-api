@@ -1,7 +1,7 @@
 use jsonwebtoken::{EncodingKey, Header, encode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::auth::UserClaims;
 use crate::core::errors::DomainError;
 
 pub use crate::core::contracts::adapters::token_generator::{TokenClaimsInput, TokenGeneratorPort};
@@ -33,7 +33,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
             .as_secs() as usize
             + 24 * 3600;
 
-        let claims = ClaimsToUserToken {
+        let claims = UserClaims {
             id: claims.id.to_string(),
             exp: expiration,
             rank: claims.rank.clone(),
