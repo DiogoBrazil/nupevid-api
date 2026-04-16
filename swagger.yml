@@ -973,11 +973,10 @@ components:
         occupation:
           type: string
           nullable: true
-        has_children:
-          $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
+          description: "Número de filhos. Se informado, has_children será automaticamente definido como true"
         is_pregnant:
           type: boolean
           nullable: true
@@ -986,6 +985,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de necessidades especiais. Se informado com itens, has_special_needs será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -995,6 +995,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
 
     UpdateVictimRequest:
       type: object
@@ -1033,11 +1034,10 @@ components:
         occupation:
           type: string
           nullable: true
-        has_children:
-          $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
+          description: "Número de filhos. Se informado, has_children será automaticamente definido como true"
         is_pregnant:
           type: boolean
           nullable: true
@@ -1046,6 +1046,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de necessidades especiais. Se informado com itens, has_special_needs será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -1055,6 +1056,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
 
     # --- Offender Schemas ---
     OffenderPhone:
@@ -1253,17 +1255,17 @@ components:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
+          description: "Força de segurança do agressor. Se informado, is_public_security_agent será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
-          type: boolean
-        has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
           type: array
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
         education_level:
           $ref: "#/components/schemas/EducationLevel"
           example: "High School"
@@ -1312,17 +1314,17 @@ components:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
+          description: "Força de segurança do agressor. Se informado, is_public_security_agent será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
-          type: boolean
-        has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
           type: array
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
         education_level:
           $ref: "#/components/schemas/EducationLevel"
         observation:
@@ -6506,11 +6508,19 @@ paths:
       tags:
         - "Attendance Victims"
       summary: "Listar atendimentos por vítima"
-      description: "Retorna todos os atendimentos relacionados a uma vítima específica"
+      description: "Retorna todos os atendimentos relacionados a uma vítima específica. Opcionalmente filtra por medida protetiva."
       operationId: "getAttendanceVictimsByVictim"
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "protective_measure_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -7294,11 +7304,19 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Listar atendimentos por agressor"
-      description: "Retorna todos os atendimentos relacionados a um agressor específico"
+      description: "Retorna todos os atendimentos relacionados a um agressor específico. Opcionalmente filtra por medida protetiva."
       operationId: "getAttendanceOffendersByOffender"
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "protective_measure_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -7385,11 +7403,19 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Listar atendimentos aos agressores por vítima"
-      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica. Opcionalmente filtra por medida protetiva."
       operationId: "getAttendanceOffendersByVictim"
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "protective_measure_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
