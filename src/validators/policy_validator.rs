@@ -1,17 +1,17 @@
+use crate::core::auth_helpers::PolicyMap;
 use crate::core::commands::users::PermissionPolicies;
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::profiles::Profile;
-use crate::utils::errors::AppError;
-use uuid::Uuid;
+use crate::core::application_error::ApplicationError as AppError;
 
 pub struct PolicyValidator;
 
 impl PolicyValidator {
     pub fn validate_assignment_permission(
-        claims: &ClaimsToUserToken,
+        claims: &UserClaims,
         target_profile: &Profile,
         policies: &PermissionPolicies,
-        claims_policies_json: Option<&serde_json::Value>,
+        claims_policies: Option<&PolicyMap>,
     ) -> Result<(), AppError> {
         match &claims.profile {
             Profile::Root => Ok(()),
@@ -36,16 +36,9 @@ impl PolicyValidator {
 
                 for (policy, city_ids) in policies.iter() {
                     for city_id in city_ids {
-                        let mut has_policy = false;
-                        if let Some(pjson) = claims_policies_json
-                            && let Some(arr) =
-                                pjson.get(policy.as_str()).and_then(|v| v.as_array())
-                        {
-                            has_policy = arr
-                                .iter()
-                                .filter_map(|v| v.as_str())
-                                .any(|cid| Uuid::parse_str(cid).ok() == Some(*city_id));
-                        }
+                        let has_policy = claims_policies
+                            .and_then(|cp| cp.get(policy))
+                            .is_some_and(|cities| cities.contains(city_id));
                         if !has_policy {
                             return Err(AppError::Forbidden(format!(
                                 "CITY_ADMIN cannot assign policy '{}' for city '{}' that they do not possess",
@@ -77,11 +70,11 @@ mod tests {
     use super::*;
     use crate::core::value_objects::policies::Policy;
     use crate::core::value_objects::ranks::Rank;
-    use serde_json::json;
     use std::collections::HashMap;
+    use uuid::Uuid;
 
-    fn create_test_claims(profile: Profile, user_id: Uuid) -> ClaimsToUserToken {
-        ClaimsToUserToken {
+    fn create_test_claims(profile: Profile, user_id: Uuid) -> UserClaims {
+        UserClaims {
             id: user_id.to_string(),
             exp: 9999999999,
             rank: Rank::CelPm,
@@ -155,9 +148,8 @@ mod tests {
         let city_id = Uuid::new_v4();
         let claims = create_test_claims(Profile::CityAdmin, Uuid::new_v4());
 
-        let policies_json = json!({
-            "read_victims": [city_id.to_string()]
-        });
+        let mut claims_policies: PolicyMap = HashMap::new();
+        claims_policies.insert(Policy::ReadVictims, vec![city_id]);
 
         let mut policies: PermissionPolicies = HashMap::new();
         policies.insert(Policy::ReadVictims, vec![city_id]);
@@ -166,7 +158,7 @@ mod tests {
             &claims,
             &Profile::CityUser,
             &policies,
-            Some(&policies_json),
+            Some(&claims_policies),
         );
         assert!(result.is_ok());
     }
@@ -176,7 +168,7 @@ mod tests {
         let city_id = Uuid::new_v4();
         let claims = create_test_claims(Profile::CityAdmin, Uuid::new_v4());
 
-        let policies_json = json!({});
+        let claims_policies: PolicyMap = HashMap::new();
 
         let mut policies: PermissionPolicies = HashMap::new();
         policies.insert(Policy::ReadVictims, vec![city_id]);
@@ -185,7 +177,7 @@ mod tests {
             &claims,
             &Profile::CityUser,
             &policies,
-            Some(&policies_json),
+            Some(&claims_policies),
         );
         assert!(result.is_err());
         assert!(

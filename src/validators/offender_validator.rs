@@ -1,4 +1,4 @@
-use crate::utils::errors::AppError;
+use crate::core::application_error::ApplicationError as AppError;
 use crate::validators::common::validate_required_fields;
 
 pub struct OffenderValidator;

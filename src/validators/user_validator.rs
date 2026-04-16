@@ -1,7 +1,10 @@
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
-use crate::utils::errors::AppError;
-use crate::validators::common::*;
+use crate::core::value_objects::registrations::{
+    REGISTRATION_MAX_LENGTH, REGISTRATION_PREFIX, is_valid_registration,
+};
+use crate::validators::common::{is_valid_email, validate_required_fields};
 use uuid::Uuid;
 
 pub struct UserValidator;

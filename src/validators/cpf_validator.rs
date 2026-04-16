@@ -1,5 +1,5 @@
 use crate::core::value_objects::cpf::{CpfValidationError, validate_cpf_masked};
-use crate::utils::errors::AppError;
+use crate::core::application_error::ApplicationError as AppError;
 
 pub fn validate_cpf(cpf: &str, error_context: &str) -> Result<String, AppError> {
     match validate_cpf_masked(cpf) {

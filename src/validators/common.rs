@@ -1,17 +1,6 @@
-use crate::utils::errors::AppError;
+use crate::core::application_error::ApplicationError as AppError;
 use lazy_static::lazy_static;
 use regex::Regex;
-
-// Re-export policies and profiles from core/value_objects
-pub use crate::core::value_objects::policies::*;
-pub use crate::core::value_objects::profiles::*;
-
-// Re-export value objects
-pub use crate::core::value_objects::battalions::*;
-pub use crate::core::value_objects::cities::*;
-pub use crate::core::value_objects::ranks::*;
-pub use crate::core::value_objects::registrations::*;
-pub use crate::core::value_objects::states::*;
 
 lazy_static! {
     static ref EMAIL_VALIDATION_REGEX: Regex =
