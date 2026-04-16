@@ -269,7 +269,7 @@ async fn test_city_user_cannot_create_users() {
     let city_id: uuid::Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create CITY_USER claims
-    let city_user_claims = nupevid_api::core::entities::auth::ClaimsToUserToken {
+    let city_user_claims = nupevid_api::core::entities::auth::UserClaims {
         id: uuid::Uuid::new_v4().to_string(),
         exp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

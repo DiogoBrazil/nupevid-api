@@ -31,7 +31,7 @@ fn assert_entity_without_timestamps(entity: &serde_json::Value) {
 }
 
 #[actix_rt::test]
-async fn create_protective_measure_with_include_complement_returns_entities() {
+async fn create_protective_measure_with_include_related_returns_entities() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -49,7 +49,7 @@ async fn create_protective_measure_with_include_complement_returns_entities() {
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/protective-measures?include_complement_for_entities=true")
+            .uri("/api/v1/protective-measures?include_related_entities=true")
             .set_json(&payload),
         &config,
         &admin_token,
@@ -78,7 +78,7 @@ async fn create_protective_measure_with_include_complement_returns_entities() {
 }
 
 #[actix_rt::test]
-async fn get_protective_measure_by_id_with_include_complement_returns_entities() {
+async fn get_protective_measure_by_id_with_include_related_returns_entities() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -96,7 +96,7 @@ async fn get_protective_measure_by_id_with_include_complement_returns_entities()
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
-            "/api/v1/protective-measures/{}?include_complement_for_entities=true",
+            "/api/v1/protective-measures/{}?include_related_entities=true",
             measure_id
         )),
         &config,
@@ -126,7 +126,7 @@ async fn get_protective_measure_by_id_with_include_complement_returns_entities()
 }
 
 #[actix_rt::test]
-async fn list_protective_measures_with_include_complement_returns_entities() {
+async fn list_protective_measures_with_include_related_returns_entities() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -143,7 +143,7 @@ async fn list_protective_measures_with_include_complement_returns_entities() {
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get()
-            .uri("/api/v1/protective-measures?include_complement_for_entities=true"),
+            .uri("/api/v1/protective-measures?include_related_entities=true"),
         &config,
         &admin_token,
     )
@@ -160,7 +160,7 @@ async fn list_protective_measures_with_include_complement_returns_entities() {
 }
 
 #[actix_rt::test]
-async fn get_protective_measures_by_victim_with_include_complement_returns_entities() {
+async fn get_protective_measures_by_victim_with_include_related_returns_entities() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -177,7 +177,7 @@ async fn get_protective_measures_by_victim_with_include_complement_returns_entit
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
-            "/api/v1/protective-measures/victim/{}?include_complement_for_entities=true",
+            "/api/v1/protective-measures/victim/{}?include_related_entities=true",
             victim_id
         )),
         &config,

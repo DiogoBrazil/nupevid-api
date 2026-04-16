@@ -15,7 +15,7 @@ fn build_token_for_user(
     city_id: Option<Uuid>,
     jwt_secret: &str,
 ) -> String {
-    let claims = nupevid_api::core::entities::auth::ClaimsToUserToken {
+    let claims = nupevid_api::core::entities::auth::UserClaims {
         id: id.to_string(),
         exp: {
             use std::time::{SystemTime, UNIX_EPOCH};

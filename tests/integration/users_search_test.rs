@@ -2,7 +2,7 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::test_helpers;
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -234,7 +234,7 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
         .parse()
         .unwrap();
 
-    let city_admin_claims = ClaimsToUserToken {
+    let city_admin_claims = UserClaims {
         id: city_admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)

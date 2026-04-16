@@ -1,7 +1,7 @@
 use actix_web::{http::StatusCode, test};
 
 use crate::common::test_helpers;
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -56,7 +56,7 @@ async fn non_root_cannot_create_city() {
     assert_eq!(admin_resp.status(), StatusCode::FORBIDDEN);
 
     // CITY_USER tenta criar cidade -> FORBIDDEN
-    let claims_user = ClaimsToUserToken {
+    let claims_user = UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)

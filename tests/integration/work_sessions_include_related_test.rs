@@ -19,7 +19,7 @@ fn assert_user_complement(user: &serde_json::Value, expected_user_id: Option<Str
 }
 
 #[actix_rt::test]
-async fn create_work_session_with_include_complement_returns_user_details() {
+async fn create_work_session_with_include_related_returns_user_details() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -58,7 +58,7 @@ async fn create_work_session_with_include_complement_returns_user_details() {
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/work-sessions?include_complement_for_entities=true")
+            .uri("/api/v1/work-sessions?include_related_entities=true")
             .set_json(&payload),
         &config,
         &token,
@@ -77,7 +77,7 @@ async fn create_work_session_with_include_complement_returns_user_details() {
 }
 
 #[actix_rt::test]
-async fn get_active_work_session_with_include_complement_returns_user_details() {
+async fn get_active_work_session_with_include_related_returns_user_details() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -101,7 +101,7 @@ async fn get_active_work_session_with_include_complement_returns_user_details() 
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get()
-            .uri("/api/v1/work-sessions/active?include_complement_for_entities=true"),
+            .uri("/api/v1/work-sessions/active?include_related_entities=true"),
         &config,
         &token,
     )
@@ -116,7 +116,7 @@ async fn get_active_work_session_with_include_complement_returns_user_details() 
 }
 
 #[actix_rt::test]
-async fn list_work_sessions_with_include_complement_returns_user_details() {
+async fn list_work_sessions_with_include_related_returns_user_details() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -139,7 +139,7 @@ async fn list_work_sessions_with_include_complement_returns_user_details() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri("/api/v1/work-sessions?include_complement_for_entities=true"),
+        test::TestRequest::get().uri("/api/v1/work-sessions?include_related_entities=true"),
         &config,
         &token,
     )
