@@ -3,12 +3,12 @@ use serde_json::Value as JsonValue;
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::core::entities::users::UserDataCreatedWithoutPassword;
+use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, FromRow)]
-pub struct UserDataCreatedWithoutPasswordRow {
+pub struct UserRecordRow {
     pub id: Uuid,
     pub rank: Rank,
     pub registration: String,
@@ -22,9 +22,9 @@ pub struct UserDataCreatedWithoutPasswordRow {
     pub is_deleted: bool,
 }
 
-impl From<UserDataCreatedWithoutPasswordRow> for UserDataCreatedWithoutPassword {
-    fn from(row: UserDataCreatedWithoutPasswordRow) -> Self {
-        UserDataCreatedWithoutPassword {
+impl From<UserRecordRow> for UserRecord {
+    fn from(row: UserRecordRow) -> Self {
+        UserRecord {
             id: row.id,
             rank: row.rank,
             registration: row.registration,

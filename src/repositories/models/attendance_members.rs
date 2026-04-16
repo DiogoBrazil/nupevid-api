@@ -3,6 +3,7 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::core::entities::attendance_members::{AttendanceOffenderMember, AttendanceVictimMember};
+use crate::core::read_models::attendance_members::AttendanceMemberWithDetails;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct AttendanceVictimMemberRow {
@@ -40,6 +41,27 @@ impl From<AttendanceOffenderMemberRow> for AttendanceOffenderMember {
             id: row.id,
             attendance_offender_id: row.attendance_offender_id,
             user_id: row.user_id,
+            work_session_id: row.work_session_id,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct AttendanceMemberWithDetailsRow {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub work_session_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<AttendanceMemberWithDetailsRow> for AttendanceMemberWithDetails {
+    fn from(row: AttendanceMemberWithDetailsRow) -> Self {
+        AttendanceMemberWithDetails {
+            id: row.id,
+            user_id: row.user_id,
+            user_name: row.user_name,
             work_session_id: row.work_session_id,
             created_at: row.created_at,
         }

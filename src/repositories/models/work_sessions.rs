@@ -3,11 +3,11 @@ use serde_json::Value as JsonValue;
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::core::entities::work_session_members::{
-    TeamMemberFunction, WorkSessionMember, WorkSessionMemberWithUser,
-};
+use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
+use crate::core::read_models::work_sessions::WorkSessionMemberWithUser;
 use crate::core::entities::work_sessions::WorkSession;
-use crate::core::read_models::users::UserComplement;
+use crate::core::read_models::users::UserSummary;
+use crate::core::read_models::work_sessions::WorkSessionMemberWithDetails;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
@@ -74,12 +74,33 @@ pub struct WorkSessionMemberWithUserRowModel {
     pub user_is_deleted: bool,
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct WorkSessionMemberWithDetailsRow {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub function: Option<TeamMemberFunction>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<WorkSessionMemberWithDetailsRow> for WorkSessionMemberWithDetails {
+    fn from(row: WorkSessionMemberWithDetailsRow) -> Self {
+        WorkSessionMemberWithDetails {
+            id: row.id,
+            user_id: row.user_id,
+            user_name: row.user_name,
+            function: row.function,
+            created_at: row.created_at,
+        }
+    }
+}
+
 impl From<WorkSessionMemberWithUserRowModel> for WorkSessionMemberWithUser {
     fn from(row: WorkSessionMemberWithUserRowModel) -> Self {
         WorkSessionMemberWithUser {
             id: row.id,
             function: row.function,
-            user: UserComplement {
+            user: UserSummary {
                 id: row.user_id,
                 rank: row.user_rank,
                 registration: row.user_registration,
