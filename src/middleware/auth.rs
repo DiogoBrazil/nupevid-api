@@ -1,5 +1,5 @@
 use crate::config::config_env::Config;
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::auth::UserClaims;
 use crate::validators::common::is_public_route;
 use actix_web::{
     Error, HttpMessage,
@@ -93,7 +93,7 @@ impl<S> AuthMiddlewareService<S> {
         &self,
         req: &ServiceRequest,
         config: &Config,
-    ) -> Result<ClaimsToUserToken, Error> {
+    ) -> Result<UserClaims, Error> {
         let auth_header = req
             .headers()
             .get("Authorization")
@@ -105,7 +105,7 @@ impl<S> AuthMiddlewareService<S> {
         }
 
         let token = &auth_header[7..];
-        decode::<ClaimsToUserToken>(
+        decode::<UserClaims>(
             token,
             &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
             &Validation::default(),
