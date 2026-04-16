@@ -28,6 +28,7 @@ pub trait AttendanceVictimReadRepository: Send + Sync {
     async fn get_attendance_victims_by_victim(
         &self,
         victim_id: Uuid,
+        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceVictimWithAddress>, RepositoryError>;
 }
 

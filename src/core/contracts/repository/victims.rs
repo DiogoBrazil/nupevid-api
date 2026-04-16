@@ -7,6 +7,7 @@ use crate::core::entities::common::{AddressData, PhoneData};
 use crate::core::entities::victims::{VictimAddress, VictimPhone, VictimWriteResult};
 use crate::core::read_models::victims::VictimWithDetails;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait VictimReadRepository: Send + Sync {
     async fn get_victim_by_id(
@@ -20,16 +21,20 @@ pub trait VictimReadRepository: Send + Sync {
         &self,
         city_id: Uuid,
     ) -> Result<Vec<VictimWithDetails>, RepositoryError>;
-    async fn get_victims_paginated(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
+    async fn get_victims_paginated<'a>(
+        &'a self,
+        allowed_cities: Option<&'a [Uuid]>,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<VictimWithDetails>, RepositoryError>;
-    async fn count_victims(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
-    ) -> Result<i64, RepositoryError>;
+    ) -> Result<Vec<VictimWithDetails>, RepositoryError>
+    where
+        Self: 'a;
+    async fn count_victims<'a>(
+        &'a self,
+        allowed_cities: Option<&'a [Uuid]>,
+    ) -> Result<i64, RepositoryError>
+    where
+        Self: 'a;
     async fn get_victims_by_name(
         &self,
         name: &str,
@@ -40,6 +45,7 @@ pub trait VictimReadRepository: Send + Sync {
     ) -> Result<Vec<VictimWithDetails>, RepositoryError>;
 }
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait VictimWriteRepository: Send + Sync {
     async fn create_victim(

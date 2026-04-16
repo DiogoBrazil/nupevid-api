@@ -5,12 +5,10 @@ use uuid::Uuid;
 use super::error::RepositoryError;
 use crate::core::commands::work_session_members::AddWorkSessionMember;
 use crate::core::commands::work_sessions::CreateWorkSession;
-use crate::core::entities::work_session_members::{
-    TeamMemberFunction, WorkSessionMember, WorkSessionMemberWithUser,
-};
+use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::work_sessions::{
-    WorkSessionMemberWithDetails, WorkSessionWithMembers,
+    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMembers,
 };
 
 #[async_trait]
