@@ -1,6 +1,8 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::offenders::UpdateOffender;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
@@ -9,8 +11,6 @@ use crate::core::entities::common::{
 };
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 use crate::validators::{cpf_validator::validate_cpf, offender_validator::OffenderValidator};
 
@@ -29,7 +29,10 @@ impl UpdateOffenderUseCase {
         id: Uuid,
         claims: &UserClaims,
     ) -> Result<OffenderWithDetails, AppError> {
-        info!("[UpdateOffenderUseCase] Starting offender update for id: {}", id);
+        info!(
+            "[UpdateOffenderUseCase] Starting offender update for id: {}",
+            id
+        );
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         let mut data = data;
@@ -51,7 +54,12 @@ impl UpdateOffenderUseCase {
 
         OffenderValidator::validate_required_fields(&data.full_name, "Error updating offender")?;
 
-        match self.deps.offender_read_repository.get_offender_by_id(id).await {
+        match self
+            .deps
+            .offender_read_repository
+            .get_offender_by_id(id)
+            .await
+        {
             Ok(existing_offender) => {
                 auth.check_policy(&Policy::UpdateOffenders, existing_offender.city_id)?;
             }
@@ -76,7 +84,8 @@ impl UpdateOffenderUseCase {
             .await
         {
             Ok(offender_with_details) => {
-                let offender_with_details = OffenderWithDetails::from_write_result(offender_with_details);
+                let offender_with_details =
+                    OffenderWithDetails::from_write_result(offender_with_details);
                 info!(
                     "[UpdateOffenderUseCase] Offender updated successfully with ID: {}",
                     offender_with_details.id
@@ -94,9 +103,7 @@ impl UpdateOffenderUseCase {
                 )))
             }
             Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::Conflict(msg)),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!(
                     "[UpdateOffenderUseCase] Error updating offender in database: {:?}",

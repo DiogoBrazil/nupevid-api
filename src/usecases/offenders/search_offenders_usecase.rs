@@ -1,11 +1,11 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::search::SearchCriteria;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 
 pub struct SearchOffendersUseCase {
@@ -45,9 +45,7 @@ impl SearchOffendersUseCase {
             }
         };
 
-        let offenders = if let Some(allowed_cities) =
-            auth.allowed_cities(&Policy::ReadOffenders)
-        {
+        let offenders = if let Some(allowed_cities) = auth.allowed_cities(&Policy::ReadOffenders) {
             match offenders {
                 Ok(list) => {
                     let filtered: Vec<_> = list
@@ -71,7 +69,10 @@ impl SearchOffendersUseCase {
                 Ok(offenders_list)
             }
             Err(e) => {
-                error!("[SearchOffendersUseCase] Failed to search offenders: {:?}", e);
+                error!(
+                    "[SearchOffendersUseCase] Failed to search offenders: {:?}",
+                    e
+                );
                 Err(AppError::InternalServerError)
             }
         }

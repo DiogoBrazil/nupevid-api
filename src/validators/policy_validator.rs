@@ -1,8 +1,8 @@
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_helpers::PolicyMap;
 use crate::core::commands::users::PermissionPolicies;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
 
 pub struct PolicyValidator;
 
@@ -18,7 +18,8 @@ impl PolicyValidator {
             Profile::CityUser => {
                 if !policies.is_empty() {
                     return Err(AppError::Forbidden(
-                        "CITY_USER profile is not allowed to assign permission policies".to_string(),
+                        "CITY_USER profile is not allowed to assign permission policies"
+                            .to_string(),
                     ));
                 }
                 Ok(())

@@ -1,5 +1,7 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::offenders::CreateOffender;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
@@ -8,8 +10,6 @@ use crate::core::entities::common::{
 };
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 use crate::validators::{cpf_validator::validate_cpf, offender_validator::OffenderValidator};
 
@@ -62,7 +62,8 @@ impl CreateOffenderUseCase {
             .await
         {
             Ok(offender_with_details) => {
-                let offender_with_details = OffenderWithDetails::from_write_result(offender_with_details);
+                let offender_with_details =
+                    OffenderWithDetails::from_write_result(offender_with_details);
                 info!(
                     "[CreateOffenderUseCase] Offender created successfully with ID: {}",
                     offender_with_details.id
@@ -70,9 +71,7 @@ impl CreateOffenderUseCase {
                 Ok(offender_with_details)
             }
             Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::Conflict(msg)),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!("[CreateOffenderUseCase] Failed to save offender: {:?}", e);
                 Err(AppError::InternalServerError)

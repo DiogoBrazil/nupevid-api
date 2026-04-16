@@ -1,10 +1,10 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
 use crate::usecases::extensions::helpers::authorize_extension_access;
 
@@ -53,10 +53,7 @@ impl GetExtensionsByMeasureUseCase {
                 Ok(extensions)
             }
             Err(e) => {
-                error!(
-                    "[GetExtensionsByMeasureUseCase] Database error: {:?}",
-                    e
-                );
+                error!("[GetExtensionsByMeasureUseCase] Database error: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }

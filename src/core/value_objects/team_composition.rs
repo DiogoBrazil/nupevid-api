@@ -42,7 +42,10 @@ pub fn can_add_member_with_function(
                 .any(|(_, f)| matches!(f, Some(TeamMemberFunction::Commander)));
 
             if has_commander {
-                return Err("Team already has a Commander. Remove or change the current Commander first.".to_string());
+                return Err(
+                    "Team already has a Commander. Remove or change the current Commander first."
+                        .to_string(),
+                );
             }
         }
         Some(TeamMemberFunction::Driver) => {
@@ -170,7 +173,9 @@ mod tests {
     #[test]
     fn test_can_add_patroller() {
         let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
-        assert!(can_add_member_with_function(&current, &Some(TeamMemberFunction::Patroller)).is_ok());
+        assert!(
+            can_add_member_with_function(&current, &Some(TeamMemberFunction::Patroller)).is_ok()
+        );
     }
 
     #[test]
@@ -182,7 +187,8 @@ mod tests {
     #[test]
     fn test_cannot_add_commander_when_exists() {
         let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Commander))];
-        let err = can_add_member_with_function(&current, &Some(TeamMemberFunction::Commander)).unwrap_err();
+        let err = can_add_member_with_function(&current, &Some(TeamMemberFunction::Commander))
+            .unwrap_err();
         assert!(err.contains("already has a Commander"));
     }
 
@@ -192,7 +198,8 @@ mod tests {
             (Uuid::new_v4(), Some(TeamMemberFunction::Commander)),
             (Uuid::new_v4(), Some(TeamMemberFunction::Driver)),
         ];
-        let err = can_add_member_with_function(&current, &Some(TeamMemberFunction::Driver)).unwrap_err();
+        let err =
+            can_add_member_with_function(&current, &Some(TeamMemberFunction::Driver)).unwrap_err();
         assert!(err.contains("already has a Driver"));
     }
 
@@ -205,7 +212,9 @@ mod tests {
     #[test]
     fn test_can_add_commander_when_no_commander() {
         let current = vec![(Uuid::new_v4(), Some(TeamMemberFunction::Patroller))];
-        assert!(can_add_member_with_function(&current, &Some(TeamMemberFunction::Commander)).is_ok());
+        assert!(
+            can_add_member_with_function(&current, &Some(TeamMemberFunction::Commander)).is_ok()
+        );
     }
 
     #[test]

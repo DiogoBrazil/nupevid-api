@@ -1,10 +1,10 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::cities::CreateCity;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::cities::City;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::cities::deps::CityUseCaseDependencies;
 use crate::validators::city_validator::CityValidator;
 
@@ -17,11 +17,7 @@ impl CreateCityUseCase {
         Self { deps }
     }
 
-    pub async fn execute(
-        &self,
-        city: CreateCity,
-        claims: &UserClaims,
-    ) -> Result<City, AppError> {
+    pub async fn execute(&self, city: CreateCity, claims: &UserClaims) -> Result<City, AppError> {
         info!("[CreateCityUseCase] Starting city creation: {}", city.name);
 
         if claims.profile != Profile::Root {

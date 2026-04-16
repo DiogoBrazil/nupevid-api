@@ -18,15 +18,9 @@ pub trait WorkSessionReadRepository: Send + Sync {
         user_id: Uuid,
     ) -> Result<WorkSession, RepositoryError>;
 
-    async fn get_user_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<WorkSession, RepositoryError>;
+    async fn get_user_active_session(&self, user_id: Uuid) -> Result<WorkSession, RepositoryError>;
 
-    async fn is_user_in_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<bool, RepositoryError>;
+    async fn is_user_in_active_session(&self, user_id: Uuid) -> Result<bool, RepositoryError>;
 
     async fn get_session_by_id(
         &self,
@@ -91,10 +85,7 @@ pub trait WorkSessionWriteRepository: Send + Sync {
         user_id: Uuid,
     ) -> Result<WorkSession, RepositoryError>;
 
-    async fn end_session(
-        &self,
-        session_id: Uuid,
-    ) -> Result<WorkSession, RepositoryError>;
+    async fn end_session(&self, session_id: Uuid) -> Result<WorkSession, RepositoryError>;
 
     async fn add_member_to_session(
         &self,

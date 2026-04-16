@@ -100,8 +100,7 @@ async fn get_active_work_session_with_include_related_returns_user_details() {
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/work-sessions/active?include_related_entities=true"),
+        test::TestRequest::get().uri("/api/v1/work-sessions/active?include_related_entities=true"),
         &config,
         &token,
     )

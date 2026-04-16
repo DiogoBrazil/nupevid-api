@@ -1,14 +1,14 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::{extract_city_id_from_claims, get_user_policies_strict};
+use crate::core::authorization::validate_user_creation_permission;
 use crate::core::commands::users::CreateUser;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::authorization::validate_user_creation_permission;
-use crate::core::auth_helpers::{extract_city_id_from_claims, get_user_policies_strict};
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::validators::{policy_validator::PolicyValidator, user_validator::UserValidator};
 
@@ -136,12 +136,8 @@ impl CreateUserUseCase {
 
         match self.deps.user_repository.create_user(user_with_city).await {
             Ok(user) => Ok(user),
-            Err(RepositoryError::DuplicateEntry(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::BadRequest(msg)),
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(error) => {
                 error!("[CreateUserUseCase] Failed to save user: {:?}", error);
                 Err(AppError::InternalServerError)

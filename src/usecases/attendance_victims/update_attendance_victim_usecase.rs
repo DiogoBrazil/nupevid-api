@@ -1,13 +1,13 @@
 use log::error;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::attendance_victims::UpdateAttendanceVictim;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::{
     get_attendance_victim_or_not_found, verify_victim_access,
@@ -66,14 +66,14 @@ impl UpdateAttendanceVictimUseCase {
             .update_attendance_victim_by_id(data, id)
             .await
         {
-            Ok(attendance_with_address) => Ok(AttendanceVictimWithAddress::from_write_result(attendance_with_address)),
+            Ok(attendance_with_address) => Ok(AttendanceVictimWithAddress::from_write_result(
+                attendance_with_address,
+            )),
             Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
                 "Attendance victim '{}' not found",
                 id
             ))),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!(
                     "[UpdateAttendanceVictimUseCase] Error updating attendance victim: {:?}",

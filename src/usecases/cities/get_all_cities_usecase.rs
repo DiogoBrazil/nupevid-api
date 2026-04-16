@@ -1,11 +1,11 @@
 use log::info;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::cities::City;
 use crate::core::pagination::PaginatedResult;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::cities::deps::CityUseCaseDependencies;
 use crate::utils::pagination::Pagination;
 
@@ -44,7 +44,10 @@ impl GetAllCitiesUseCase {
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
-        info!("[GetAllCitiesUseCase] Successfully retrieved {} cities", cities.len());
+        info!(
+            "[GetAllCitiesUseCase] Successfully retrieved {} cities",
+            cities.len()
+        );
 
         Ok(PaginatedResult {
             items: cities,

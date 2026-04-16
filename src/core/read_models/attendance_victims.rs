@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::core::entities::attendance_victims::{
-    AttendanceVictim, AttendanceVictimAddress, AttendanceVictimWriteResult,
-    OffenderFirearmAccess, OffenderFreedomStatus, RiskLevel,
+    AttendanceVictim, AttendanceVictimAddress, AttendanceVictimWriteResult, OffenderFirearmAccess,
+    OffenderFreedomStatus, RiskLevel,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

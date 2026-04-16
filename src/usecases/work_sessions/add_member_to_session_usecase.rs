@@ -1,16 +1,16 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
+use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::guards::{
     ensure_creator_or_commander, validate_members_same_city,
 };
-use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::helpers::{
     authorize_non_root_for_policy, claims_user_id, get_session_by_id_base_or_not_found,
     get_session_members_or_not_found,
@@ -82,7 +82,10 @@ impl AddMemberToSessionUseCase {
             ));
         }
 
-        let mut all_user_ids: Vec<Uuid> = current_members.iter().map(|member| member.user_id).collect();
+        let mut all_user_ids: Vec<Uuid> = current_members
+            .iter()
+            .map(|member| member.user_id)
+            .collect();
         all_user_ids.push(user_id);
         validate_members_same_city(
             self.deps.user_repository.as_ref(),
@@ -103,7 +106,12 @@ impl AddMemberToSessionUseCase {
         match self
             .deps
             .work_session_write_repository
-            .add_member_to_session(session_member_registration_id, session_id, user_id, function)
+            .add_member_to_session(
+                session_member_registration_id,
+                session_id,
+                user_id,
+                function,
+            )
             .await
         {
             Ok(member) => Ok(member),

@@ -4,10 +4,10 @@ use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
-use crate::core::read_models::work_sessions::WorkSessionMemberWithUser;
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::users::UserSummary;
 use crate::core::read_models::work_sessions::WorkSessionMemberWithDetails;
+use crate::core::read_models::work_sessions::WorkSessionMemberWithUser;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 

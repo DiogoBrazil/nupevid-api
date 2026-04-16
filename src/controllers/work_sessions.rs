@@ -3,6 +3,7 @@ use log::info;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::work_session_members::UpdateMemberFunction;
 use crate::core::commands::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
 use crate::core::entities::work_session_members::TeamMemberFunction;
@@ -19,7 +20,6 @@ use crate::utils::controller_helpers::{
     created, include_related, paginated, request_claims, request_pagination_from_parts, success,
 };
 use crate::utils::pagination::Pagination;
-use crate::core::application_error::ApplicationError as AppError;
 
 pub async fn create_work_session(
     data: web::Json<CreateWorkSession>,
@@ -85,7 +85,16 @@ pub async fn list_sessions(
     let pagination = request_pagination_from_parts(query.page, query.page_size);
     let result = usecase.execute(query, pagination, &claims).await?;
     let response = presenter
-        .build_responses(result.items, include, Pagination { page: result.page, page_size: result.page_size, offset: 0 }, result.total_items)
+        .build_responses(
+            result.items,
+            include,
+            Pagination {
+                page: result.page,
+                page_size: result.page_size,
+                offset: 0,
+            },
+            result.total_items,
+        )
         .await?;
     Ok(paginated(response))
 }
@@ -135,9 +144,7 @@ pub async fn remove_member(
         member_id, session_id
     );
     let claims = request_claims(&req)?;
-    let message = usecase
-        .execute(session_id, member_id, &claims)
-        .await?;
+    let message = usecase.execute(session_id, member_id, &claims).await?;
     Ok(success(message))
 }
 

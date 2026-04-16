@@ -1,12 +1,12 @@
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 
 pub async fn get_offender_or_not_found(
     offender_read_repository: &dyn OffenderReadRepository,

@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::{
     get_attendance_victim_or_not_found, verify_victim_access,
@@ -76,10 +76,7 @@ impl AddAttendanceMemberUseCase {
             }
             Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::Conflict(msg)),
             Err(e) => {
-                error!(
-                    "[AddAttendanceMemberUseCase] Failed to add member: {:?}",
-                    e
-                );
+                error!("[AddAttendanceMemberUseCase] Failed to add member: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }

@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::cities::UpdateCity;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::cities::City;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::cities::deps::CityUseCaseDependencies;
 use crate::validators::city_validator::CityValidator;
 
@@ -25,7 +25,10 @@ impl UpdateCityByIdUseCase {
         id: Uuid,
         claims: &UserClaims,
     ) -> Result<City, AppError> {
-        info!("[UpdateCityByIdUseCase] Starting city update for id: {}", id);
+        info!(
+            "[UpdateCityByIdUseCase] Starting city update for id: {}",
+            id
+        );
 
         if claims.profile != Profile::Root {
             return Err(AppError::Forbidden(
@@ -64,9 +67,10 @@ impl UpdateCityByIdUseCase {
 
         match self.deps.city_repository.update_city_by_id(data, id).await {
             Ok(city) => Ok(city),
-            Err(RepositoryError::NotFound) => {
-                Err(AppError::NotFound(format!("City with id '{}' not found", id)))
-            }
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+                "City with id '{}' not found",
+                id
+            ))),
             Err(error) => {
                 error!(
                     "[UpdateCityByIdUseCase] Error updating city in database: {:?}",

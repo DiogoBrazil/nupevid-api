@@ -28,6 +28,8 @@ use crate::core::contracts::repository::victims::{VictimReadRepository, VictimWr
 use crate::core::contracts::repository::work_sessions::{
     WorkSessionReadRepository, WorkSessionWriteRepository,
 };
+use crate::presenters::protective_measures::ProtectiveMeasurePresenter;
+use crate::presenters::work_sessions::WorkSessionPresenter;
 use crate::repositories::{
     attendance_members::PgAttendanceMemberRepository,
     attendance_offenders::PgAttendanceOffenderRepository,
@@ -36,8 +38,6 @@ use crate::repositories::{
     protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
     victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
 };
-use crate::presenters::protective_measures::ProtectiveMeasurePresenter;
-use crate::presenters::work_sessions::WorkSessionPresenter;
 use crate::routes::api_router::configure_routes;
 use crate::usecases::attendance_offenders::{
     AddAttendanceOffenderMemberUseCase, AttendanceOffenderUseCaseDependencies,
@@ -48,9 +48,8 @@ use crate::usecases::attendance_offenders::{
     UpdateAttendanceOffenderUseCase,
 };
 use crate::usecases::attendance_victims::{
-    AddAttendanceMemberUseCase, AttendanceVictimUseCaseDependencies,
-    CreateAttendanceVictimUseCase, DeleteAttendanceVictimUseCase,
-    GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase,
+    AddAttendanceMemberUseCase, AttendanceVictimUseCaseDependencies, CreateAttendanceVictimUseCase,
+    DeleteAttendanceVictimUseCase, GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase,
     GetAttendanceVictimByIdUseCase, GetAttendanceVictimsByVictimUseCase,
     RemoveAttendanceMemberUseCase, UpdateAttendanceVictimUseCase,
 };
@@ -72,9 +71,8 @@ use crate::usecases::offenders::{
 };
 use crate::usecases::protective_measures::{
     CreateProtectiveMeasureUseCase, DeleteProtectiveMeasureUseCase,
-    GetAllProtectiveMeasuresUseCase, GetMeasuresByVictimUseCase,
-    GetProtectiveMeasureByIdUseCase, ProtectiveMeasureUseCaseDependencies,
-    UpdateProtectiveMeasureUseCase,
+    GetAllProtectiveMeasuresUseCase, GetMeasuresByVictimUseCase, GetProtectiveMeasureByIdUseCase,
+    ProtectiveMeasureUseCaseDependencies, UpdateProtectiveMeasureUseCase,
 };
 use crate::usecases::users::{
     AppendUserPolicyCitiesUseCase, CreateUserUseCase, DeleteUserByIdUseCase, GetAllUsersUseCase,
@@ -129,8 +127,7 @@ impl AppDependencies {
         let victim_read_repository: Arc<dyn VictimReadRepository> = victim_repository.clone();
         let victim_write_repository: Arc<dyn VictimWriteRepository> = victim_repository.clone();
         let offender_repository = Arc::new(PgOffenderRepository::new(pool.clone()));
-        let offender_read_repository: Arc<dyn OffenderReadRepository> =
-            offender_repository.clone();
+        let offender_read_repository: Arc<dyn OffenderReadRepository> = offender_repository.clone();
         let offender_write_repository: Arc<dyn OffenderWriteRepository> =
             offender_repository.clone();
         let protective_measure_repository =
@@ -164,10 +161,14 @@ impl AppDependencies {
         let config_arc = Arc::new(config.clone());
 
         // Use case dependencies
-        let user_usecase_deps =
-            UserUseCaseDependencies::new(Arc::clone(&user_repository), Arc::clone(&password_hasher));
-        let city_usecase_deps =
-            CityUseCaseDependencies::new(Arc::clone(&city_repository), Arc::clone(&user_repository));
+        let user_usecase_deps = UserUseCaseDependencies::new(
+            Arc::clone(&user_repository),
+            Arc::clone(&password_hasher),
+        );
+        let city_usecase_deps = CityUseCaseDependencies::new(
+            Arc::clone(&city_repository),
+            Arc::clone(&user_repository),
+        );
         let auth_usecase_deps = AuthUseCaseDependencies::new(
             Arc::clone(&auth_repository),
             Arc::clone(&work_session_read_repository),
@@ -243,8 +244,12 @@ impl AppDependencies {
         register!(DeleteUserByIdUseCase::new(user_usecase_deps.clone()));
         register!(UpdateUserPasswordUseCase::new(user_usecase_deps.clone()));
         register!(ResetUserPasswordByIdUseCase::new(user_usecase_deps.clone()));
-        register!(AppendUserPolicyCitiesUseCase::new(user_usecase_deps.clone()));
-        register!(RemoveUserPolicyCitiesUseCase::new(user_usecase_deps.clone()));
+        register!(AppendUserPolicyCitiesUseCase::new(
+            user_usecase_deps.clone()
+        ));
+        register!(RemoveUserPolicyCitiesUseCase::new(
+            user_usecase_deps.clone()
+        ));
 
         // Cities
         register!(CreateCityUseCase::new(city_usecase_deps.clone()));
@@ -257,16 +262,30 @@ impl AppDependencies {
         register!(LoginUseCase::new(auth_usecase_deps));
 
         // Work sessions
-        register!(CreateWorkSessionUseCase::new(work_session_usecase_deps.clone()));
-        register!(GetActiveSessionUseCase::new(work_session_usecase_deps.clone()));
-        register!(GetSessionByIdUseCase::new(work_session_usecase_deps.clone()));
+        register!(CreateWorkSessionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
+        register!(GetActiveSessionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
+        register!(GetSessionByIdUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
         register!(ListSessionsUseCase::new(work_session_usecase_deps.clone()));
         register!(EndSessionUseCase::new(work_session_usecase_deps.clone()));
-        register!(AddMemberToSessionUseCase::new(work_session_usecase_deps.clone()));
-        register!(RemoveMemberFromSessionUseCase::new(work_session_usecase_deps.clone()));
+        register!(AddMemberToSessionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
+        register!(RemoveMemberFromSessionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
         register!(UpdateMembersUseCase::new(work_session_usecase_deps.clone()));
-        register!(UpdateMemberFunctionUseCase::new(work_session_usecase_deps.clone()));
-        register!(UpdateWorkSessionUseCase::new(work_session_usecase_deps.clone()));
+        register!(UpdateMemberFunctionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
+        register!(UpdateWorkSessionUseCase::new(
+            work_session_usecase_deps.clone()
+        ));
 
         // Victims
         register!(CreateVictimUseCase::new(victim_usecase_deps.clone()));
@@ -287,20 +306,38 @@ impl AppDependencies {
         register!(GetOffenderByIdUseCase::new(offender_usecase_deps.clone()));
         register!(GetAllOffendersUseCase::new(offender_usecase_deps.clone()));
         register!(SearchOffendersUseCase::new(offender_usecase_deps.clone()));
-        register!(GetOffendersByVictimUseCase::new(offender_usecase_deps.clone()));
+        register!(GetOffendersByVictimUseCase::new(
+            offender_usecase_deps.clone()
+        ));
         register!(UpdateOffenderUseCase::new(offender_usecase_deps.clone()));
         register!(DeleteOffenderUseCase::new(offender_usecase_deps.clone()));
-        register!(CreateOffenderPhoneUseCase::new(offender_usecase_deps.clone()));
-        register!(UpdateOffenderPhoneUseCase::new(offender_usecase_deps.clone()));
-        register!(DeleteOffenderPhoneUseCase::new(offender_usecase_deps.clone()));
-        register!(CreateOffenderAddressUseCase::new(offender_usecase_deps.clone()));
-        register!(UpdateOffenderAddressUseCase::new(offender_usecase_deps.clone()));
-        register!(DeleteOffenderAddressUseCase::new(offender_usecase_deps.clone()));
+        register!(CreateOffenderPhoneUseCase::new(
+            offender_usecase_deps.clone()
+        ));
+        register!(UpdateOffenderPhoneUseCase::new(
+            offender_usecase_deps.clone()
+        ));
+        register!(DeleteOffenderPhoneUseCase::new(
+            offender_usecase_deps.clone()
+        ));
+        register!(CreateOffenderAddressUseCase::new(
+            offender_usecase_deps.clone()
+        ));
+        register!(UpdateOffenderAddressUseCase::new(
+            offender_usecase_deps.clone()
+        ));
+        register!(DeleteOffenderAddressUseCase::new(
+            offender_usecase_deps.clone()
+        ));
 
         // Protective measures
         register!(CreateProtectiveMeasureUseCase::new(pm_usecase_deps.clone()));
-        register!(GetProtectiveMeasureByIdUseCase::new(pm_usecase_deps.clone()));
-        register!(GetAllProtectiveMeasuresUseCase::new(pm_usecase_deps.clone()));
+        register!(GetProtectiveMeasureByIdUseCase::new(
+            pm_usecase_deps.clone()
+        ));
+        register!(GetAllProtectiveMeasuresUseCase::new(
+            pm_usecase_deps.clone()
+        ));
         register!(GetMeasuresByVictimUseCase::new(pm_usecase_deps.clone()));
         register!(UpdateProtectiveMeasureUseCase::new(pm_usecase_deps.clone()));
         register!(DeleteProtectiveMeasureUseCase::new(pm_usecase_deps.clone()));
@@ -308,37 +345,81 @@ impl AppDependencies {
         // Extensions
         register!(CreateExtensionUseCase::new(extension_usecase_deps.clone()));
         register!(GetExtensionByIdUseCase::new(extension_usecase_deps.clone()));
-        register!(GetExtensionsByMeasureUseCase::new(extension_usecase_deps.clone()));
-        register!(UpdateExtensionByIdUseCase::new(extension_usecase_deps.clone()));
-        register!(DeleteExtensionByIdUseCase::new(extension_usecase_deps.clone()));
+        register!(GetExtensionsByMeasureUseCase::new(
+            extension_usecase_deps.clone()
+        ));
+        register!(UpdateExtensionByIdUseCase::new(
+            extension_usecase_deps.clone()
+        ));
+        register!(DeleteExtensionByIdUseCase::new(
+            extension_usecase_deps.clone()
+        ));
 
         // Attendance victims
-        register!(CreateAttendanceVictimUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(GetAttendanceVictimByIdUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(GetAllAttendanceVictimsUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(GetAttendanceVictimsByVictimUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(UpdateAttendanceVictimUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(DeleteAttendanceVictimUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(GetAttendanceMembersUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(AddAttendanceMemberUseCase::new(attendance_victim_usecase_deps.clone()));
-        register!(RemoveAttendanceMemberUseCase::new(attendance_victim_usecase_deps.clone()));
+        register!(CreateAttendanceVictimUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(GetAttendanceVictimByIdUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(GetAllAttendanceVictimsUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(GetAttendanceVictimsByVictimUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(UpdateAttendanceVictimUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(DeleteAttendanceVictimUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(GetAttendanceMembersUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(AddAttendanceMemberUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
+        register!(RemoveAttendanceMemberUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
 
         // Attendance offenders
-        register!(CreateAttendanceOffenderUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(GetAttendanceOffenderByIdUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(GetAllAttendanceOffendersUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(GetAttendanceOffendersByOffenderUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(GetAttendanceOffendersByVictimUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(UpdateAttendanceOffenderUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(DeleteAttendanceOffenderUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(GetAttendanceOffenderMembersUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(AddAttendanceOffenderMemberUseCase::new(attendance_offender_usecase_deps.clone()));
-        register!(RemoveAttendanceOffenderMemberUseCase::new(attendance_offender_usecase_deps.clone()));
+        register!(CreateAttendanceOffenderUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAttendanceOffenderByIdUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAllAttendanceOffendersUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAttendanceOffendersByOffenderUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAttendanceOffendersByVictimUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(UpdateAttendanceOffenderUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(DeleteAttendanceOffenderUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAttendanceOffenderMembersUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(AddAttendanceOffenderMemberUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(RemoveAttendanceOffenderMemberUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
 
         // Presenters
-        register!(WorkSessionPresenter::new(
-            Arc::clone(&work_session_read_repository),
-        ));
+        register!(WorkSessionPresenter::new(Arc::clone(
+            &work_session_read_repository
+        ),));
         register!(ProtectiveMeasurePresenter::new(
             Arc::clone(&extension_repository),
             Arc::clone(&victim_read_repository),

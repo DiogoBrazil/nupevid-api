@@ -1,13 +1,13 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::AddressData;
 use crate::core::read_models::victims::VictimAddressResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::helpers::authorize_victim_access;
 
@@ -26,7 +26,10 @@ impl UpdateVictimAddressUseCase {
         address_data: AddressData,
         claims: &UserClaims,
     ) -> Result<VictimAddressResponse, AppError> {
-        info!("[UpdateVictimAddressUseCase] Updating address: {}", address_id);
+        info!(
+            "[UpdateVictimAddressUseCase] Updating address: {}",
+            address_id
+        );
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
 

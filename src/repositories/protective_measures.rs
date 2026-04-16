@@ -3,8 +3,7 @@ use log::info;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::repositories::queries::extensions::ExtensionsQueries;
-use crate::repositories::queries::protective_measures::ProtectiveMeasuresQueries;
+use super::models::protective_measures::{ProtectiveMeasureExtensionRow, ProtectiveMeasureRow};
 use crate::core::{
     commands::protective_measures::{
         CreateExtension, CreateProtectiveMeasure, UpdateExtension, UpdateProtectiveMeasure,
@@ -15,26 +14,25 @@ use crate::core::{
     },
     entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureExtension},
 };
-use super::models::protective_measures::{ProtectiveMeasureRow, ProtectiveMeasureExtensionRow};
+use crate::repositories::queries::extensions::ExtensionsQueries;
+use crate::repositories::queries::protective_measures::ProtectiveMeasuresQueries;
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_protective_measure_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::ForeignKeyViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("fk_protective_measures_court_district") => {
-                    RepositoryError::ReferencedEntityNotFound("Court district not found".into())
-                }
-                Some("fk_protective_measures_victim") => {
-                    RepositoryError::ReferencedEntityNotFound("Victim not found".into())
-                }
-                Some("fk_protective_measures_offender") => {
-                    RepositoryError::ReferencedEntityNotFound("Offender not found".into())
-                }
-                _ => base,
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_protective_measures_court_district") => {
+                RepositoryError::ReferencedEntityNotFound("Court district not found".into())
             }
-        }
+            Some("fk_protective_measures_victim") => {
+                RepositoryError::ReferencedEntityNotFound("Victim not found".into())
+            }
+            Some("fk_protective_measures_offender") => {
+                RepositoryError::ReferencedEntityNotFound("Offender not found".into())
+            }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -49,9 +47,7 @@ impl PgProtectiveMeasureRepository {
         Self { pool }
     }
 
-    pub async fn begin_tx(
-        &self,
-    ) -> Result<Transaction<'_, Postgres>, RepositoryError> {
+    pub async fn begin_tx(&self) -> Result<Transaction<'_, Postgres>, RepositoryError> {
         self.pool
             .begin()
             .await
@@ -65,28 +61,29 @@ impl PgProtectiveMeasureRepository {
     ) -> Result<ProtectiveMeasure, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
-        let measure_created: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
-                .bind(id)
-                .bind(&measure.process_number)
-                .bind(&measure.sei_process_number)
-                .bind(&measure.occurrence_report_number)
-                .bind(measure.issued_at)
-                .bind(measure.valid_until)
-                .bind(&measure.judicial_authority)
-                .bind(measure.court_district_id)
-                .bind(measure.distance_meters)
-                .bind(measure.status.clone())
-                .bind(measure.violence_types.clone())
-                .bind(measure.relationship_to_victim.clone())
-                .bind(measure.assaults_children)
-                .bind(measure.was_drunk_during_assault)
-                .bind(measure.victim_id)
-                .bind(measure.offender_id)
-                .fetch_one(&mut **tx)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let measure_created: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE,
+        )
+        .bind(id)
+        .bind(&measure.process_number)
+        .bind(&measure.sei_process_number)
+        .bind(&measure.occurrence_report_number)
+        .bind(measure.issued_at)
+        .bind(measure.valid_until)
+        .bind(&measure.judicial_authority)
+        .bind(measure.court_district_id)
+        .bind(measure.distance_meters)
+        .bind(measure.status.clone())
+        .bind(measure.violence_types.clone())
+        .bind(measure.relationship_to_victim.clone())
+        .bind(measure.assaults_children)
+        .bind(measure.was_drunk_during_assault)
+        .bind(measure.victim_id)
+        .bind(measure.offender_id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         Ok(measure_created)
     }
@@ -97,28 +94,29 @@ impl PgProtectiveMeasureRepository {
         data: &UpdateProtectiveMeasure,
         id: Uuid,
     ) -> Result<ProtectiveMeasure, RepositoryError> {
-        let measure_updated: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
-                .bind(id)
-                .bind(&data.process_number)
-                .bind(&data.sei_process_number)
-                .bind(&data.occurrence_report_number)
-                .bind(data.issued_at)
-                .bind(data.valid_until)
-                .bind(&data.judicial_authority)
-                .bind(data.court_district_id)
-                .bind(data.distance_meters)
-                .bind(data.status.clone())
-                .bind(data.violence_types.clone())
-                .bind(data.relationship_to_victim.clone())
-                .bind(data.assaults_children)
-                .bind(data.was_drunk_during_assault)
-                .bind(data.victim_id)
-                .bind(data.offender_id)
-                .fetch_one(&mut **tx)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let measure_updated: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID,
+        )
+        .bind(id)
+        .bind(&data.process_number)
+        .bind(&data.sei_process_number)
+        .bind(&data.occurrence_report_number)
+        .bind(data.issued_at)
+        .bind(data.valid_until)
+        .bind(&data.judicial_authority)
+        .bind(data.court_district_id)
+        .bind(data.distance_meters)
+        .bind(data.status.clone())
+        .bind(data.violence_types.clone())
+        .bind(data.relationship_to_victim.clone())
+        .bind(data.assaults_children)
+        .bind(data.was_drunk_during_assault)
+        .bind(data.victim_id)
+        .bind(data.offender_id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         Ok(measure_updated)
     }
@@ -135,13 +133,14 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
             id
         );
 
-        let measure: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURE_BY_ID)
-                .bind(id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let measure: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURE_BY_ID,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         info!(
             "[Repository] Protective measure successfully found in the database with ID: {}",
@@ -151,19 +150,18 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
         Ok(measure)
     }
 
-    async fn get_all_protective_measures(
-        &self,
-    ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
+    async fn get_all_protective_measures(&self) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
         info!("[Repository] Executing SQL query to get all protective measures");
 
-        let measures: Vec<ProtectiveMeasure> =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_ALL_PROTECTIVE_MEASURES)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let measures: Vec<ProtectiveMeasure> = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::GET_ALL_PROTECTIVE_MEASURES,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         info!(
             "[Repository] Found {} protective measures in database",
@@ -182,21 +180,23 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
         info!("[Repository] Executing SQL query to get paginated protective measures");
 
         let rows: Vec<ProtectiveMeasureRow> = match allowed_cities {
-            Some(city_ids) => {
-                sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES)
-                    .bind(city_ids)
-                    .bind(limit)
-                    .bind(offset)
-                    .fetch_all(&self.pool)
-                    .await
-                    .map_err(map_protective_measure_error)?
-            }
-            None => sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?,
+            Some(city_ids) => sqlx::query_as::<_, ProtectiveMeasureRow>(
+                ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES,
+            )
+            .bind(city_ids)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_protective_measure_error)?,
+            None => sqlx::query_as::<_, ProtectiveMeasureRow>(
+                ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED,
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_protective_measure_error)?,
         };
         let measures: Vec<ProtectiveMeasure> = rows.into_iter().map(Into::into).collect();
 
@@ -238,15 +238,16 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
             victim_id
         );
 
-        let measures: Vec<ProtectiveMeasure> =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_BY_VICTIM)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let measures: Vec<ProtectiveMeasure> = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_BY_VICTIM,
+        )
+        .bind(victim_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         info!(
             "[Repository] Found {} protective measures for victim: {}",
@@ -297,28 +298,29 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             measure.victim_id
         );
 
-        let measure_created: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE)
-                .bind(id)
-                .bind(measure.process_number)
-                .bind(measure.sei_process_number)
-                .bind(measure.occurrence_report_number)
-                .bind(measure.issued_at)
-                .bind(measure.valid_until)
-                .bind(measure.judicial_authority)
-                .bind(measure.court_district_id)
-                .bind(measure.distance_meters)
-                .bind(measure.status)
-                .bind(measure.violence_types)
-                .bind(measure.relationship_to_victim)
-                .bind(measure.assaults_children)
-                .bind(measure.was_drunk_during_assault)
-                .bind(measure.victim_id)
-                .bind(measure.offender_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let measure_created: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::CREATE_PROTECTIVE_MEASURE,
+        )
+        .bind(id)
+        .bind(measure.process_number)
+        .bind(measure.sei_process_number)
+        .bind(measure.occurrence_report_number)
+        .bind(measure.issued_at)
+        .bind(measure.valid_until)
+        .bind(measure.judicial_authority)
+        .bind(measure.court_district_id)
+        .bind(measure.distance_meters)
+        .bind(measure.status)
+        .bind(measure.violence_types)
+        .bind(measure.relationship_to_victim)
+        .bind(measure.assaults_children)
+        .bind(measure.was_drunk_during_assault)
+        .bind(measure.victim_id)
+        .bind(measure.offender_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         info!(
             "[Repository] Protective measure successfully inserted into database with ID: {}",
@@ -345,22 +347,22 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
 
         for extension in extensions {
             let extension_id = Uuid::new_v4();
-            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
-                .bind(extension_id)
-                .bind(created.id)
-                .bind(extension.extension_number)
-                .bind(extension.extension_date)
-                .bind(extension.new_valid_until)
-                .bind(&extension.notes)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(
+                ExtensionsQueries::CREATE_EXTENSION,
+            )
+            .bind(extension_id)
+            .bind(created.id)
+            .bind(extension.extension_number)
+            .bind(extension.extension_date)
+            .bind(extension.new_valid_until)
+            .bind(&extension.notes)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_protective_measure_error)?
+            .into();
         }
 
-        tx.commit()
-            .await
-            .map_err(map_protective_measure_error)?;
+        tx.commit().await.map_err(map_protective_measure_error)?;
 
         Ok(created)
     }
@@ -375,28 +377,29 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             id
         );
 
-        let measure_updated: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID)
-                .bind(id)
-                .bind(data.process_number)
-                .bind(data.sei_process_number)
-                .bind(data.occurrence_report_number)
-                .bind(data.issued_at)
-                .bind(data.valid_until)
-                .bind(data.judicial_authority)
-                .bind(data.court_district_id)
-                .bind(data.distance_meters)
-                .bind(data.status)
-                .bind(data.violence_types)
-                .bind(data.relationship_to_victim)
-                .bind(data.assaults_children)
-                .bind(data.was_drunk_during_assault)
-                .bind(data.victim_id)
-                .bind(data.offender_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let measure_updated: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::UPDATE_PROTECTIVE_MEASURE_BY_ID,
+        )
+        .bind(id)
+        .bind(data.process_number)
+        .bind(data.sei_process_number)
+        .bind(data.occurrence_report_number)
+        .bind(data.issued_at)
+        .bind(data.valid_until)
+        .bind(data.judicial_authority)
+        .bind(data.court_district_id)
+        .bind(data.distance_meters)
+        .bind(data.status)
+        .bind(data.violence_types)
+        .bind(data.relationship_to_victim)
+        .bind(data.assaults_children)
+        .bind(data.was_drunk_during_assault)
+        .bind(data.victim_id)
+        .bind(data.offender_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         info!(
             "[Repository] Protective measure successfully updated in database with ID: {}",
@@ -424,37 +427,38 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             .await?;
 
         for (extension_id, extension) in extensions_to_update {
-            let _: ProtectiveMeasureExtension =
-                sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::UPDATE_EXTENSION_BY_ID)
-                    .bind(extension_id)
-                    .bind(extension.extension_number)
-                    .bind(extension.extension_date)
-                    .bind(extension.new_valid_until)
-                    .bind(&extension.notes)
-                    .fetch_one(&mut *tx)
-                    .await
-                    .map_err(map_protective_measure_error)?
-                    .into();
+            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(
+                ExtensionsQueries::UPDATE_EXTENSION_BY_ID,
+            )
+            .bind(extension_id)
+            .bind(extension.extension_number)
+            .bind(extension.extension_date)
+            .bind(extension.new_valid_until)
+            .bind(&extension.notes)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_protective_measure_error)?
+            .into();
         }
 
         for extension in extensions_to_create {
             let extension_id = Uuid::new_v4();
-            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(ExtensionsQueries::CREATE_EXTENSION)
-                .bind(extension_id)
-                .bind(id)
-                .bind(extension.extension_number)
-                .bind(extension.extension_date)
-                .bind(extension.new_valid_until)
-                .bind(&extension.notes)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+            let _: ProtectiveMeasureExtension = sqlx::query_as::<_, ProtectiveMeasureExtensionRow>(
+                ExtensionsQueries::CREATE_EXTENSION,
+            )
+            .bind(extension_id)
+            .bind(id)
+            .bind(extension.extension_number)
+            .bind(extension.extension_date)
+            .bind(extension.new_valid_until)
+            .bind(&extension.notes)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_protective_measure_error)?
+            .into();
         }
 
-        tx.commit()
-            .await
-            .map_err(map_protective_measure_error)?;
+        tx.commit().await.map_err(map_protective_measure_error)?;
 
         Ok(updated)
     }
@@ -468,13 +472,14 @@ impl ProtectiveMeasureWriteRepository for PgProtectiveMeasureRepository {
             id
         );
 
-        let deleted_measure: ProtectiveMeasure =
-            sqlx::query_as::<_, ProtectiveMeasureRow>(ProtectiveMeasuresQueries::DELETE_PROTECTIVE_MEASURE_BY_ID)
-                .bind(id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_protective_measure_error)?
-                .into();
+        let deleted_measure: ProtectiveMeasure = sqlx::query_as::<_, ProtectiveMeasureRow>(
+            ProtectiveMeasuresQueries::DELETE_PROTECTIVE_MEASURE_BY_ID,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_protective_measure_error)?
+        .into();
 
         info!(
             "[Repository] Protective measure successfully soft deleted from database with ID: {}",

@@ -1,14 +1,14 @@
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
+use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::work_sessions::WorkSessionReadRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_session_members::WorkSessionMember;
 use crate::core::entities::work_sessions::WorkSession;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
-use crate::core::auth_helpers::extract_city_id_from_claims;
-use crate::core::contracts::repository::users::UserRepository;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 
@@ -52,8 +52,9 @@ pub async fn get_session_members_or_not_found(
         .get_session_members(session_id)
         .await
         .map_err(|error| match error {
-            RepositoryError::NotFound => AppError::NotFound("Session members not found".to_string()),
+            RepositoryError::NotFound => {
+                AppError::NotFound("Session members not found".to_string())
+            }
             _ => AppError::InternalServerError,
         })
 }
-

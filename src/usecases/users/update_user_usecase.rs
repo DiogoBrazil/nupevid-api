@@ -1,15 +1,15 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::get_user_policies_strict;
+use crate::core::authorization::check_policy;
 use crate::core::commands::users::UpdateUser;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::authorization::check_policy;
-use crate::core::auth_helpers::get_user_policies_strict;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::{get_claims_policies_or_empty, get_existing_user};
 use crate::validators::{policy_validator::PolicyValidator, user_validator::UserValidator};
@@ -138,14 +138,13 @@ impl UpdateUserUseCase {
                 "User with id '{}' not found",
                 id
             ))),
-            Err(RepositoryError::DuplicateEntry(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::BadRequest(msg)),
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(error) => {
-                error!("[UpdateUserUseCase] Error updating user in database: {:?}", error);
+                error!(
+                    "[UpdateUserUseCase] Error updating user in database: {:?}",
+                    error
+                );
                 Err(AppError::InternalServerError)
             }
         }

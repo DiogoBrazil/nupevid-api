@@ -1,11 +1,11 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_offenders::helpers::verify_offender_access;
 
@@ -29,8 +29,7 @@ impl GetAttendanceOffendersByOffenderUseCase {
             offender_id
         );
 
-        let offender =
-            verify_offender_access(&*self.deps.offender_repository, offender_id).await?;
+        let offender = verify_offender_access(&*self.deps.offender_repository, offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;

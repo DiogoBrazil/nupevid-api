@@ -89,11 +89,7 @@ impl<S> AuthMiddlewareService<S> {
         }
     }
 
-    fn verify_jwt_token(
-        &self,
-        req: &ServiceRequest,
-        config: &Config,
-    ) -> Result<UserClaims, Error> {
+    fn verify_jwt_token(&self, req: &ServiceRequest, config: &Config) -> Result<UserClaims, Error> {
         let auth_header = req
             .headers()
             .get("Authorization")

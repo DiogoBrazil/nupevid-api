@@ -1,8 +1,8 @@
-#[cfg(test)]
-mod create_victim_usecase_test;
 pub mod create_victim_address_usecase;
 pub mod create_victim_phone_usecase;
 pub mod create_victim_usecase;
+#[cfg(test)]
+mod create_victim_usecase_test;
 pub mod delete_victim_address_usecase;
 pub mod delete_victim_phone_usecase;
 pub mod delete_victim_usecase;

@@ -1,11 +1,11 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::protective_measures::UpdateExtension;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
 use crate::usecases::extensions::helpers::load_auth_and_check_extension;
 
@@ -24,7 +24,10 @@ impl UpdateExtensionByIdUseCase {
         data: UpdateExtension,
         claims: &UserClaims,
     ) -> Result<ProtectiveMeasureExtension, AppError> {
-        info!("[UpdateExtensionByIdUseCase] Updating extension with ID: {}", id);
+        info!(
+            "[UpdateExtensionByIdUseCase] Updating extension with ID: {}",
+            id
+        );
 
         load_auth_and_check_extension(
             &self.deps,

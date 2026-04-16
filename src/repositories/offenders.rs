@@ -4,10 +4,8 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::repositories::queries::offenders::{
-    OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
-};
 use crate::core::commands::offenders::{CreateOffender, UpdateOffender};
+use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::offenders::{
     OffenderReadRepository, OffenderWriteRepository,
 };
@@ -15,26 +13,26 @@ use crate::core::entities::common::{AddressData, PhoneData};
 use crate::core::entities::offenders::{
     Offender, OffenderAddress, OffenderPhone, OffenderWriteResult,
 };
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::read_models::offenders::OffenderWithDetails;
+use crate::repositories::queries::offenders::{
+    OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
+};
 
-use super::models::offenders::{OffenderRow, OffenderPhoneRow, OffenderAddressRow};
+use super::models::offenders::{OffenderAddressRow, OffenderPhoneRow, OffenderRow};
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_offender_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::ForeignKeyViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("fk_offenders_city") => {
-                    RepositoryError::ReferencedEntityNotFound("City not found".into())
-                }
-                Some("fk_offender_addresses_city") => {
-                    RepositoryError::ReferencedEntityNotFound("Address city not found".into())
-                }
-                _ => base,
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_offenders_city") => {
+                RepositoryError::ReferencedEntityNotFound("City not found".into())
             }
-        }
+            Some("fk_offender_addresses_city") => {
+                RepositoryError::ReferencedEntityNotFound("Address city not found".into())
+            }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -56,15 +54,16 @@ impl PgOffenderRepository {
     ) -> Result<OffenderPhone, RepositoryError> {
         let phone_id = Uuid::new_v4();
 
-        let created: OffenderPhone = sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
-            .bind(phone_id)
-            .bind(offender_id)
-            .bind(&phone_data.phone)
-            .bind(&phone_data.phone_type)
-            .fetch_one(&mut **tx)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let created: OffenderPhone =
+            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
+                .bind(phone_id)
+                .bind(offender_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         Ok(created)
     }
@@ -73,12 +72,13 @@ impl PgOffenderRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         offender_id: Uuid,
     ) -> Result<(), RepositoryError> {
-        let _: Vec<OffenderPhoneRow> =
-            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::DELETE_OFFENDER_PHONES_BY_OFFENDER_ID)
-                .bind(offender_id)
-                .fetch_all(&mut **tx)
-                .await
-                .map_err(map_offender_error)?;
+        let _: Vec<OffenderPhoneRow> = sqlx::query_as::<_, OffenderPhoneRow>(
+            OffenderPhonesQueries::DELETE_OFFENDER_PHONES_BY_OFFENDER_ID,
+        )
+        .bind(offender_id)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_offender_error)?;
         Ok(())
     }
 
@@ -89,21 +89,22 @@ impl PgOffenderRepository {
     ) -> Result<OffenderAddress, RepositoryError> {
         let address_id = Uuid::new_v4();
 
-        let created: OffenderAddress =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS)
-                .bind(address_id)
-                .bind(offender_id)
-                .bind(&address.street)
-                .bind(&address.number)
-                .bind(&address.district)
-                .bind(address.city_id)
-                .bind(&address.zip_code)
-                .bind(&address.complement)
-                .bind(&address.address_type)
-                .fetch_one(&mut **tx)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let created: OffenderAddress = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS,
+        )
+        .bind(address_id)
+        .bind(offender_id)
+        .bind(&address.street)
+        .bind(&address.number)
+        .bind(&address.district)
+        .bind(address.city_id)
+        .bind(&address.zip_code)
+        .bind(&address.complement)
+        .bind(&address.address_type)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         Ok(created)
     }
@@ -112,12 +113,13 @@ impl PgOffenderRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         offender_id: Uuid,
     ) -> Result<(), RepositoryError> {
-        let _: Vec<OffenderAddressRow> =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::DELETE_OFFENDER_ADDRESSES_BY_OFFENDER_ID)
-                .bind(offender_id)
-                .fetch_all(&mut **tx)
-                .await
-                .map_err(map_offender_error)?;
+        let _: Vec<OffenderAddressRow> = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::DELETE_OFFENDER_ADDRESSES_BY_OFFENDER_ID,
+        )
+        .bind(offender_id)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_offender_error)?;
         Ok(())
     }
 
@@ -125,13 +127,16 @@ impl PgOffenderRepository {
         &self,
         offender_id: Uuid,
     ) -> Result<Vec<OffenderPhone>, RepositoryError> {
-        let phones: Vec<OffenderPhone> =
-            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::GET_OFFENDER_PHONES_BY_OFFENDER_ID)
-                .bind(offender_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into_iter().map(Into::into).collect();
+        let phones: Vec<OffenderPhone> = sqlx::query_as::<_, OffenderPhoneRow>(
+            OffenderPhonesQueries::GET_OFFENDER_PHONES_BY_OFFENDER_ID,
+        )
+        .bind(offender_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(phones)
     }
 
@@ -139,13 +144,16 @@ impl PgOffenderRepository {
         &self,
         offender_id: Uuid,
     ) -> Result<Vec<OffenderAddress>, RepositoryError> {
-        let addresses: Vec<OffenderAddress> =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::GET_OFFENDER_ADDRESSES_BY_OFFENDER_ID)
-                .bind(offender_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into_iter().map(Into::into).collect();
+        let addresses: Vec<OffenderAddress> = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::GET_OFFENDER_ADDRESSES_BY_OFFENDER_ID,
+        )
+        .bind(offender_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(addresses)
     }
 
@@ -219,8 +227,7 @@ impl PgOffenderRepository {
 
         let offender_ids: Vec<Uuid> = offenders.iter().map(|offender| offender.id).collect();
         let mut phones_by_offender = self.get_phones_by_offender_ids(&offender_ids).await?;
-        let mut addresses_by_offender =
-            self.get_addresses_by_offender_ids(&offender_ids).await?;
+        let mut addresses_by_offender = self.get_addresses_by_offender_ids(&offender_ids).await?;
 
         Ok(offenders
             .into_iter()
@@ -237,18 +244,16 @@ impl PgOffenderRepository {
 
 #[async_trait]
 impl OffenderReadRepository for PgOffenderRepository {
-    async fn get_offender_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<OffenderWithDetails, RepositoryError> {
+    async fn get_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, RepositoryError> {
         info!("[Repository] Fetching offender with id: {}", id);
 
-        let offender: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDER_BY_ID)
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let offender: Offender =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDER_BY_ID)
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         let phones = self.get_phones_by_offender_id(id).await?;
         let addresses = self.get_addresses_by_offender_id(id).await?;
@@ -260,19 +265,22 @@ impl OffenderReadRepository for PgOffenderRepository {
             addresses.len(),
         );
 
-        Ok(OffenderWithDetails::from_entity(offender, phones, addresses))
+        Ok(OffenderWithDetails::from_entity(
+            offender, phones, addresses,
+        ))
     }
 
-    async fn get_all_offenders(
-        &self,
-    ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
+    async fn get_all_offenders(&self) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
         info!("[Repository] Fetching all offenders");
 
-        let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_ALL_OFFENDERS)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into_iter().map(Into::into).collect();
+        let offenders: Vec<Offender> =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_ALL_OFFENDERS)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders", result.len());
@@ -286,12 +294,15 @@ impl OffenderReadRepository for PgOffenderRepository {
     ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
         info!("[Repository] Fetching offenders for city: {}", city_id);
 
-        let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_CITY)
-            .bind(city_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into_iter().map(Into::into).collect();
+        let offenders: Vec<Offender> =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_CITY)
+                .bind(city_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!(
@@ -313,12 +324,15 @@ impl OffenderReadRepository for PgOffenderRepository {
             pattern
         );
 
-        let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_NAME)
-            .bind(pattern)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into_iter().map(Into::into).collect();
+        let offenders: Vec<Offender> =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_NAME)
+                .bind(pattern)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders by name", result.len());
@@ -331,12 +345,15 @@ impl OffenderReadRepository for PgOffenderRepository {
     ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
         info!("[Repository] Fetching offenders by cpf");
 
-        let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_CPF)
-            .bind(cpf)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into_iter().map(Into::into).collect();
+        let offenders: Vec<Offender> =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_CPF)
+                .bind(cpf)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!("[Repository] Found {} offenders by cpf", result.len());
@@ -349,12 +366,15 @@ impl OffenderReadRepository for PgOffenderRepository {
     ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
         info!("[Repository] Fetching offenders for victim: {}", victim_id);
 
-        let offenders: Vec<Offender> = sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_VICTIM_ID)
-            .bind(victim_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into_iter().map(Into::into).collect();
+        let offenders: Vec<Offender> =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_VICTIM_ID)
+                .bind(victim_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_offenders_with_details(offenders).await?;
 
         info!(
@@ -375,21 +395,27 @@ impl OffenderReadRepository for PgOffenderRepository {
         info!("[Repository] Fetching offenders paginated");
 
         let offenders: Vec<Offender> = match allowed_cities {
-            Some(cities) => sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
-                .bind(cities)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into_iter().map(Into::into).collect(),
+            Some(cities) => {
+                sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(map_offender_error)?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect()
+            }
             None => sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_PAGED)
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
                 .map_err(map_offender_error)?
-                .into_iter().map(Into::into).collect(),
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         };
         let result = self.assemble_offenders_with_details(offenders).await?;
 
@@ -429,32 +455,29 @@ impl OffenderWriteRepository for PgOffenderRepository {
             offender.full_name, offender_id
         );
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_offender_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_offender_error)?;
 
-        let offender_created: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::CREATE_OFFENDER)
-            .bind(offender_id)
-            .bind(&offender.full_name)
-            .bind(&offender.cpf)
-            .bind(offender.birth_date)
-            .bind(offender.city_id)
-            .bind(offender.imprisoned)
-            .bind(&offender.occupation)
-            .bind(offender.is_public_security_agent)
-            .bind(&offender.security_force)
-            .bind(offender.uses_alcohol)
-            .bind(offender.uses_drugs)
-            .bind(offender.has_psychiatric_issues)
-            .bind(&offender.psychiatric_issues_type)
-            .bind(&offender.education_level)
-            .bind(&offender.observation)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let offender_created: Offender =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::CREATE_OFFENDER)
+                .bind(offender_id)
+                .bind(&offender.full_name)
+                .bind(&offender.cpf)
+                .bind(offender.birth_date)
+                .bind(offender.city_id)
+                .bind(offender.imprisoned)
+                .bind(&offender.occupation)
+                .bind(offender.is_public_security_agent)
+                .bind(&offender.security_force)
+                .bind(offender.uses_alcohol)
+                .bind(offender.uses_drugs)
+                .bind(offender.has_psychiatric_issues)
+                .bind(&offender.psychiatric_issues_type)
+                .bind(&offender.education_level)
+                .bind(&offender.observation)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         info!("[Repository] Offender inserted, now creating phones if provided");
 
@@ -482,9 +505,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             );
         }
 
-        tx.commit()
-            .await
-            .map_err(map_offender_error)?;
+        tx.commit().await.map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} created successfully",
@@ -508,32 +529,29 @@ impl OffenderWriteRepository for PgOffenderRepository {
             id
         );
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_offender_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_offender_error)?;
 
-        let offender_updated: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::UPDATE_OFFENDER_BY_ID)
-            .bind(id)
-            .bind(&data.full_name)
-            .bind(&data.cpf)
-            .bind(data.birth_date)
-            .bind(data.city_id)
-            .bind(data.imprisoned)
-            .bind(&data.occupation)
-            .bind(data.is_public_security_agent)
-            .bind(&data.security_force)
-            .bind(data.uses_alcohol)
-            .bind(data.uses_drugs)
-            .bind(data.has_psychiatric_issues)
-            .bind(&data.psychiatric_issues_type)
-            .bind(&data.education_level)
-            .bind(&data.observation)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let offender_updated: Offender =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::UPDATE_OFFENDER_BY_ID)
+                .bind(id)
+                .bind(&data.full_name)
+                .bind(&data.cpf)
+                .bind(data.birth_date)
+                .bind(data.city_id)
+                .bind(data.imprisoned)
+                .bind(&data.occupation)
+                .bind(data.is_public_security_agent)
+                .bind(&data.security_force)
+                .bind(data.uses_alcohol)
+                .bind(data.uses_drugs)
+                .bind(data.has_psychiatric_issues)
+                .bind(&data.psychiatric_issues_type)
+                .bind(&data.education_level)
+                .bind(&data.observation)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         Self::delete_phones_by_offender_id(&mut tx, id).await?;
         let mut updated_phones = Vec::new();
@@ -563,9 +581,7 @@ impl OffenderWriteRepository for PgOffenderRepository {
             );
         }
 
-        tx.commit()
-            .await
-            .map_err(map_offender_error)?;
+        tx.commit().await.map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} updated",
@@ -591,24 +607,19 @@ impl OffenderWriteRepository for PgOffenderRepository {
         let phones = self.get_phones_by_offender_id(id).await?;
         let addresses = self.get_addresses_by_offender_id(id).await?;
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_offender_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_offender_error)?;
 
         Self::delete_phones_by_offender_id(&mut tx, id).await?;
         Self::delete_addresses_by_offender_id(&mut tx, id).await?;
-        let deleted_offender: Offender = sqlx::query_as::<_, OffenderRow>(OffendersQueries::DELETE_OFFENDER_BY_ID)
-            .bind(id)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let deleted_offender: Offender =
+            sqlx::query_as::<_, OffenderRow>(OffendersQueries::DELETE_OFFENDER_BY_ID)
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
-        tx.commit()
-            .await
-            .map_err(map_offender_error)?;
+        tx.commit().await.map_err(map_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Offender {} soft deleted",
@@ -630,32 +641,31 @@ impl OffenderWriteRepository for PgOffenderRepository {
         info!("[Repository] Creating phone for offender: {}", offender_id);
         let phone_id = Uuid::new_v4();
 
-        let phone: OffenderPhone = sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
-            .bind(phone_id)
-            .bind(offender_id)
-            .bind(&phone_data.phone)
-            .bind(&phone_data.phone_type)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let phone: OffenderPhone =
+            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
+                .bind(phone_id)
+                .bind(offender_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         info!("[Repository] Phone {} created successfully", phone_id);
         Ok(phone)
     }
 
-    async fn get_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<OffenderPhone, RepositoryError> {
+    async fn get_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, RepositoryError> {
         info!("[Repository] Fetching phone with id: {}", phone_id);
 
-        let phone: OffenderPhone = sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::GET_OFFENDER_PHONE_BY_ID)
-            .bind(phone_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_offender_error)?
-            .into();
+        let phone: OffenderPhone =
+            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::GET_OFFENDER_PHONE_BY_ID)
+                .bind(phone_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_offender_error)?
+                .into();
 
         info!("[Repository] Phone {} found", phone_id);
         Ok(phone)
@@ -668,33 +678,32 @@ impl OffenderWriteRepository for PgOffenderRepository {
     ) -> Result<OffenderPhone, RepositoryError> {
         info!("[Repository] Updating phone: {}", phone_id);
 
-        let phone: OffenderPhone =
-            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::UPDATE_OFFENDER_PHONE_BY_ID)
-                .bind(phone_id)
-                .bind(&phone_data.phone)
-                .bind(&phone_data.phone_type)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let phone: OffenderPhone = sqlx::query_as::<_, OffenderPhoneRow>(
+            OffenderPhonesQueries::UPDATE_OFFENDER_PHONE_BY_ID,
+        )
+        .bind(phone_id)
+        .bind(&phone_data.phone)
+        .bind(&phone_data.phone_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!("[Repository] Phone {} updated successfully", phone_id);
         Ok(phone)
     }
 
-    async fn delete_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<OffenderPhone, RepositoryError> {
+    async fn delete_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, RepositoryError> {
         info!("[Repository] Soft deleting phone: {}", phone_id);
 
-        let phone: OffenderPhone =
-            sqlx::query_as::<_, OffenderPhoneRow>(OffenderPhonesQueries::DELETE_OFFENDER_PHONE_BY_ID)
-                .bind(phone_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let phone: OffenderPhone = sqlx::query_as::<_, OffenderPhoneRow>(
+            OffenderPhonesQueries::DELETE_OFFENDER_PHONE_BY_ID,
+        )
+        .bind(phone_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!("[Repository] Phone {} soft deleted successfully", phone_id);
         Ok(phone)
@@ -711,21 +720,22 @@ impl OffenderWriteRepository for PgOffenderRepository {
         );
         let address_id = Uuid::new_v4();
 
-        let address: OffenderAddress =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS)
-                .bind(address_id)
-                .bind(offender_id)
-                .bind(&address_data.street)
-                .bind(&address_data.number)
-                .bind(&address_data.district)
-                .bind(address_data.city_id)
-                .bind(&address_data.zip_code)
-                .bind(&address_data.complement)
-                .bind(&address_data.address_type)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let address: OffenderAddress = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS,
+        )
+        .bind(address_id)
+        .bind(offender_id)
+        .bind(&address_data.street)
+        .bind(&address_data.number)
+        .bind(&address_data.district)
+        .bind(address_data.city_id)
+        .bind(&address_data.zip_code)
+        .bind(&address_data.complement)
+        .bind(&address_data.address_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!("[Repository] Address {} created successfully", address_id);
         Ok(address)
@@ -737,13 +747,14 @@ impl OffenderWriteRepository for PgOffenderRepository {
     ) -> Result<OffenderAddress, RepositoryError> {
         info!("[Repository] Fetching address with id: {}", address_id);
 
-        let address: OffenderAddress =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::GET_OFFENDER_ADDRESS_BY_ID)
-                .bind(address_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let address: OffenderAddress = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::GET_OFFENDER_ADDRESS_BY_ID,
+        )
+        .bind(address_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!("[Repository] Address {} found", address_id);
         Ok(address)
@@ -756,20 +767,21 @@ impl OffenderWriteRepository for PgOffenderRepository {
     ) -> Result<OffenderAddress, RepositoryError> {
         info!("[Repository] Updating address: {}", address_id);
 
-        let address: OffenderAddress =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::UPDATE_OFFENDER_ADDRESS_BY_ID)
-                .bind(address_id)
-                .bind(&address_data.street)
-                .bind(&address_data.number)
-                .bind(&address_data.district)
-                .bind(address_data.city_id)
-                .bind(&address_data.zip_code)
-                .bind(&address_data.complement)
-                .bind(&address_data.address_type)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let address: OffenderAddress = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::UPDATE_OFFENDER_ADDRESS_BY_ID,
+        )
+        .bind(address_id)
+        .bind(&address_data.street)
+        .bind(&address_data.number)
+        .bind(&address_data.district)
+        .bind(address_data.city_id)
+        .bind(&address_data.zip_code)
+        .bind(&address_data.complement)
+        .bind(&address_data.address_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!("[Repository] Address {} updated successfully", address_id);
         Ok(address)
@@ -781,13 +793,14 @@ impl OffenderWriteRepository for PgOffenderRepository {
     ) -> Result<OffenderAddress, RepositoryError> {
         info!("[Repository] Soft deleting address: {}", address_id);
 
-        let address: OffenderAddress =
-            sqlx::query_as::<_, OffenderAddressRow>(OffenderAddressesQueries::DELETE_OFFENDER_ADDRESS_BY_ID)
-                .bind(address_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_offender_error)?
-                .into();
+        let address: OffenderAddress = sqlx::query_as::<_, OffenderAddressRow>(
+            OffenderAddressesQueries::DELETE_OFFENDER_ADDRESS_BY_ID,
+        )
+        .bind(address_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_offender_error)?
+        .into();
 
         info!(
             "[Repository] Address {} soft deleted successfully",

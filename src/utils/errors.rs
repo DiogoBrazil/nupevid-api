@@ -16,7 +16,9 @@ impl ResponseError for ApplicationError {
             ApplicationError::Forbidden(_) => (StatusCode::FORBIDDEN, "Forbidden"),
             ApplicationError::NotFound(_) => (StatusCode::NOT_FOUND, "Not Found"),
             ApplicationError::Conflict(_) => (StatusCode::CONFLICT, "Conflict"),
-            ApplicationError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
+            ApplicationError::DatabaseError(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error")
+            }
             ApplicationError::InvalidMethodError(_) => {
                 (StatusCode::METHOD_NOT_ALLOWED, "Invalid Method Error")
             }

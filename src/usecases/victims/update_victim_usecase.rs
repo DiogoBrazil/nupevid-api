@@ -1,14 +1,14 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::victims::UpdateVictim;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::{normalize_flag_from_list, resolve_city_id_from_addresses};
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::validators::{cpf_validator::validate_cpf, victim_validator::VictimValidator};
 
@@ -27,7 +27,10 @@ impl UpdateVictimUseCase {
         id: Uuid,
         claims: &UserClaims,
     ) -> Result<VictimWithDetails, AppError> {
-        info!("[UpdateVictimUseCase] Starting victim update for id: {}", id);
+        info!(
+            "[UpdateVictimUseCase] Starting victim update for id: {}",
+            id
+        );
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         let mut data = data;
@@ -88,18 +91,22 @@ impl UpdateVictimUseCase {
                 Ok(victim_with_address)
             }
             Err(RepositoryError::NotFound) => {
-                error!("[UpdateVictimUseCase] Victim with id {} not found for update", id);
+                error!(
+                    "[UpdateVictimUseCase] Victim with id {} not found for update",
+                    id
+                );
                 Err(AppError::NotFound(format!(
                     "Victim with id '{}' not found",
                     id
                 )))
             }
             Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::Conflict(msg)),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
-                error!("[UpdateVictimUseCase] Error updating victim in database: {:?}", e);
+                error!(
+                    "[UpdateVictimUseCase] Error updating victim in database: {:?}",
+                    e
+                );
                 Err(AppError::InternalServerError)
             }
         }

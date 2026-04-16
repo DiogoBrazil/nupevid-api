@@ -1,12 +1,12 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimAddressResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::helpers::authorize_victim_access;
 
@@ -24,7 +24,10 @@ impl DeleteVictimAddressUseCase {
         address_id: Uuid,
         claims: &UserClaims,
     ) -> Result<VictimAddressResponse, AppError> {
-        info!("[DeleteVictimAddressUseCase] Deleting address: {}", address_id);
+        info!(
+            "[DeleteVictimAddressUseCase] Deleting address: {}",
+            address_id
+        );
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
 

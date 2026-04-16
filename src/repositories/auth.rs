@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use log::info;
 use sqlx::PgPool;
 
-use crate::repositories::queries::auth::AuthQueries;
 use super::models::auth::CompleteUserDataRow;
+use crate::repositories::queries::auth::AuthQueries;
 
 #[derive(Clone)]
 pub struct PgAuthRepository {

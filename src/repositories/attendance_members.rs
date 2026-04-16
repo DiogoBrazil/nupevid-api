@@ -3,29 +3,29 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::repositories::queries::attendance_members::{
-    AttendanceOffenderMembersQueries, AttendanceVictimMembersQueries,
-};
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::attendance_members::{AttendanceOffenderMember, AttendanceVictimMember};
 use crate::core::read_models::attendance_members::AttendanceMemberWithDetails;
+use crate::repositories::queries::attendance_members::{
+    AttendanceOffenderMembersQueries, AttendanceVictimMembersQueries,
+};
 
-use super::models::attendance_members::{AttendanceOffenderMemberRow, AttendanceMemberWithDetailsRow, AttendanceVictimMemberRow};
+use super::models::attendance_members::{
+    AttendanceMemberWithDetailsRow, AttendanceOffenderMemberRow, AttendanceVictimMemberRow,
+};
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_attendance_member_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::UniqueViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("attendance_victim_members_attendance_victim_id_user_id_key") |
-                Some("attendance_offender_members_attendance_offender_id_user_id_key") => {
-                    RepositoryError::DuplicateEntry("Member already added to attendance".into())
-                }
-                _ => base,
+        RepositoryError::UniqueViolation { ref constraint } => match constraint.as_deref() {
+            Some("attendance_victim_members_attendance_victim_id_user_id_key")
+            | Some("attendance_offender_members_attendance_offender_id_user_id_key") => {
+                RepositoryError::DuplicateEntry("Member already added to attendance".into())
             }
-        }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -56,16 +56,17 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
             user_id, attendance_id
         );
 
-        let member: AttendanceVictimMember =
-            sqlx::query_as::<_, AttendanceVictimMemberRow>(AttendanceVictimMembersQueries::ADD_MEMBER)
-                .bind(member_id)
-                .bind(attendance_id)
-                .bind(user_id)
-                .bind(work_session_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_attendance_member_error)?
-                .into();
+        let member: AttendanceVictimMember = sqlx::query_as::<_, AttendanceVictimMemberRow>(
+            AttendanceVictimMembersQueries::ADD_MEMBER,
+        )
+        .bind(member_id)
+        .bind(attendance_id)
+        .bind(user_id)
+        .bind(work_session_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_attendance_member_error)?
+        .into();
 
         Ok(member)
     }
@@ -89,14 +90,15 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         attendance_id: Uuid,
         user_id: Uuid,
     ) -> Result<AttendanceVictimMember, RepositoryError> {
-        let member: AttendanceVictimMember =
-            sqlx::query_as::<_, AttendanceVictimMemberRow>(AttendanceVictimMembersQueries::REMOVE_MEMBER)
-                .bind(attendance_id)
-                .bind(user_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_attendance_member_error)?
-                .into();
+        let member: AttendanceVictimMember = sqlx::query_as::<_, AttendanceVictimMemberRow>(
+            AttendanceVictimMembersQueries::REMOVE_MEMBER,
+        )
+        .bind(attendance_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_attendance_member_error)?
+        .into();
 
         Ok(member)
     }
@@ -114,16 +116,17 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
             user_id, attendance_id
         );
 
-        let member: AttendanceOffenderMember =
-            sqlx::query_as::<_, AttendanceOffenderMemberRow>(AttendanceOffenderMembersQueries::ADD_MEMBER)
-                .bind(member_id)
-                .bind(attendance_id)
-                .bind(user_id)
-                .bind(work_session_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_attendance_member_error)?
-                .into();
+        let member: AttendanceOffenderMember = sqlx::query_as::<_, AttendanceOffenderMemberRow>(
+            AttendanceOffenderMembersQueries::ADD_MEMBER,
+        )
+        .bind(member_id)
+        .bind(attendance_id)
+        .bind(user_id)
+        .bind(work_session_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_attendance_member_error)?
+        .into();
 
         Ok(member)
     }
@@ -147,14 +150,15 @@ impl AttendanceMemberRepository for PgAttendanceMemberRepository {
         attendance_id: Uuid,
         user_id: Uuid,
     ) -> Result<AttendanceOffenderMember, RepositoryError> {
-        let member: AttendanceOffenderMember =
-            sqlx::query_as::<_, AttendanceOffenderMemberRow>(AttendanceOffenderMembersQueries::REMOVE_MEMBER)
-                .bind(attendance_id)
-                .bind(user_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_attendance_member_error)?
-                .into();
+        let member: AttendanceOffenderMember = sqlx::query_as::<_, AttendanceOffenderMemberRow>(
+            AttendanceOffenderMembersQueries::REMOVE_MEMBER,
+        )
+        .bind(attendance_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_attendance_member_error)?
+        .into();
 
         Ok(member)
     }

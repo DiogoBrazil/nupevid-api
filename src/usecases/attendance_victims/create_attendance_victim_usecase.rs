@@ -1,13 +1,13 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::attendance_victims::CreateAttendanceVictim;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::verify_victim_access;
 
@@ -65,16 +65,15 @@ impl CreateAttendanceVictimUseCase {
             .await
         {
             Ok(attendance_with_address) => {
-                let attendance_with_address = AttendanceVictimWithAddress::from_write_result(attendance_with_address);
+                let attendance_with_address =
+                    AttendanceVictimWithAddress::from_write_result(attendance_with_address);
                 info!(
                     "[CreateAttendanceVictimUseCase] Attendance victim created: {}",
                     attendance_with_address.id
                 );
                 Ok(attendance_with_address)
             }
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!(
                     "[CreateAttendanceVictimUseCase] Failed to create attendance victim: {:?}",

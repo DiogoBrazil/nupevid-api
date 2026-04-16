@@ -1,11 +1,11 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 
 pub struct GetOffendersByVictimUseCase {
@@ -29,9 +29,7 @@ impl GetOffendersByVictimUseCase {
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
 
-        let offenders = if let Some(allowed_cities) =
-            auth.allowed_cities(&Policy::ReadOffenders)
-        {
+        let offenders = if let Some(allowed_cities) = auth.allowed_cities(&Policy::ReadOffenders) {
             match self
                 .deps
                 .offender_read_repository

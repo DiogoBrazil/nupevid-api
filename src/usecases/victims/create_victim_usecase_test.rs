@@ -114,15 +114,13 @@ async fn test_create_victim_success() {
     let user_repo = mock_user_repo_with_policies(city_id);
 
     let mut write_repo = MockVictimWriteRepository::new();
-    write_repo
-        .expect_create_victim()
-        .returning(move |_| {
-            Ok(VictimWriteResult {
-                victim: make_victim(city_id),
-                phones: vec![],
-                addresses: vec![],
-            })
-        });
+    write_repo.expect_create_victim().returning(move |_| {
+        Ok(VictimWriteResult {
+            victim: make_victim(city_id),
+            phones: vec![],
+            addresses: vec![],
+        })
+    });
 
     let usecase = CreateVictimUseCase::new(make_deps(user_repo, write_repo));
     let result = usecase.execute(victim_data, &claims).await;
@@ -164,13 +162,11 @@ async fn test_create_victim_duplicate_cpf() {
     let user_repo = mock_user_repo_with_policies(city_id);
 
     let mut write_repo = MockVictimWriteRepository::new();
-    write_repo
-        .expect_create_victim()
-        .returning(|_| {
-            Err(RepositoryError::DuplicateEntry(
-                "A victim with this CPF already exists".into(),
-            ))
-        });
+    write_repo.expect_create_victim().returning(|_| {
+        Err(RepositoryError::DuplicateEntry(
+            "A victim with this CPF already exists".into(),
+        ))
+    });
 
     let usecase = CreateVictimUseCase::new(make_deps(user_repo, write_repo));
     let result = usecase.execute(victim_data, &claims).await;
@@ -195,15 +191,13 @@ async fn test_create_victim_root_bypasses_policy() {
     // No expectations needed on get_user_policies_json_by_id
 
     let mut write_repo = MockVictimWriteRepository::new();
-    write_repo
-        .expect_create_victim()
-        .returning(move |_| {
-            Ok(VictimWriteResult {
-                victim: make_victim(city_id),
-                phones: vec![],
-                addresses: vec![],
-            })
-        });
+    write_repo.expect_create_victim().returning(move |_| {
+        Ok(VictimWriteResult {
+            victim: make_victim(city_id),
+            phones: vec![],
+            addresses: vec![],
+        })
+    });
 
     let usecase = CreateVictimUseCase::new(make_deps(user_repo, write_repo));
     let result = usecase.execute(victim_data, &claims).await;

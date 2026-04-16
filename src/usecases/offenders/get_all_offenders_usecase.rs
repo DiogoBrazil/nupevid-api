@@ -1,11 +1,11 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::pagination::PaginatedResult;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 use crate::utils::pagination::Pagination;
 
@@ -34,7 +34,10 @@ impl GetAllOffendersUseCase {
             .count_offenders(allowed_cities.as_deref())
             .await
             .map_err(|e| {
-                error!("[GetAllOffendersUseCase] Failed to count offenders: {:?}", e);
+                error!(
+                    "[GetAllOffendersUseCase] Failed to count offenders: {:?}",
+                    e
+                );
                 AppError::InternalServerError
             })?;
 
@@ -48,7 +51,10 @@ impl GetAllOffendersUseCase {
             )
             .await
             .map_err(|e| {
-                error!("[GetAllOffendersUseCase] Failed to retrieve offenders: {:?}", e);
+                error!(
+                    "[GetAllOffendersUseCase] Failed to retrieve offenders: {:?}",
+                    e
+                );
                 AppError::InternalServerError
             })?;
 

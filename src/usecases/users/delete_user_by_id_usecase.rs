@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::authorization::check_policy;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::authorization::check_policy;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::{get_claims_policies_or_empty, get_existing_user};
 
@@ -19,11 +19,7 @@ impl DeleteUserByIdUseCase {
         Self { deps }
     }
 
-    pub async fn execute(
-        &self,
-        id: Uuid,
-        claims: &UserClaims,
-    ) -> Result<UserRecord, AppError> {
+    pub async fn execute(&self, id: Uuid, claims: &UserClaims) -> Result<UserRecord, AppError> {
         let existing = get_existing_user(self.deps.user_repository.as_ref(), id).await?;
 
         if existing.profile == Profile::Root && claims.profile != Profile::Root {
@@ -48,9 +44,9 @@ impl DeleteUserByIdUseCase {
                 );
                 Ok(deleted_user)
             }
-            Err(crate::core::contracts::repository::error::RepositoryError::NotFound) => {
-                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
-            }
+            Err(crate::core::contracts::repository::error::RepositoryError::NotFound) => Err(
+                AppError::NotFound(format!("User with id '{}' not found", id)),
+            ),
             Err(error) => {
                 error!("[DeleteUserByIdUseCase] Failed to delete user: {:?}", error);
                 Err(AppError::InternalServerError)

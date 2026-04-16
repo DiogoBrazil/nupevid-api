@@ -62,4 +62,3 @@ pub struct VictimWriteResult {
     pub phones: Vec<VictimPhone>,
     pub addresses: Vec<VictimAddress>,
 }
-

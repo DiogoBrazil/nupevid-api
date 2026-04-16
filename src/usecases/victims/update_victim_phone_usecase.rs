@@ -1,13 +1,13 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::PhoneData;
 use crate::core::read_models::victims::VictimPhoneResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::helpers::authorize_victim_access;
 
@@ -30,7 +30,12 @@ impl UpdateVictimPhoneUseCase {
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
 
-        match self.deps.victim_write_repository.get_phone_by_id(phone_id).await {
+        match self
+            .deps
+            .victim_write_repository
+            .get_phone_by_id(phone_id)
+            .await
+        {
             Ok(phone) => {
                 authorize_victim_access(
                     &auth,

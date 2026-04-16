@@ -2,7 +2,6 @@ use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViolenceAggravator {
     AlcoholUse,
@@ -75,4 +74,3 @@ pub struct AttendanceOffenderWriteResult {
     pub attendance: AttendanceOffender,
     pub address: Option<AttendanceOffenderAddress>,
 }
-

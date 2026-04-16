@@ -3,10 +3,10 @@ use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::core::contracts::repository::users::UserRepository;
-use crate::core::entities::auth::UserClaims;
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::contracts::repository::users::UserRepository;
+use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 

@@ -1,13 +1,13 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
+use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
-use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::helpers::{
     claims_user_id, get_session_by_id_base_or_not_found,

@@ -1,11 +1,11 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::PhoneData;
 use crate::core::read_models::offenders::OffenderPhoneResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 use crate::usecases::offenders::helpers::load_auth_and_check_offender;
 

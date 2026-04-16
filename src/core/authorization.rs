@@ -1,11 +1,11 @@
 use log::{error, info, warn};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_helpers::PolicyMap;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
 
 pub fn check_policy(
     claims: &UserClaims,
@@ -58,10 +58,7 @@ pub fn get_allowed_cities_for_policy(
         return None;
     }
 
-    let allowed_cities = user_policies
-        .get(policy)
-        .cloned()
-        .unwrap_or_default();
+    let allowed_cities = user_policies.get(policy).cloned().unwrap_or_default();
 
     info!(
         "[Authorization] Found {} allowed cities for policy '{}'",

@@ -222,17 +222,22 @@ async fn attendance_victims_by_victim_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 2, "Without filter should return all attendances");
+    assert_eq!(
+        data.len(),
+        2,
+        "Without filter should return all attendances"
+    );
 
     // Verify both types are present: one with measure and one without
     let has_with_measure = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data
-        .iter()
-        .any(|a| a["protective_measure_id"].is_null());
+    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
     assert!(has_with_measure, "Should include attendance with measure");
-    assert!(has_without_measure, "Should include attendance without measure");
+    assert!(
+        has_without_measure,
+        "Should include attendance without measure"
+    );
 }
 
 #[actix_rt::test]
@@ -269,7 +274,11 @@ async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty()
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 0, "Filter with nonexistent measure should return empty");
+    assert_eq!(
+        data.len(),
+        0,
+        "Filter with nonexistent measure should return empty"
+    );
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -355,16 +364,21 @@ async fn attendance_offenders_by_offender_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 2, "Without filter should return all attendances");
+    assert_eq!(
+        data.len(),
+        2,
+        "Without filter should return all attendances"
+    );
 
     let has_with_measure = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data
-        .iter()
-        .any(|a| a["protective_measure_id"].is_null());
+    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
     assert!(has_with_measure, "Should include attendance with measure");
-    assert!(has_without_measure, "Should include attendance without measure");
+    assert!(
+        has_without_measure,
+        "Should include attendance without measure"
+    );
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -447,16 +461,21 @@ async fn attendance_offenders_by_victim_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 2, "Without filter should return all attendances");
+    assert_eq!(
+        data.len(),
+        2,
+        "Without filter should return all attendances"
+    );
 
     let has_with_measure = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data
-        .iter()
-        .any(|a| a["protective_measure_id"].is_null());
+    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
     assert!(has_with_measure, "Should include attendance with measure");
-    assert!(has_without_measure, "Should include attendance without measure");
+    assert!(
+        has_without_measure,
+        "Should include attendance without measure"
+    );
 }
 
 #[actix_rt::test]
@@ -492,5 +511,9 @@ async fn attendance_offenders_by_victim_filter_nonexistent_measure_returns_empty
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 0, "Filter with nonexistent measure should return empty");
+    assert_eq!(
+        data.len(),
+        0,
+        "Filter with nonexistent measure should return empty"
+    );
 }

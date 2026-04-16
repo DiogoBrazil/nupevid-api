@@ -2,6 +2,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::cities::{CreateCity, UpdateCity};
 use crate::usecases::cities::{
     CreateCityUseCase, DeleteCityByIdUseCase, GetAllCitiesUseCase, GetCityByIdUseCase,
@@ -10,7 +11,6 @@ use crate::usecases::cities::{
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 pub async fn create_city(
@@ -63,7 +63,9 @@ pub async fn update_city_by_id(
         city_id
     );
     let claims = request_claims(&req)?;
-    let city = usecase.execute(city_data.into_inner(), city_id, &claims).await?;
+    let city = usecase
+        .execute(city_data.into_inner(), city_id, &claims)
+        .await?;
     Ok(success(city))
 }
 

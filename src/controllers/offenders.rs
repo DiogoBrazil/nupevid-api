@@ -2,6 +2,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::offenders::{CreateOffender, UpdateOffender};
 use crate::core::entities::offenders::{AddressData, PhoneData};
 use crate::core::filters::offenders::OffenderSearchQuery;
@@ -15,7 +16,6 @@ use crate::usecases::offenders::{
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 pub async fn create_offender(
@@ -25,9 +25,7 @@ pub async fn create_offender(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create offender");
     let claims = request_claims(&req)?;
-    let offender = usecase
-        .execute(offender_data.into_inner(), &claims)
-        .await?;
+    let offender = usecase.execute(offender_data.into_inner(), &claims).await?;
     Ok(created(offender))
 }
 
@@ -66,9 +64,7 @@ pub async fn search_offenders(
     let query = query.into_inner();
     info!("[Controller] Received request to search offenders");
     let claims = request_claims(&req)?;
-    let offenders = usecase
-        .execute(query.name, query.cpf, &claims)
-        .await?;
+    let offenders = usecase.execute(query.name, query.cpf, &claims).await?;
     Ok(success(offenders))
 }
 

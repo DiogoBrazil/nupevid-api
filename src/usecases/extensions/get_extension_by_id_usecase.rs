@@ -1,10 +1,10 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
 use crate::usecases::extensions::helpers::load_auth_and_check_extension;
 
@@ -22,7 +22,10 @@ impl GetExtensionByIdUseCase {
         id: Uuid,
         claims: &UserClaims,
     ) -> Result<ProtectiveMeasureExtension, AppError> {
-        info!("[GetExtensionByIdUseCase] Getting extension with ID: {}", id);
+        info!(
+            "[GetExtensionByIdUseCase] Getting extension with ID: {}",
+            id
+        );
 
         let extension = load_auth_and_check_extension(
             &self.deps,

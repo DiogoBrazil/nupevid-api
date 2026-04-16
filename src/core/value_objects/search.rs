@@ -1,5 +1,5 @@
 use crate::core::errors::DomainError;
-use crate::core::value_objects::cpf::{validate_cpf_masked, CpfValidationError};
+use crate::core::value_objects::cpf::{CpfValidationError, validate_cpf_masked};
 
 pub enum SearchCriteria {
     ByName(String),
@@ -38,9 +38,9 @@ impl SearchCriteria {
                     CpfValidationError::InvalidFormat => DomainError::ValidationError(
                         "cpf must match the format 000.000.000-00".to_string(),
                     ),
-                    CpfValidationError::InvalidDigits => DomainError::ValidationError(
-                        "cpf has invalid check digits".to_string(),
-                    ),
+                    CpfValidationError::InvalidDigits => {
+                        DomainError::ValidationError("cpf has invalid check digits".to_string())
+                    }
                 })?;
                 Ok(SearchCriteria::ByCpf(normalized))
             }

@@ -1,9 +1,9 @@
 use log::info;
 
-use crate::core::entities::auth::UserClaims;
-use crate::core::pagination::PaginatedResult;
-use crate::core::entities::users::UserRecord;
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::entities::auth::UserClaims;
+use crate::core::entities::users::UserRecord;
+use crate::core::pagination::PaginatedResult;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::build_user_read_scope;
 use crate::utils::pagination::Pagination;

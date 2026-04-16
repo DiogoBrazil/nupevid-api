@@ -3,9 +3,6 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::repositories::queries::attendance_offenders::{
-    AttendanceOffenderAddressesQueries, AttendanceOffendersQueries,
-};
 use crate::core::commands::attendance_offenders::{
     CreateAttendanceOffender, UpdateAttendanceOffender,
 };
@@ -18,6 +15,9 @@ use crate::core::entities::attendance_offenders::{
     AttendanceOffender, AttendanceOffenderAddress, AttendanceOffenderWriteResult,
 };
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
+use crate::repositories::queries::attendance_offenders::{
+    AttendanceOffenderAddressesQueries, AttendanceOffendersQueries,
+};
 
 use super::models::attendance_offenders::{AttendanceOffenderAddressRow, AttendanceOffenderRow};
 
@@ -25,23 +25,21 @@ use crate::repositories::error_mapper::map_sqlx_error;
 fn map_attendance_offender_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::ForeignKeyViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("fk_attendance_offenders_offender") => {
-                    RepositoryError::ReferencedEntityNotFound("Offender not found".into())
-                }
-                Some("fk_attendance_offenders_victim") => {
-                    RepositoryError::ReferencedEntityNotFound("Victim not found".into())
-                }
-                Some("fk_attendance_offenders_protective_measure") => {
-                    RepositoryError::ReferencedEntityNotFound("Protective measure not found".into())
-                }
-                Some("fk_attendance_offender_addresses_city") => {
-                    RepositoryError::ReferencedEntityNotFound("Address city not found".into())
-                }
-                _ => base,
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_attendance_offenders_offender") => {
+                RepositoryError::ReferencedEntityNotFound("Offender not found".into())
             }
-        }
+            Some("fk_attendance_offenders_victim") => {
+                RepositoryError::ReferencedEntityNotFound("Victim not found".into())
+            }
+            Some("fk_attendance_offenders_protective_measure") => {
+                RepositoryError::ReferencedEntityNotFound("Protective measure not found".into())
+            }
+            Some("fk_attendance_offender_addresses_city") => {
+                RepositoryError::ReferencedEntityNotFound("Address city not found".into())
+            }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -60,7 +58,10 @@ impl PgAttendanceOffenderRepository {
         &self,
         attendance_id: Uuid,
     ) -> Result<Option<AttendanceOffenderAddress>, RepositoryError> {
-        let address: Option<AttendanceOffenderAddress> = sqlx::query_as::<_, AttendanceOffenderAddressRow>(
+        let address: Option<AttendanceOffenderAddress> = sqlx::query_as::<
+            _,
+            AttendanceOffenderAddressRow,
+        >(
             AttendanceOffenderAddressesQueries::GET_ATTENDANCE_OFFENDER_ADDRESS_BY_ATTENDANCE_ID,
         )
         .bind(attendance_id)
@@ -78,20 +79,21 @@ impl PgAttendanceOffenderRepository {
     ) -> Result<AttendanceOffenderAddress, RepositoryError> {
         let address_id = Uuid::new_v4();
 
-        let created: AttendanceOffenderAddress =
-            sqlx::query_as::<_, AttendanceOffenderAddressRow>(AttendanceOffenderAddressesQueries::CREATE_ATTENDANCE_OFFENDER_ADDRESS)
-                .bind(address_id)
-                .bind(attendance_id)
-                .bind(&address.street)
-                .bind(&address.number)
-                .bind(&address.district)
-                .bind(address.city_id)
-                .bind(&address.zip_code)
-                .bind(&address.complement)
-                .fetch_one(&mut **tx)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into();
+        let created: AttendanceOffenderAddress = sqlx::query_as::<_, AttendanceOffenderAddressRow>(
+            AttendanceOffenderAddressesQueries::CREATE_ATTENDANCE_OFFENDER_ADDRESS,
+        )
+        .bind(address_id)
+        .bind(attendance_id)
+        .bind(&address.street)
+        .bind(&address.number)
+        .bind(&address.district)
+        .bind(address.city_id)
+        .bind(&address.zip_code)
+        .bind(&address.complement)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into();
 
         Ok(created)
     }
@@ -142,13 +144,14 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
     ) -> Result<AttendanceOffenderWithAddress, RepositoryError> {
         info!("[Repository] Fetching attendance offender with id: {}", id);
 
-        let attendance: AttendanceOffender =
-            sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDER_BY_ID)
-                .bind(id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into();
+        let attendance: AttendanceOffender = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDER_BY_ID,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into();
 
         let address = self.get_address_by_attendance_id(id).await?;
 
@@ -158,7 +161,9 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
             address.is_some()
         );
 
-        Ok(AttendanceOffenderWithAddress::from_entity(attendance, address))
+        Ok(AttendanceOffenderWithAddress::from_entity(
+            attendance, address,
+        ))
     }
 
     async fn get_all_attendance_offenders(
@@ -166,20 +171,23 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
     ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError> {
         info!("[Repository] Fetching all attendance offenders");
 
-        let attendances: Vec<AttendanceOffender> =
-            sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ALL_ATTENDANCE_OFFENDERS)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let attendances: Vec<AttendanceOffender> = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::GET_ALL_ATTENDANCE_OFFENDERS,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         let mut result = Vec::with_capacity(attendances.len());
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(AttendanceOffenderWithAddress::from_entity(attendance, address));
+            result.push(AttendanceOffenderWithAddress::from_entity(
+                attendance, address,
+            ));
         }
 
         info!("[Repository] Found {} attendance offenders", result.len());
@@ -196,34 +204,38 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
         info!("[Repository] Fetching attendance offenders paginated");
 
         let attendances: Vec<AttendanceOffender> = match allowed_cities {
-            Some(cities) => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES)
-                    .bind(cities)
-                    .bind(limit)
-                    .bind(offset)
-                    .fetch_all(&self.pool)
-                    .await
-                    .map_err(map_attendance_offender_error)?
-                    .into_iter()
-                    .map(Into::into)
-                    .collect()
-            }
-            None => sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+            Some(cities) => sqlx::query_as::<_, AttendanceOffenderRow>(
+                AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED_BY_CITIES,
+            )
+            .bind(cities)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_attendance_offender_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+            None => sqlx::query_as::<_, AttendanceOffenderRow>(
+                AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_PAGED,
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_attendance_offender_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         };
 
         let mut result = Vec::with_capacity(attendances.len());
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(AttendanceOffenderWithAddress::from_entity(attendance, address));
+            result.push(AttendanceOffenderWithAddress::from_entity(
+                attendance, address,
+            ));
         }
 
         Ok(result)
@@ -259,31 +271,36 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
             offender_id
         );
 
-        let attendances: Vec<AttendanceOffender> = match protective_measure_id {
-            Some(measure_id) => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER_AND_MEASURE)
+        let attendances: Vec<AttendanceOffender> =
+            match protective_measure_id {
+                Some(measure_id) => sqlx::query_as::<_, AttendanceOffenderRow>(
+                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER_AND_MEASURE,
+                )
+                .bind(offender_id)
+                .bind(measure_id)
+                .fetch_all(&self.pool)
+                .await,
+                None => {
+                    sqlx::query_as::<_, AttendanceOffenderRow>(
+                        AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER,
+                    )
                     .bind(offender_id)
-                    .bind(measure_id)
                     .fetch_all(&self.pool)
                     .await
+                }
             }
-            None => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER)
-                    .bind(offender_id)
-                    .fetch_all(&self.pool)
-                    .await
-            }
-        }
-        .map_err(map_attendance_offender_error)?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+            .map_err(map_attendance_offender_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         let mut result = Vec::with_capacity(attendances.len());
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(AttendanceOffenderWithAddress::from_entity(attendance, address));
+            result.push(AttendanceOffenderWithAddress::from_entity(
+                attendance, address,
+            ));
         }
 
         info!(
@@ -307,17 +324,21 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
 
         let attendances: Vec<AttendanceOffender> = match protective_measure_id {
             Some(measure_id) => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM_AND_MEASURE)
-                    .bind(victim_id)
-                    .bind(measure_id)
-                    .fetch_all(&self.pool)
-                    .await
+                sqlx::query_as::<_, AttendanceOffenderRow>(
+                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM_AND_MEASURE,
+                )
+                .bind(victim_id)
+                .bind(measure_id)
+                .fetch_all(&self.pool)
+                .await
             }
             None => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM)
-                    .bind(victim_id)
-                    .fetch_all(&self.pool)
-                    .await
+                sqlx::query_as::<_, AttendanceOffenderRow>(
+                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM,
+                )
+                .bind(victim_id)
+                .fetch_all(&self.pool)
+                .await
             }
         }
         .map_err(map_attendance_offender_error)?
@@ -329,7 +350,9 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
 
         for attendance in attendances {
             let address = self.get_address_by_attendance_id(attendance.id).await?;
-            result.push(AttendanceOffenderWithAddress::from_entity(attendance, address));
+            result.push(AttendanceOffenderWithAddress::from_entity(
+                attendance, address,
+            ));
         }
 
         info!(
@@ -362,24 +385,25 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
             .await
             .map_err(map_attendance_offender_error)?;
 
-        let attendance_created: AttendanceOffender =
-            sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::CREATE_ATTENDANCE_OFFENDER)
-                .bind(attendance_id)
-                .bind(attendance.offender_id)
-                .bind(attendance.victim_id)
-                .bind(attendance.protective_measure_id)
-                .bind(attendance.was_offender_present)
-                .bind(attendance.attendance_date)
-                .bind(attendance.attendance_time)
-                .bind(attendance.is_remote)
-                .bind(attendance.assaults_children)
-                .bind(&attendance.violence_aggravator)
-                .bind(&attendance.violence_aggravator_other)
-                .bind(&attendance.description)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into();
+        let attendance_created: AttendanceOffender = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::CREATE_ATTENDANCE_OFFENDER,
+        )
+        .bind(attendance_id)
+        .bind(attendance.offender_id)
+        .bind(attendance.victim_id)
+        .bind(attendance.protective_measure_id)
+        .bind(attendance.was_offender_present)
+        .bind(attendance.attendance_date)
+        .bind(attendance.attendance_time)
+        .bind(attendance.is_remote)
+        .bind(attendance.assaults_children)
+        .bind(&attendance.violence_aggravator)
+        .bind(&attendance.violence_aggravator_other)
+        .bind(&attendance.description)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into();
 
         info!("[Repository] Attendance offender inserted, now creating address if provided");
 
@@ -406,9 +430,7 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
                 .map_err(map_attendance_offender_error)?;
         }
 
-        tx.commit()
-            .await
-            .map_err(map_attendance_offender_error)?;
+        tx.commit().await.map_err(map_attendance_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance offender {} created successfully",
@@ -437,24 +459,25 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
             .await
             .map_err(map_attendance_offender_error)?;
 
-        let attendance_updated: AttendanceOffender =
-            sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::UPDATE_ATTENDANCE_OFFENDER_BY_ID)
-                .bind(id)
-                .bind(data.offender_id)
-                .bind(data.victim_id)
-                .bind(data.protective_measure_id)
-                .bind(data.was_offender_present)
-                .bind(data.attendance_date)
-                .bind(data.attendance_time)
-                .bind(data.is_remote)
-                .bind(data.assaults_children)
-                .bind(&data.violence_aggravator)
-                .bind(&data.violence_aggravator_other)
-                .bind(&data.description)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into();
+        let attendance_updated: AttendanceOffender = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::UPDATE_ATTENDANCE_OFFENDER_BY_ID,
+        )
+        .bind(id)
+        .bind(data.offender_id)
+        .bind(data.victim_id)
+        .bind(data.protective_measure_id)
+        .bind(data.was_offender_present)
+        .bind(data.attendance_date)
+        .bind(data.attendance_time)
+        .bind(data.is_remote)
+        .bind(data.assaults_children)
+        .bind(&data.violence_aggravator)
+        .bind(&data.violence_aggravator_other)
+        .bind(&data.description)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into();
 
         let address = if let Some(addr_data) = &data.address {
             let has_address = Self::check_address_exists(&mut tx, id).await?;
@@ -478,9 +501,7 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
             None
         };
 
-        tx.commit()
-            .await
-            .map_err(map_attendance_offender_error)?;
+        tx.commit().await.map_err(map_attendance_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance offender {} updated",
@@ -525,17 +546,16 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
         .map_err(map_attendance_offender_error)?
         .map(Into::into);
 
-        let deleted_attendance: AttendanceOffender =
-            sqlx::query_as::<_, AttendanceOffenderRow>(AttendanceOffendersQueries::DELETE_ATTENDANCE_OFFENDER_BY_ID)
-                .bind(id)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_attendance_offender_error)?
-                .into();
+        let deleted_attendance: AttendanceOffender = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::DELETE_ATTENDANCE_OFFENDER_BY_ID,
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into();
 
-        tx.commit()
-            .await
-            .map_err(map_attendance_offender_error)?;
+        tx.commit().await.map_err(map_attendance_offender_error)?;
 
         info!(
             "[Repository] Transaction committed. Attendance offender {} soft deleted",

@@ -2,19 +2,18 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
 use crate::core::filters::users::UserSearchQuery;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::users::{
-    AppendUserPolicyCitiesUseCase, CreateUserUseCase, DeleteUserByIdUseCase,
-    GetAllUsersUseCase, GetUserByIdUseCase, RemoveUserPolicyCitiesUseCase,
-    ResetUserPasswordByIdUseCase, SearchUsersUseCase, UpdateUserPasswordUseCase,
-    UpdateUserUseCase,
+    AppendUserPolicyCitiesUseCase, CreateUserUseCase, DeleteUserByIdUseCase, GetAllUsersUseCase,
+    GetUserByIdUseCase, RemoveUserPolicyCitiesUseCase, ResetUserPasswordByIdUseCase,
+    SearchUsersUseCase, UpdateUserPasswordUseCase, UpdateUserUseCase,
 };
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 #[derive(serde::Deserialize)]
@@ -87,7 +86,9 @@ pub async fn search_users(
     let query = query.into_inner();
     info!("[Controller] Received request to search users");
     let claims = request_claims(&req)?;
-    let users = usecase.execute(query.name, query.registration, &claims).await?;
+    let users = usecase
+        .execute(query.name, query.registration, &claims)
+        .await?;
     Ok(success(users))
 }
 

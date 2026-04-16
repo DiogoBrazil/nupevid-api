@@ -1,13 +1,13 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::victims::CreateVictim;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::{normalize_flag_from_list, resolve_city_id_from_addresses};
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::validators::{cpf_validator::validate_cpf, victim_validator::VictimValidator};
 
@@ -59,7 +59,12 @@ impl CreateVictimUseCase {
 
         info!("[CreateVictimUseCase] Saving victim to database");
 
-        match self.deps.victim_write_repository.create_victim(victim).await {
+        match self
+            .deps
+            .victim_write_repository
+            .create_victim(victim)
+            .await
+        {
             Ok(victim_with_address) => {
                 let victim_with_address = VictimWithDetails::from_write_result(victim_with_address);
                 info!(
@@ -69,9 +74,7 @@ impl CreateVictimUseCase {
                 Ok(victim_with_address)
             }
             Err(RepositoryError::DuplicateEntry(msg)) => Err(AppError::Conflict(msg)),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!("[CreateVictimUseCase] Failed to save victim: {:?}", e);
                 Err(AppError::InternalServerError)

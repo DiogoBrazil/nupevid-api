@@ -3,7 +3,10 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::repositories::queries::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
+use super::models::work_sessions::{
+    WorkSessionMemberRow, WorkSessionMemberWithDetailsRow, WorkSessionMemberWithUserRowModel,
+    WorkSessionRow,
+};
 use crate::core::commands::work_session_members::AddWorkSessionMember;
 use crate::core::commands::work_sessions::CreateWorkSession;
 use crate::core::contracts::repository::error::RepositoryError;
@@ -12,27 +15,24 @@ use crate::core::contracts::repository::work_sessions::{
 };
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::WorkSession;
-use super::models::work_sessions::{WorkSessionRow, WorkSessionMemberRow, WorkSessionMemberWithUserRowModel, WorkSessionMemberWithDetailsRow};
 use crate::core::read_models::work_sessions::{
     WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMembers,
 };
-
+use crate::repositories::queries::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_work_session_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::UniqueViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("unique_active_session_per_user") => {
-                    RepositoryError::Conflict("User already has an active work session".into())
-                }
-                Some("work_session_members_work_session_id_user_id_key") => {
-                    RepositoryError::DuplicateEntry("User already added to session".into())
-                }
-                _ => base,
+        RepositoryError::UniqueViolation { ref constraint } => match constraint.as_deref() {
+            Some("unique_active_session_per_user") => {
+                RepositoryError::Conflict("User already has an active work session".into())
             }
-        }
+            Some("work_session_members_work_session_id_user_id_key") => {
+                RepositoryError::DuplicateEntry("User already added to session".into())
+            }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -54,19 +54,17 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
         &self,
         user_id: Uuid,
     ) -> Result<WorkSession, RepositoryError> {
-        let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::GET_ACTIVE_SESSION_BY_USER)
-            .bind(user_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_work_session_error)?;
+        let session: WorkSessionRow =
+            sqlx::query_as(WorkSessionsQueries::GET_ACTIVE_SESSION_BY_USER)
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
 
-    async fn get_user_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<WorkSession, RepositoryError> {
+    async fn get_user_active_session(&self, user_id: Uuid) -> Result<WorkSession, RepositoryError> {
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::GET_USER_ACTIVE_SESSION)
             .bind(user_id)
             .fetch_one(&self.pool)
@@ -76,10 +74,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
         Ok(session.into())
     }
 
-    async fn is_user_in_active_session(
-        &self,
-        user_id: Uuid,
-    ) -> Result<bool, RepositoryError> {
+    async fn is_user_in_active_session(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
         let result: (bool,) = sqlx::query_as(WorkSessionsQueries::CHECK_USER_IN_ACTIVE_SESSION)
             .bind(user_id)
             .fetch_one(&self.pool)
@@ -239,11 +234,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             created_by_user_id, session_id
         );
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_work_session_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_work_session_error)?;
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::CREATE_WORK_SESSION)
             .bind(session_id)
@@ -266,9 +257,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                     .map_err(map_work_session_error)?;
         }
 
-        tx.commit()
-            .await
-            .map_err(map_work_session_error)?;
+        tx.commit().await.map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
@@ -284,11 +273,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             session_id, user_id
         );
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_work_session_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_work_session_error)?;
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::CREATE_WORK_SESSION)
             .bind(session_id)
@@ -308,17 +293,12 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
                 .await
                 .map_err(map_work_session_error)?;
 
-        tx.commit()
-            .await
-            .map_err(map_work_session_error)?;
+        tx.commit().await.map_err(map_work_session_error)?;
 
         Ok(session.into())
     }
 
-    async fn end_session(
-        &self,
-        session_id: Uuid,
-    ) -> Result<WorkSession, RepositoryError> {
+    async fn end_session(&self, session_id: Uuid) -> Result<WorkSession, RepositoryError> {
         info!("[Repository] Ending work session: {}", session_id);
 
         let session: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::END_WORK_SESSION)
@@ -388,11 +368,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
         session_id: Uuid,
         members: Vec<AddWorkSessionMember>,
     ) -> Result<Vec<WorkSessionMember>, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_work_session_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_work_session_error)?;
 
         let _: sqlx::postgres::PgQueryResult =
             sqlx::query(WorkSessionMembersQueries::DELETE_ALL_MEMBERS)
@@ -417,9 +393,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             result.push(new_member.into());
         }
 
-        tx.commit()
-            .await
-            .map_err(map_work_session_error)?;
+        tx.commit().await.map_err(map_work_session_error)?;
 
         Ok(result)
     }
@@ -430,11 +404,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
         description: Option<String>,
         members: Vec<AddWorkSessionMember>,
     ) -> Result<WorkSession, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_work_session_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_work_session_error)?;
 
         if let Some(desc) = description {
             let _: WorkSessionRow =
@@ -472,9 +442,7 @@ impl WorkSessionWriteRepository for PgWorkSessionRepository {
             .await
             .map_err(map_work_session_error)?;
 
-        tx.commit()
-            .await
-            .map_err(map_work_session_error)?;
+        tx.commit().await.map_err(map_work_session_error)?;
 
         Ok(session.into())
     }

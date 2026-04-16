@@ -2,10 +2,10 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use log::error;
 use serde::Serialize;
 
-use crate::core::entities::auth::UserClaims;
-use crate::core::pagination::PaginatedResult;
-use crate::core::filters::common::IncludeRelatedQuery;
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::entities::auth::UserClaims;
+use crate::core::filters::common::IncludeRelatedQuery;
+use crate::core::pagination::PaginatedResult;
 use crate::utils::pagination::{Pagination, PaginationParams, normalize_pagination};
 use crate::utils::responses::{ApiResponse, PaginatedResponse};
 

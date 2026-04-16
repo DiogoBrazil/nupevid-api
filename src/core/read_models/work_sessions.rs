@@ -49,10 +49,7 @@ pub struct WorkSessionWithMembersSummary {
 }
 
 impl WorkSessionWithMembers {
-    pub fn from_entity(
-        session: WorkSession,
-        members: Vec<WorkSessionMemberWithDetails>,
-    ) -> Self {
+    pub fn from_entity(session: WorkSession, members: Vec<WorkSessionMemberWithDetails>) -> Self {
         WorkSessionWithMembers {
             id: session.id,
             created_by_user_id: session.created_by_user_id,
@@ -68,10 +65,7 @@ impl WorkSessionWithMembers {
 }
 
 impl WorkSessionWithMembersSummary {
-    pub fn from_entity(
-        session: WorkSession,
-        members: Vec<WorkSessionMemberWithUser>,
-    ) -> Self {
+    pub fn from_entity(session: WorkSession, members: Vec<WorkSessionMemberWithUser>) -> Self {
         WorkSessionWithMembersSummary {
             id: session.id,
             created_by_user_id: session.created_by_user_id,

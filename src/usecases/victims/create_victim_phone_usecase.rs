@@ -1,11 +1,11 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::PhoneData;
 use crate::core::read_models::victims::VictimPhoneResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::helpers::load_auth_and_check_victim;
 
@@ -24,7 +24,10 @@ impl CreateVictimPhoneUseCase {
         phone_data: PhoneData,
         claims: &UserClaims,
     ) -> Result<VictimPhoneResponse, AppError> {
-        info!("[CreateVictimPhoneUseCase] Adding phone to victim: {}", victim_id);
+        info!(
+            "[CreateVictimPhoneUseCase] Adding phone to victim: {}",
+            victim_id
+        );
 
         load_auth_and_check_victim(
             &*self.deps.user_repository,

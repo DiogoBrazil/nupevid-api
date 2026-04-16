@@ -1,12 +1,12 @@
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 
-use crate::core::authorization::{check_policy, get_allowed_cities_for_policy};
 use crate::core::auth_helpers::{PolicyMap, get_user_policies_with_defaults};
+use crate::core::authorization::{check_policy, get_allowed_cities_for_policy};
 
 pub struct AuthContext {
     pub claims: UserClaims,

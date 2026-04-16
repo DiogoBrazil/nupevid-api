@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_session_members::TeamMemberFunction;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::usecases::work_sessions::guards::ensure_creator_or_commander;
 use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
+use crate::usecases::work_sessions::guards::ensure_creator_or_commander;
 use crate::usecases::work_sessions::helpers::{
     authorize_non_root_for_policy, claims_user_id, get_session_by_id_base_or_not_found,
     get_session_members_or_not_found,
@@ -67,7 +67,10 @@ impl UpdateMemberFunctionUseCase {
             "Only the session creator or commander can update member functions",
         )?;
 
-        if !current_members.iter().any(|member| member.user_id == user_id) {
+        if !current_members
+            .iter()
+            .any(|member| member.user_id == user_id)
+        {
             return Err(AppError::NotFound(
                 "User is not a member of this session".to_string(),
             ));

@@ -1,11 +1,11 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::search::SearchCriteria;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 
 pub struct SearchVictimsUseCase {
@@ -32,16 +32,20 @@ impl SearchVictimsUseCase {
 
         let victims = match search {
             SearchCriteria::ByName(name) => {
-                self.deps.victim_read_repository.get_victims_by_name(&name).await
+                self.deps
+                    .victim_read_repository
+                    .get_victims_by_name(&name)
+                    .await
             }
             SearchCriteria::ByCpf(cpf) => {
-                self.deps.victim_read_repository.get_victims_by_cpf(&cpf).await
+                self.deps
+                    .victim_read_repository
+                    .get_victims_by_cpf(&cpf)
+                    .await
             }
         };
 
-        let victims = if let Some(allowed_cities) =
-            auth.allowed_cities(&Policy::ReadVictims)
-        {
+        let victims = if let Some(allowed_cities) = auth.allowed_cities(&Policy::ReadVictims) {
             match victims {
                 Ok(list) => {
                     let filtered: Vec<_> = list

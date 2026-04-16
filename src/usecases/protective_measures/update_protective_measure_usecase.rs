@@ -1,6 +1,8 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::protective_measures::{
     CreateExtension, UpdateExtension, UpdateProtectiveMeasure,
 };
@@ -8,8 +10,6 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
 
@@ -23,10 +23,7 @@ fn map_reference_error_for_update(msg: String) -> AppError {
         _ => msg,
     };
 
-    AppError::BadRequest(format!(
-        "Error updating protective measure: {}",
-        detail
-    ))
+    AppError::BadRequest(format!("Error updating protective measure: {}", detail))
 }
 
 impl UpdateProtectiveMeasureUseCase {
@@ -61,7 +58,10 @@ impl UpdateProtectiveMeasureUseCase {
                 )));
             }
             Err(e) => {
-                error!("[UpdateProtectiveMeasureUseCase] Error fetching measure: {:?}", e);
+                error!(
+                    "[UpdateProtectiveMeasureUseCase] Error fetching measure: {:?}",
+                    e
+                );
                 return Err(AppError::InternalServerError);
             }
         };
@@ -168,23 +168,27 @@ impl UpdateProtectiveMeasureUseCase {
         if let Some(extensions_list) = extensions.as_ref() {
             for ext in extensions_list {
                 if let Some(ext_id) = ext.id {
-                    let existing_ext =
-                        match self.deps.extension_repository.get_extension_by_id(ext_id).await {
-                            Ok(found) => found,
-                            Err(RepositoryError::NotFound) => {
-                                return Err(AppError::NotFound(format!(
-                                    "Extension with id '{}' not found",
-                                    ext_id
-                                )));
-                            }
-                            Err(e) => {
-                                error!(
-                                    "[UpdateProtectiveMeasureUseCase] Error fetching extension: {:?}",
-                                    e
-                                );
-                                return Err(AppError::InternalServerError);
-                            }
-                        };
+                    let existing_ext = match self
+                        .deps
+                        .extension_repository
+                        .get_extension_by_id(ext_id)
+                        .await
+                    {
+                        Ok(found) => found,
+                        Err(RepositoryError::NotFound) => {
+                            return Err(AppError::NotFound(format!(
+                                "Extension with id '{}' not found",
+                                ext_id
+                            )));
+                        }
+                        Err(e) => {
+                            error!(
+                                "[UpdateProtectiveMeasureUseCase] Error fetching extension: {:?}",
+                                e
+                            );
+                            return Err(AppError::InternalServerError);
+                        }
+                    };
 
                     if existing_ext.protective_measure_id != id {
                         return Err(AppError::BadRequest(

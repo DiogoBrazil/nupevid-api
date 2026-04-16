@@ -1,11 +1,11 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::users::UpdateUserPassword;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 
 pub struct UpdateUserPasswordUseCase {
@@ -102,9 +102,10 @@ impl UpdateUserPasswordUseCase {
                 );
                 Ok(user)
             }
-            Err(RepositoryError::NotFound) => {
-                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
-            }
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+                "User with id '{}' not found",
+                id
+            ))),
             Err(error) => {
                 error!(
                     "[UpdateUserPasswordUseCase] Failed to update password: {:?}",

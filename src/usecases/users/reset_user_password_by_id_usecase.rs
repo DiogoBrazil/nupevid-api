@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::responses::users::ResetUserPasswordResponse;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::{generate_temporary_password, get_existing_user};
 
@@ -69,9 +69,10 @@ impl ResetUserPasswordByIdUseCase {
                 );
                 Ok(ResetUserPasswordResponse { temporary_password })
             }
-            Err(RepositoryError::NotFound) => {
-                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
-            }
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+                "User with id '{}' not found",
+                id
+            ))),
             Err(error) => {
                 error!(
                     "[ResetUserPasswordByIdUseCase] Failed to reset password: {:?}",

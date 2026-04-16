@@ -2,6 +2,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::protective_measures::{
     CreateProtectiveMeasure, UpdateProtectiveMeasure,
 };
@@ -10,14 +11,13 @@ use crate::core::filters::protective_measures::ProtectiveMeasuresQuery;
 use crate::presenters::protective_measures::ProtectiveMeasurePresenter;
 use crate::usecases::protective_measures::{
     CreateProtectiveMeasureUseCase, DeleteProtectiveMeasureUseCase,
-    GetAllProtectiveMeasuresUseCase, GetMeasuresByVictimUseCase,
-    GetProtectiveMeasureByIdUseCase, UpdateProtectiveMeasureUseCase,
+    GetAllProtectiveMeasuresUseCase, GetMeasuresByVictimUseCase, GetProtectiveMeasureByIdUseCase,
+    UpdateProtectiveMeasureUseCase,
 };
 use crate::utils::controller_helpers::{
     created, include_related, paginated, request_claims, request_pagination_from_parts, success,
 };
 use crate::utils::pagination::Pagination;
-use crate::core::application_error::ApplicationError as AppError;
 
 pub async fn create_protective_measure(
     measure_data: web::Json<CreateProtectiveMeasure>,
@@ -28,9 +28,7 @@ pub async fn create_protective_measure(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create protective measure");
     let claims = request_claims(&req)?;
-    let measure = usecase
-        .execute(measure_data.into_inner(), &claims)
-        .await?;
+    let measure = usecase.execute(measure_data.into_inner(), &claims).await?;
     let response = presenter
         .build_response(measure, include_related(&query))
         .await?;
@@ -73,7 +71,11 @@ pub async fn get_all_protective_measures(
         .build_responses(
             result.items,
             include,
-            Pagination { page: result.page, page_size: result.page_size, offset: 0 },
+            Pagination {
+                page: result.page,
+                page_size: result.page_size,
+                offset: 0,
+            },
             result.total_items,
         )
         .await?;

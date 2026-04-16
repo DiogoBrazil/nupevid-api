@@ -1,12 +1,12 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_offenders::helpers::get_attendance_offender_or_not_found;
 

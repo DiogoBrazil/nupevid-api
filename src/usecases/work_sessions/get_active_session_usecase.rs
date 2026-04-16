@@ -1,9 +1,9 @@
 use log::info;
 
-use crate::core::entities::auth::UserClaims;
-use crate::core::contracts::repository::error::RepositoryError;
-use crate::core::entities::work_sessions::WorkSession;
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::entities::auth::UserClaims;
+use crate::core::entities::work_sessions::WorkSession;
 use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::helpers::claims_user_id;
 
@@ -16,10 +16,7 @@ impl GetActiveSessionUseCase {
         Self { deps }
     }
 
-    pub async fn execute(
-        &self,
-        claims: &UserClaims,
-    ) -> Result<WorkSession, AppError> {
+    pub async fn execute(&self, claims: &UserClaims) -> Result<WorkSession, AppError> {
         info!("[GetActiveSessionUseCase] Getting active session");
 
         let user_id = claims_user_id(claims)?;

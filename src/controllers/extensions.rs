@@ -2,13 +2,13 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::protective_measures::{CreateExtension, UpdateExtension};
 use crate::usecases::extensions::{
     CreateExtensionUseCase, DeleteExtensionByIdUseCase, GetExtensionByIdUseCase,
     GetExtensionsByMeasureUseCase, UpdateExtensionByIdUseCase,
 };
 use crate::utils::controller_helpers::{created, request_claims, success};
-use crate::core::application_error::ApplicationError as AppError;
 
 pub async fn create_extension(
     path: web::Path<Uuid>,
@@ -51,9 +51,7 @@ pub async fn get_extensions_by_measure(
         protective_measure_id
     );
     let claims = request_claims(&req)?;
-    let extensions = usecase
-        .execute(protective_measure_id, &claims)
-        .await?;
+    let extensions = usecase.execute(protective_measure_id, &claims).await?;
     Ok(success(extensions))
 }
 

@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::{PolicyMap, get_user_policies_strict};
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::{PolicyMap, get_user_policies_strict};
 
 pub struct UserReadScope {
     pub allowed_cities: Option<Vec<Uuid>>,
@@ -29,9 +29,7 @@ pub async fn build_user_read_scope(
     if claims.profile == Profile::CityAdmin {
         let allowed = get_user_policies_strict(user_repository, claims)
             .await?
-            .and_then(|policies| {
-                policies.get(&Policy::ReadUsers).cloned()
-            })
+            .and_then(|policies| policies.get(&Policy::ReadUsers).cloned())
             .unwrap_or_default();
 
         return Ok(UserReadScope {
@@ -46,10 +44,7 @@ pub async fn build_user_read_scope(
     })
 }
 
-pub fn filter_users_by_scope(
-    mut users: Vec<UserRecord>,
-    scope: &UserReadScope,
-) -> Vec<UserRecord> {
+pub fn filter_users_by_scope(mut users: Vec<UserRecord>, scope: &UserReadScope) -> Vec<UserRecord> {
     if scope.exclude_root {
         users.retain(|user| user.profile != Profile::Root);
     }
@@ -71,9 +66,10 @@ pub async fn get_existing_user(
 ) -> Result<UserRecord, AppError> {
     match user_repository.get_user_by_id(id).await {
         Ok(user) => Ok(user),
-        Err(RepositoryError::NotFound) => {
-            Err(AppError::NotFound(format!("User with id '{}' not found", id)))
-        }
+        Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+            "User with id '{}' not found",
+            id
+        ))),
         Err(_) => Err(AppError::InternalServerError),
     }
 }

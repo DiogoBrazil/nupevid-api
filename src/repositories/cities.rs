@@ -3,13 +3,13 @@ use log::info;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::repositories::queries::cities::CitiesQueries;
 use crate::core::{
     commands::cities::{CreateCity, UpdateCity},
     contracts::repository::{cities::CityRepository, error::RepositoryError},
     entities::cities::City,
 };
 use crate::repositories::error_mapper::map_sqlx_error;
+use crate::repositories::queries::cities::CitiesQueries;
 
 use super::models::cities::CityRow;
 
@@ -195,13 +195,14 @@ impl CityRepository for PgCityRepository {
             name, battalion
         );
 
-        let city: Option<City> = sqlx::query_as::<_, CityRow>(CitiesQueries::GET_CITY_BY_NAME_AND_BATTALION)
-            .bind(name)
-            .bind(battalion)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(map_sqlx_error)?
-            .map(|row| row.into());
+        let city: Option<City> =
+            sqlx::query_as::<_, CityRow>(CitiesQueries::GET_CITY_BY_NAME_AND_BATTALION)
+                .bind(name)
+                .bind(battalion)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?
+                .map(|row| row.into());
 
         if city.is_some() {
             info!(

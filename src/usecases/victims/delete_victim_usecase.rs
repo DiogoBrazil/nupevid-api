@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 
 pub struct DeleteVictimUseCase {
@@ -45,10 +45,18 @@ impl DeleteVictimUseCase {
             }
         }
 
-        match self.deps.victim_write_repository.delete_victim_by_id(id).await {
+        match self
+            .deps
+            .victim_write_repository
+            .delete_victim_by_id(id)
+            .await
+        {
             Ok(deleted_victim) => {
                 let deleted_victim = VictimWithDetails::from_write_result(deleted_victim);
-                info!("[DeleteVictimUseCase] Victim with id {} deleted successfully", id);
+                info!(
+                    "[DeleteVictimUseCase] Victim with id {} deleted successfully",
+                    id
+                );
                 Ok(deleted_victim)
             }
             Err(RepositoryError::NotFound) => {

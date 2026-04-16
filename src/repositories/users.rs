@@ -4,13 +4,13 @@ use serde_json::{Value as JsonValue, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::repositories::queries::users::UsersQueries;
+use super::models::users::UserRecordRow;
 use crate::core::{
     commands::users::{CreateUser, UpdateUser},
     contracts::repository::{error::RepositoryError, users::UserRepository},
     entities::users::UserRecord,
 };
-use super::models::users::UserRecordRow;
+use crate::repositories::queries::users::UsersQueries;
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_user_error(err: sqlx::Error) -> RepositoryError {
@@ -20,20 +20,16 @@ fn map_user_error(err: sqlx::Error) -> RepositoryError {
             if let Some(c) = constraint.as_deref()
                 && c.contains("registration")
             {
-                return RepositoryError::DuplicateEntry(
-                    "registration already exists".into(),
-                );
+                return RepositoryError::DuplicateEntry("registration already exists".into());
             }
             base
         }
-        RepositoryError::ForeignKeyViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("fk_users_city") => {
-                    RepositoryError::ReferencedEntityNotFound("City not found".into())
-                }
-                _ => base,
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_users_city") => {
+                RepositoryError::ReferencedEntityNotFound("City not found".into())
             }
-        }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -51,10 +47,7 @@ impl PgUserRepository {
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
-    async fn create_user(
-        &self,
-        user: CreateUser,
-    ) -> Result<UserRecord, RepositoryError> {
+    async fn create_user(&self, user: CreateUser) -> Result<UserRecord, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
         info!(
@@ -129,10 +122,7 @@ impl UserRepository for PgUserRepository {
         Ok(user_updated)
     }
 
-    async fn get_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserRecord, RepositoryError> {
+    async fn get_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get user with id: {}",
             id
@@ -153,10 +143,7 @@ impl UserRepository for PgUserRepository {
         Ok(user)
     }
 
-    async fn check_user_exists_by_email(
-        &self,
-        email: &str,
-    ) -> Result<bool, RepositoryError> {
+    async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to check if user with email {} exists",
             email
@@ -196,9 +183,7 @@ impl UserRepository for PgUserRepository {
         Ok(result)
     }
 
-    async fn get_all_users(
-        &self,
-    ) -> Result<Vec<UserRecord>, RepositoryError> {
+    async fn get_all_users(&self) -> Result<Vec<UserRecord>, RepositoryError> {
         info!("[Repository] Executing SQL query to get all users");
 
         let users: Vec<UserRecord> =
@@ -215,10 +200,7 @@ impl UserRepository for PgUserRepository {
         Ok(users)
     }
 
-    async fn get_users_by_name(
-        &self,
-        name: &str,
-    ) -> Result<Vec<UserRecord>, RepositoryError> {
+    async fn get_users_by_name(&self, name: &str) -> Result<Vec<UserRecord>, RepositoryError> {
         let pattern = format!("%{}%", name);
         info!(
             "[Repository] Executing SQL query to get users by name pattern: {}",
@@ -274,17 +256,19 @@ impl UserRepository for PgUserRepository {
         info!("[Repository] Executing SQL query to get paginated users");
 
         let users: Vec<UserRecord> = match allowed_cities {
-            Some(city_ids) => sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED_BY_CITIES)
-                .bind(city_ids)
-                .bind(exclude_root)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_user_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+            Some(city_ids) => {
+                sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED_BY_CITIES)
+                    .bind(city_ids)
+                    .bind(exclude_root)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(map_user_error)?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect()
+            }
             None => sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED)
                 .bind(exclude_root)
                 .bind(limit)
@@ -324,10 +308,7 @@ impl UserRepository for PgUserRepository {
         Ok(count)
     }
 
-    async fn delete_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserRecord, RepositoryError> {
+    async fn delete_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to delete user with id: {}",
             id
@@ -349,10 +330,7 @@ impl UserRepository for PgUserRepository {
         Ok(deleted_user)
     }
 
-    async fn get_user_password_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<String, RepositoryError> {
+    async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get password for user with id: {}",
             id
@@ -453,10 +431,7 @@ impl UserRepository for PgUserRepository {
         Ok(result)
     }
 
-    async fn get_user_policies_json_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<JsonValue, RepositoryError> {
+    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get permission_policies for user {}",
             id

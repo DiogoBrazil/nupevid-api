@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
 pub struct DeleteProtectiveMeasureUseCase {
@@ -42,7 +42,10 @@ impl DeleteProtectiveMeasureUseCase {
                 )));
             }
             Err(e) => {
-                error!("[DeleteProtectiveMeasureUseCase] Error fetching measure: {:?}", e);
+                error!(
+                    "[DeleteProtectiveMeasureUseCase] Error fetching measure: {:?}",
+                    e
+                );
                 return Err(AppError::InternalServerError);
             }
         };
@@ -53,7 +56,10 @@ impl DeleteProtectiveMeasureUseCase {
             .get_victim_by_id(measure.victim_id)
             .await
             .map_err(|e| {
-                error!("[DeleteProtectiveMeasureUseCase] Error fetching victim: {:?}", e);
+                error!(
+                    "[DeleteProtectiveMeasureUseCase] Error fetching victim: {:?}",
+                    e
+                );
                 AppError::InternalServerError
             })?;
 

@@ -1,11 +1,11 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
 use crate::usecases::extensions::helpers::load_auth_and_check_extension;
 
@@ -23,7 +23,10 @@ impl DeleteExtensionByIdUseCase {
         id: Uuid,
         claims: &UserClaims,
     ) -> Result<ProtectiveMeasureExtension, AppError> {
-        info!("[DeleteExtensionByIdUseCase] Deleting extension with ID: {}", id);
+        info!(
+            "[DeleteExtensionByIdUseCase] Deleting extension with ID: {}",
+            id
+        );
 
         load_auth_and_check_extension(
             &self.deps,
@@ -34,7 +37,12 @@ impl DeleteExtensionByIdUseCase {
         )
         .await?;
 
-        match self.deps.extension_repository.delete_extension_by_id(id).await {
+        match self
+            .deps
+            .extension_repository
+            .delete_extension_by_id(id)
+            .await
+        {
             Ok(extension) => {
                 info!(
                     "[DeleteExtensionByIdUseCase] Extension deleted successfully with ID: {}",
@@ -47,10 +55,7 @@ impl DeleteExtensionByIdUseCase {
                 Err(AppError::NotFound("Extension not found".to_string()))
             }
             Err(e) => {
-                error!(
-                    "[DeleteExtensionByIdUseCase] Database error: {:?}",
-                    e
-                );
+                error!("[DeleteExtensionByIdUseCase] Database error: {:?}", e);
                 Err(AppError::InternalServerError)
             }
         }

@@ -142,8 +142,7 @@ async fn list_protective_measures_with_include_related_returns_entities() {
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
-        test::TestRequest::get()
-            .uri("/api/v1/protective-measures?include_related_entities=true"),
+        test::TestRequest::get().uri("/api/v1/protective-measures?include_related_entities=true"),
         &config,
         &admin_token,
     )

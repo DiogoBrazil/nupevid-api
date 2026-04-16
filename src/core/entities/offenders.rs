@@ -109,4 +109,3 @@ pub struct OffenderWriteResult {
     pub phones: Vec<OffenderPhone>,
     pub addresses: Vec<OffenderAddress>,
 }
-

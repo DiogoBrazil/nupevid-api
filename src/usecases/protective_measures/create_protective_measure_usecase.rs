@@ -1,13 +1,13 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::protective_measures::{CreateExtension, CreateProtectiveMeasure};
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
 
@@ -53,7 +53,10 @@ impl CreateProtectiveMeasureUseCase {
                 )));
             }
             Err(e) => {
-                error!("[CreateProtectiveMeasureUseCase] Error checking victim: {:?}", e);
+                error!(
+                    "[CreateProtectiveMeasureUseCase] Error checking victim: {:?}",
+                    e
+                );
                 return Err(AppError::InternalServerError);
             }
         };

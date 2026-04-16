@@ -1,13 +1,13 @@
 use log::error;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::get_user_policies_strict;
+use crate::core::authorization::check_policy;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::authorization::check_policy;
-use crate::core::auth_helpers::get_user_policies_strict;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::get_existing_user;
 
@@ -34,7 +34,8 @@ impl AppendUserPolicyCitiesUseCase {
             )));
         }
 
-        let target_user = get_existing_user(self.deps.user_repository.as_ref(), target_user_id).await?;
+        let target_user =
+            get_existing_user(self.deps.user_repository.as_ref(), target_user_id).await?;
 
         if target_user.profile == Profile::Root && claims.profile != Profile::Root {
             return Err(AppError::Forbidden(
@@ -58,10 +59,7 @@ impl AppendUserPolicyCitiesUseCase {
                 check_policy(claims, &Policy::UpdateUsers, target_city_id, &policies)?;
             }
 
-            let assigned_cities = policies
-                .get(policy)
-                .cloned()
-                .unwrap_or_default();
+            let assigned_cities = policies.get(policy).cloned().unwrap_or_default();
 
             for city_id in city_ids {
                 if !assigned_cities.contains(city_id) {

@@ -1,11 +1,11 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::verify_victim_access;
 
@@ -29,8 +29,7 @@ impl GetAttendanceVictimsByVictimUseCase {
             victim_id
         );
 
-        let victim =
-            verify_victim_access(&*self.deps.victim_repository, victim_id).await?;
+        let victim = verify_victim_access(&*self.deps.victim_repository, victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
 

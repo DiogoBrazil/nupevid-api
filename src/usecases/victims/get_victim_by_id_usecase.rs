@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 
 pub struct GetVictimByIdUseCase {
@@ -33,7 +33,10 @@ impl GetVictimByIdUseCase {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
                 auth.check_policy(&Policy::ReadVictims, victim_with_address.city_id)?;
 
-                info!("[GetVictimByIdUseCase] Victim with id {} found successfully", id);
+                info!(
+                    "[GetVictimByIdUseCase] Victim with id {} found successfully",
+                    id
+                );
                 Ok(victim_with_address)
             }
             Err(RepositoryError::NotFound) => {

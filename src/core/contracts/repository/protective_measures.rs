@@ -13,9 +13,7 @@ pub trait ProtectiveMeasureReadRepository: Send + Sync {
         &self,
         id: Uuid,
     ) -> Result<ProtectiveMeasure, RepositoryError>;
-    async fn get_all_protective_measures(
-        &self,
-    ) -> Result<Vec<ProtectiveMeasure>, RepositoryError>;
+    async fn get_all_protective_measures(&self) -> Result<Vec<ProtectiveMeasure>, RepositoryError>;
     async fn get_protective_measures_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,

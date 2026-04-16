@@ -3,18 +3,18 @@ use log::info;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::attendance_victims::{CreateAttendanceVictim, UpdateAttendanceVictim};
 use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::usecases::attendance_victims::{
     AddAttendanceMemberUseCase, CreateAttendanceVictimUseCase, DeleteAttendanceVictimUseCase,
-    GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase,
-    GetAttendanceVictimByIdUseCase, GetAttendanceVictimsByVictimUseCase,
-    RemoveAttendanceMemberUseCase, UpdateAttendanceVictimUseCase,
+    GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase, GetAttendanceVictimByIdUseCase,
+    GetAttendanceVictimsByVictimUseCase, RemoveAttendanceMemberUseCase,
+    UpdateAttendanceVictimUseCase,
 };
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 #[derive(Debug, Deserialize)]
@@ -29,9 +29,7 @@ pub async fn create_attendance_victim(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create attendance victim");
     let claims = request_claims(&req)?;
-    let attendance = usecase
-        .execute(data.into_inner(), &claims)
-        .await?;
+    let attendance = usecase.execute(data.into_inner(), &claims).await?;
     Ok(created(attendance))
 }
 
@@ -46,9 +44,7 @@ pub async fn get_attendance_victim_by_id(
         attendance_id
     );
     let claims = request_claims(&req)?;
-    let attendance = usecase
-        .execute(attendance_id, &claims)
-        .await?;
+    let attendance = usecase.execute(attendance_id, &claims).await?;
     Ok(success(attendance))
 }
 
@@ -60,9 +56,7 @@ pub async fn get_all_attendance_victims(
     info!("[Controller] Received request to get all attendance victims");
     let claims = request_claims(&req)?;
     let pagination = request_pagination(&query.into_inner());
-    let result = usecase
-        .execute(pagination, &claims)
-        .await?;
+    let result = usecase.execute(pagination, &claims).await?;
     Ok(paginated(result))
 }
 
@@ -114,9 +108,7 @@ pub async fn delete_attendance_victim_by_id(
         attendance_id
     );
     let claims = request_claims(&req)?;
-    let attendance = usecase
-        .execute(attendance_id, &claims)
-        .await?;
+    let attendance = usecase.execute(attendance_id, &claims).await?;
     Ok(success(attendance))
 }
 
@@ -131,9 +123,7 @@ pub async fn get_attendance_members(
         attendance_id
     );
     let claims = request_claims(&req)?;
-    let members = usecase
-        .execute(attendance_id, &claims)
-        .await?;
+    let members = usecase.execute(attendance_id, &claims).await?;
     Ok(success(members))
 }
 
@@ -166,8 +156,6 @@ pub async fn remove_attendance_member(
         user_id, attendance_id
     );
     let claims = request_claims(&req)?;
-    let message = usecase
-        .execute(attendance_id, user_id, &claims)
-        .await?;
+    let message = usecase.execute(attendance_id, user_id, &claims).await?;
     Ok(success(message))
 }

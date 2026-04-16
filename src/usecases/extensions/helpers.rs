@@ -1,6 +1,8 @@
 use log::error;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureReadRepository;
@@ -9,8 +11,6 @@ use crate::core::contracts::repository::victims::VictimReadRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
 
 pub async fn get_extension_or_not_found(
@@ -105,10 +105,7 @@ pub async fn load_auth_and_check_extension(
         .get_protective_measure_by_id(extension.protective_measure_id)
         .await
         .map_err(|e| {
-            error!(
-                "[{}] Error fetching protective measure: {:?}",
-                label, e
-            );
+            error!("[{}] Error fetching protective measure: {:?}", label, e);
             AppError::InternalServerError
         })?;
 

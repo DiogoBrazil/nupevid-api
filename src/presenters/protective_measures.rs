@@ -3,6 +3,7 @@ use std::sync::Arc;
 use log::error;
 use serde::{Deserialize, Serialize};
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::cities::CityRepository;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::extensions::ExtensionRepository;
@@ -13,7 +14,6 @@ use crate::core::pagination::PaginatedResult;
 use crate::core::read_models::protective_measures::{
     ProtectiveMeasureWithExtensions, ProtectiveMeasureWithExtensionsAndEntities,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::Pagination;
 
 #[allow(clippy::large_enum_variant)]

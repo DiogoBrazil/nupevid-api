@@ -1,15 +1,17 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::commands::attendance_offenders::CreateAttendanceOffender;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::attendance_offenders::helpers::{verify_offender_access, verify_victim_access};
+use crate::usecases::attendance_offenders::helpers::{
+    verify_offender_access, verify_victim_access,
+};
 
 pub struct CreateAttendanceOffenderUseCase {
     deps: AttendanceOffenderUseCaseDependencies,
@@ -31,8 +33,7 @@ impl CreateAttendanceOffenderUseCase {
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
         let offender =
-            verify_offender_access(&*self.deps.offender_repository, attendance.offender_id)
-                .await?;
+            verify_offender_access(&*self.deps.offender_repository, attendance.offender_id).await?;
 
         let _victim =
             verify_victim_access(&*self.deps.victim_repository, attendance.victim_id).await?;
@@ -94,16 +95,15 @@ impl CreateAttendanceOffenderUseCase {
             .await
         {
             Ok(attendance_with_address) => {
-                let attendance_with_address = AttendanceOffenderWithAddress::from_write_result(attendance_with_address);
+                let attendance_with_address =
+                    AttendanceOffenderWithAddress::from_write_result(attendance_with_address);
                 info!(
                     "[CreateAttendanceOffenderUseCase] Attendance offender created: {}",
                     attendance_with_address.id
                 );
                 Ok(attendance_with_address)
             }
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(AppError::BadRequest(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(AppError::BadRequest(msg)),
             Err(e) => {
                 error!(
                     "[CreateAttendanceOffenderUseCase] Failed to create attendance offender: {:?}",

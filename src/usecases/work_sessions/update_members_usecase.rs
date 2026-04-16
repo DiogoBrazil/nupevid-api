@@ -1,6 +1,7 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::work_sessions::UpdateWorkSessionMembers;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
@@ -8,11 +9,10 @@ use crate::core::entities::work_session_members::TeamMemberFunction;
 use crate::core::read_models::work_sessions::WorkSessionWithMembers;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
+use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::guards::{
     ensure_creator_or_commander, validate_members_same_city,
 };
-use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
 use crate::usecases::work_sessions::helpers::{
     authorize_non_root_for_policy, claims_user_id, get_session_by_id_base_or_not_found,
     get_session_members_or_not_found,
@@ -83,7 +83,11 @@ impl UpdateMembersUseCase {
 
         validate_members_same_city(
             self.deps.user_repository.as_ref(),
-            &data.members.iter().map(|member| member.user_id).collect::<Vec<_>>(),
+            &data
+                .members
+                .iter()
+                .map(|member| member.user_id)
+                .collect::<Vec<_>>(),
             claims.profile == Profile::Root,
         )
         .await?;

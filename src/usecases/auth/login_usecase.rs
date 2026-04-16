@@ -2,13 +2,13 @@ use chrono::Utc;
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::auth::Login;
 use crate::core::contracts::adapters::token_generator::TokenClaimsInput;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::read_models::work_sessions::WorkSessionWithMembers;
 use crate::core::responses::auth::LoginResponse;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
 
 pub struct LoginUseCase {

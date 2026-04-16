@@ -1,8 +1,8 @@
 use log::{error, info};
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::UserRecord;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::{build_user_read_scope, filter_users_by_scope};
 use crate::usecases::users::search_criteria::UserSearchCriteria;

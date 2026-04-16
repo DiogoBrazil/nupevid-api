@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::attendance_offenders::AttendanceOffenderReadRepository;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
@@ -7,7 +8,6 @@ use crate::core::contracts::repository::victims::VictimReadRepository;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::read_models::victims::VictimWithDetails;
-use crate::core::application_error::ApplicationError as AppError;
 
 pub async fn get_attendance_offender_or_not_found(
     repository: &dyn AttendanceOffenderReadRepository,

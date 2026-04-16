@@ -4,38 +4,36 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::repositories::queries::victims::{VictimAddressesQueries, VictimPhonesQueries, VictimsQueries};
+use super::models::victims::{VictimAddressRow, VictimPhoneRow, VictimRow};
 use crate::core::commands::victims::{CreateVictim, UpdateVictim};
+use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::victims::{VictimReadRepository, VictimWriteRepository};
 use crate::core::entities::common::{AddressData, PhoneData};
 use crate::core::entities::victims::{Victim, VictimAddress, VictimPhone, VictimWriteResult};
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::read_models::victims::VictimWithDetails;
-use super::models::victims::{VictimRow, VictimPhoneRow, VictimAddressRow};
+use crate::repositories::queries::victims::{
+    VictimAddressesQueries, VictimPhonesQueries, VictimsQueries,
+};
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_victim_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
-        RepositoryError::UniqueViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("idx_victims_cpf_unique") => {
-                    RepositoryError::DuplicateEntry("A victim with this CPF already exists".into())
-                }
-                _ => base,
+        RepositoryError::UniqueViolation { ref constraint } => match constraint.as_deref() {
+            Some("idx_victims_cpf_unique") => {
+                RepositoryError::DuplicateEntry("A victim with this CPF already exists".into())
             }
-        }
-        RepositoryError::ForeignKeyViolation { ref constraint } => {
-            match constraint.as_deref() {
-                Some("fk_victims_city") => {
-                    RepositoryError::ReferencedEntityNotFound("City not found".into())
-                }
-                Some("fk_victim_addresses_city") => {
-                    RepositoryError::ReferencedEntityNotFound("Address city not found".into())
-                }
-                _ => base,
+            _ => base,
+        },
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_victims_city") => {
+                RepositoryError::ReferencedEntityNotFound("City not found".into())
             }
-        }
+            Some("fk_victim_addresses_city") => {
+                RepositoryError::ReferencedEntityNotFound("Address city not found".into())
+            }
+            _ => base,
+        },
         _ => base,
     }
 }
@@ -57,15 +55,16 @@ impl PgVictimRepository {
     ) -> Result<VictimPhone, RepositoryError> {
         let phone_id = Uuid::new_v4();
 
-        let created: VictimPhone = sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::CREATE_VICTIM_PHONE)
-            .bind(phone_id)
-            .bind(victim_id)
-            .bind(&phone_data.phone)
-            .bind(&phone_data.phone_type)
-            .fetch_one(&mut **tx)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let created: VictimPhone =
+            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::CREATE_VICTIM_PHONE)
+                .bind(phone_id)
+                .bind(victim_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         Ok(created)
     }
@@ -74,13 +73,16 @@ impl PgVictimRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         victim_id: Uuid,
     ) -> Result<(), RepositoryError> {
-        let _: Vec<VictimPhone> =
-            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::DELETE_VICTIM_PHONES_BY_VICTIM_ID)
-                .bind(victim_id)
-                .fetch_all(&mut **tx)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect();
+        let _: Vec<VictimPhone> = sqlx::query_as::<_, VictimPhoneRow>(
+            VictimPhonesQueries::DELETE_VICTIM_PHONES_BY_VICTIM_ID,
+        )
+        .bind(victim_id)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(())
     }
 
@@ -91,20 +93,21 @@ impl PgVictimRepository {
     ) -> Result<VictimAddress, RepositoryError> {
         let address_id = Uuid::new_v4();
 
-        let created: VictimAddress = sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::CREATE_VICTIM_ADDRESS)
-            .bind(address_id)
-            .bind(victim_id)
-            .bind(&address.street)
-            .bind(&address.number)
-            .bind(&address.district)
-            .bind(address.city_id)
-            .bind(&address.zip_code)
-            .bind(&address.complement)
-            .bind(&address.address_type)
-            .fetch_one(&mut **tx)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let created: VictimAddress =
+            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::CREATE_VICTIM_ADDRESS)
+                .bind(address_id)
+                .bind(victim_id)
+                .bind(&address.street)
+                .bind(&address.number)
+                .bind(&address.district)
+                .bind(address.city_id)
+                .bind(&address.zip_code)
+                .bind(&address.complement)
+                .bind(&address.address_type)
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         Ok(created)
     }
@@ -113,13 +116,16 @@ impl PgVictimRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         victim_id: Uuid,
     ) -> Result<(), RepositoryError> {
-        let _: Vec<VictimAddress> =
-            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::DELETE_VICTIM_ADDRESSES_BY_VICTIM_ID)
-                .bind(victim_id)
-                .fetch_all(&mut **tx)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect();
+        let _: Vec<VictimAddress> = sqlx::query_as::<_, VictimAddressRow>(
+            VictimAddressesQueries::DELETE_VICTIM_ADDRESSES_BY_VICTIM_ID,
+        )
+        .bind(victim_id)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(map_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(())
     }
 
@@ -127,13 +133,16 @@ impl PgVictimRepository {
         &self,
         victim_id: Uuid,
     ) -> Result<Vec<VictimPhone>, RepositoryError> {
-        let phones: Vec<VictimPhone> =
-            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::GET_VICTIM_PHONES_BY_VICTIM_ID)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect();
+        let phones: Vec<VictimPhone> = sqlx::query_as::<_, VictimPhoneRow>(
+            VictimPhonesQueries::GET_VICTIM_PHONES_BY_VICTIM_ID,
+        )
+        .bind(victim_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(phones)
     }
 
@@ -141,13 +150,16 @@ impl PgVictimRepository {
         &self,
         victim_id: Uuid,
     ) -> Result<Vec<VictimAddress>, RepositoryError> {
-        let addresses: Vec<VictimAddress> =
-            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::GET_VICTIM_ADDRESSES_BY_VICTIM_ID)
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect();
+        let addresses: Vec<VictimAddress> = sqlx::query_as::<_, VictimAddressRow>(
+            VictimAddressesQueries::GET_VICTIM_ADDRESSES_BY_VICTIM_ID,
+        )
+        .bind(victim_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
         Ok(addresses)
     }
 
@@ -159,15 +171,16 @@ impl PgVictimRepository {
             return Ok(HashMap::new());
         }
 
-        let phones: Vec<VictimPhone> =
-            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::GET_VICTIM_PHONES_BY_VICTIM_IDS)
-                .bind(victim_ids)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let phones: Vec<VictimPhone> = sqlx::query_as::<_, VictimPhoneRow>(
+            VictimPhonesQueries::GET_VICTIM_PHONES_BY_VICTIM_IDS,
+        )
+        .bind(victim_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         let mut grouped = HashMap::new();
         for phone in phones {
@@ -235,10 +248,7 @@ impl PgVictimRepository {
 
 #[async_trait]
 impl VictimReadRepository for PgVictimRepository {
-    async fn get_victim_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<VictimWithDetails, RepositoryError> {
+    async fn get_victim_by_id(&self, id: Uuid) -> Result<VictimWithDetails, RepositoryError> {
         info!("[Repository] Fetching victim with id: {}", id);
 
         let victim: Victim = sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIM_BY_ID)
@@ -261,16 +271,16 @@ impl VictimReadRepository for PgVictimRepository {
         Ok(VictimWithDetails::from_entity(victim, phones, addresses))
     }
 
-    async fn get_all_victims(
-        &self,
-    ) -> Result<Vec<VictimWithDetails>, RepositoryError> {
+    async fn get_all_victims(&self) -> Result<Vec<VictimWithDetails>, RepositoryError> {
         info!("[Repository] Fetching all victims");
 
         let victims: Vec<Victim> = sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_ALL_VICTIMS)
             .fetch_all(&self.pool)
             .await
             .map_err(map_victim_error)?
-            .into_iter().map(Into::into).collect();
+            .into_iter()
+            .map(Into::into)
+            .collect();
         let result = self.assemble_victims_with_details(victims).await?;
 
         info!("[Repository] Found {} victims", result.len());
@@ -284,12 +294,15 @@ impl VictimReadRepository for PgVictimRepository {
     ) -> Result<Vec<VictimWithDetails>, RepositoryError> {
         info!("[Repository] Fetching victims for city: {}", city_id);
 
-        let victims: Vec<Victim> = sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_CITY)
-            .bind(city_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into_iter().map(Into::into).collect();
+        let victims: Vec<Victim> =
+            sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_CITY)
+                .bind(city_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_victims_with_details(victims).await?;
 
         info!(
@@ -310,21 +323,27 @@ impl VictimReadRepository for PgVictimRepository {
         info!("[Repository] Fetching victims paginated");
 
         let victims: Vec<Victim> = match allowed_cities {
-            Some(cities) => sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_PAGED_BY_CITIES)
-                .bind(cities)
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect(),
+            Some(cities) => {
+                sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(map_victim_error)?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect()
+            }
             None => sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_PAGED)
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.pool)
                 .await
                 .map_err(map_victim_error)?
-                .into_iter().map(Into::into).collect(),
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         };
         let result = self.assemble_victims_with_details(victims).await?;
 
@@ -357,12 +376,15 @@ impl VictimReadRepository for PgVictimRepository {
         let pattern = format!("%{}%", name);
         info!("[Repository] Fetching victims by name pattern: {}", pattern);
 
-        let victims: Vec<Victim> = sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_NAME)
-            .bind(pattern)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into_iter().map(Into::into).collect();
+        let victims: Vec<Victim> =
+            sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_NAME)
+                .bind(pattern)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_victims_with_details(victims).await?;
 
         info!("[Repository] Found {} victims by name", result.len());
@@ -375,12 +397,15 @@ impl VictimReadRepository for PgVictimRepository {
     ) -> Result<Vec<VictimWithDetails>, RepositoryError> {
         info!("[Repository] Fetching victims by cpf");
 
-        let victims: Vec<Victim> = sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_CPF)
-            .bind(cpf)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into_iter().map(Into::into).collect();
+        let victims: Vec<Victim> =
+            sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_CPF)
+                .bind(cpf)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
         let result = self.assemble_victims_with_details(victims).await?;
 
         info!("[Repository] Found {} victims by cpf", result.len());
@@ -401,11 +426,7 @@ impl VictimWriteRepository for PgVictimRepository {
             victim.full_name, victim_id
         );
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_victim_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_victim_error)?;
 
         let victim_created: Victim = sqlx::query_as::<_, VictimRow>(VictimsQueries::CREATE_VICTIM)
             .bind(victim_id)
@@ -455,9 +476,7 @@ impl VictimWriteRepository for PgVictimRepository {
             );
         }
 
-        tx.commit()
-            .await
-            .map_err(map_victim_error)?;
+        tx.commit().await.map_err(map_victim_error)?;
 
         info!(
             "[Repository] Transaction committed. Victim {} created successfully",
@@ -478,33 +497,30 @@ impl VictimWriteRepository for PgVictimRepository {
     ) -> Result<VictimWriteResult, RepositoryError> {
         info!("[Repository] Starting transaction to update victim: {}", id);
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_victim_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_victim_error)?;
 
-        let victim_updated: Victim = sqlx::query_as::<_, VictimRow>(VictimsQueries::UPDATE_VICTIM_BY_ID)
-            .bind(id)
-            .bind(&data.full_name)
-            .bind(&data.cpf)
-            .bind(data.birth_date)
-            .bind(data.city_id)
-            .bind(&data.education_level)
-            .bind(&data.occupation)
-            .bind(data.has_children)
-            .bind(data.children_count)
-            .bind(data.is_pregnant)
-            .bind(data.has_special_needs)
-            .bind(&data.special_needs_type)
-            .bind(data.uses_alcohol)
-            .bind(data.uses_drugs)
-            .bind(data.has_psychiatric_issues)
-            .bind(&data.psychiatric_issues_type)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let victim_updated: Victim =
+            sqlx::query_as::<_, VictimRow>(VictimsQueries::UPDATE_VICTIM_BY_ID)
+                .bind(id)
+                .bind(&data.full_name)
+                .bind(&data.cpf)
+                .bind(data.birth_date)
+                .bind(data.city_id)
+                .bind(&data.education_level)
+                .bind(&data.occupation)
+                .bind(data.has_children)
+                .bind(data.children_count)
+                .bind(data.is_pregnant)
+                .bind(data.has_special_needs)
+                .bind(&data.special_needs_type)
+                .bind(data.uses_alcohol)
+                .bind(data.uses_drugs)
+                .bind(data.has_psychiatric_issues)
+                .bind(&data.psychiatric_issues_type)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         Self::delete_phones_by_victim_id(&mut tx, id).await?;
         let mut updated_phones = Vec::new();
@@ -534,9 +550,7 @@ impl VictimWriteRepository for PgVictimRepository {
             );
         }
 
-        tx.commit()
-            .await
-            .map_err(map_victim_error)?;
+        tx.commit().await.map_err(map_victim_error)?;
 
         info!("[Repository] Transaction committed. Victim {} updated", id);
 
@@ -547,10 +561,7 @@ impl VictimWriteRepository for PgVictimRepository {
         })
     }
 
-    async fn delete_victim_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<VictimWriteResult, RepositoryError> {
+    async fn delete_victim_by_id(&self, id: Uuid) -> Result<VictimWriteResult, RepositoryError> {
         info!(
             "[Repository] Starting transaction to soft delete victim: {}",
             id
@@ -559,26 +570,21 @@ impl VictimWriteRepository for PgVictimRepository {
         let phones = self.get_phones_by_victim_id(id).await?;
         let addresses = self.get_addresses_by_victim_id(id).await?;
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_victim_error)?;
+        let mut tx = self.pool.begin().await.map_err(map_victim_error)?;
 
         Self::delete_phones_by_victim_id(&mut tx, id).await?;
 
         Self::delete_addresses_by_victim_id(&mut tx, id).await?;
 
-        let deleted_victim: Victim = sqlx::query_as::<_, VictimRow>(VictimsQueries::DELETE_VICTIM_BY_ID)
-            .bind(id)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let deleted_victim: Victim =
+            sqlx::query_as::<_, VictimRow>(VictimsQueries::DELETE_VICTIM_BY_ID)
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
-        tx.commit()
-            .await
-            .map_err(map_victim_error)?;
+        tx.commit().await.map_err(map_victim_error)?;
 
         info!(
             "[Repository] Transaction committed. Victim {} soft deleted",
@@ -600,32 +606,31 @@ impl VictimWriteRepository for PgVictimRepository {
         info!("[Repository] Creating phone for victim: {}", victim_id);
         let phone_id = Uuid::new_v4();
 
-        let phone: VictimPhone = sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::CREATE_VICTIM_PHONE)
-            .bind(phone_id)
-            .bind(victim_id)
-            .bind(&phone_data.phone)
-            .bind(&phone_data.phone_type)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let phone: VictimPhone =
+            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::CREATE_VICTIM_PHONE)
+                .bind(phone_id)
+                .bind(victim_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         info!("[Repository] Phone {} created successfully", phone_id);
         Ok(phone)
     }
 
-    async fn get_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<VictimPhone, RepositoryError> {
+    async fn get_phone_by_id(&self, phone_id: Uuid) -> Result<VictimPhone, RepositoryError> {
         info!("[Repository] Fetching phone with id: {}", phone_id);
 
-        let phone: VictimPhone = sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::GET_VICTIM_PHONE_BY_ID)
-            .bind(phone_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let phone: VictimPhone =
+            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::GET_VICTIM_PHONE_BY_ID)
+                .bind(phone_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         info!("[Repository] Phone {} found", phone_id);
         Ok(phone)
@@ -638,31 +643,30 @@ impl VictimWriteRepository for PgVictimRepository {
     ) -> Result<VictimPhone, RepositoryError> {
         info!("[Repository] Updating phone: {}", phone_id);
 
-        let phone: VictimPhone = sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::UPDATE_VICTIM_PHONE_BY_ID)
-            .bind(phone_id)
-            .bind(&phone_data.phone)
-            .bind(&phone_data.phone_type)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let phone: VictimPhone =
+            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::UPDATE_VICTIM_PHONE_BY_ID)
+                .bind(phone_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         info!("[Repository] Phone {} updated successfully", phone_id);
         Ok(phone)
     }
 
-    async fn delete_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<VictimPhone, RepositoryError> {
+    async fn delete_phone_by_id(&self, phone_id: Uuid) -> Result<VictimPhone, RepositoryError> {
         info!("[Repository] Soft deleting phone: {}", phone_id);
 
-        let phone: VictimPhone = sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::DELETE_VICTIM_PHONE_BY_ID)
-            .bind(phone_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let phone: VictimPhone =
+            sqlx::query_as::<_, VictimPhoneRow>(VictimPhonesQueries::DELETE_VICTIM_PHONE_BY_ID)
+                .bind(phone_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         info!("[Repository] Phone {} soft deleted successfully", phone_id);
         Ok(phone)
@@ -676,29 +680,27 @@ impl VictimWriteRepository for PgVictimRepository {
         info!("[Repository] Creating address for victim: {}", victim_id);
         let address_id = Uuid::new_v4();
 
-        let address: VictimAddress = sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::CREATE_VICTIM_ADDRESS)
-            .bind(address_id)
-            .bind(victim_id)
-            .bind(&address_data.street)
-            .bind(&address_data.number)
-            .bind(&address_data.district)
-            .bind(address_data.city_id)
-            .bind(&address_data.zip_code)
-            .bind(&address_data.complement)
-            .bind(&address_data.address_type)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(map_victim_error)?
-            .into();
+        let address: VictimAddress =
+            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::CREATE_VICTIM_ADDRESS)
+                .bind(address_id)
+                .bind(victim_id)
+                .bind(&address_data.street)
+                .bind(&address_data.number)
+                .bind(&address_data.district)
+                .bind(address_data.city_id)
+                .bind(&address_data.zip_code)
+                .bind(&address_data.complement)
+                .bind(&address_data.address_type)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_victim_error)?
+                .into();
 
         info!("[Repository] Address {} created successfully", address_id);
         Ok(address)
     }
 
-    async fn get_address_by_id(
-        &self,
-        address_id: Uuid,
-    ) -> Result<VictimAddress, RepositoryError> {
+    async fn get_address_by_id(&self, address_id: Uuid) -> Result<VictimAddress, RepositoryError> {
         info!("[Repository] Fetching address with id: {}", address_id);
 
         let address: VictimAddress =
@@ -720,20 +722,21 @@ impl VictimWriteRepository for PgVictimRepository {
     ) -> Result<VictimAddress, RepositoryError> {
         info!("[Repository] Updating address: {}", address_id);
 
-        let address: VictimAddress =
-            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::UPDATE_VICTIM_ADDRESS_BY_ID)
-                .bind(address_id)
-                .bind(&address_data.street)
-                .bind(&address_data.number)
-                .bind(&address_data.district)
-                .bind(address_data.city_id)
-                .bind(&address_data.zip_code)
-                .bind(&address_data.complement)
-                .bind(&address_data.address_type)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into();
+        let address: VictimAddress = sqlx::query_as::<_, VictimAddressRow>(
+            VictimAddressesQueries::UPDATE_VICTIM_ADDRESS_BY_ID,
+        )
+        .bind(address_id)
+        .bind(&address_data.street)
+        .bind(&address_data.number)
+        .bind(&address_data.district)
+        .bind(address_data.city_id)
+        .bind(&address_data.zip_code)
+        .bind(&address_data.complement)
+        .bind(&address_data.address_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_victim_error)?
+        .into();
 
         info!("[Repository] Address {} updated successfully", address_id);
         Ok(address)
@@ -745,13 +748,14 @@ impl VictimWriteRepository for PgVictimRepository {
     ) -> Result<VictimAddress, RepositoryError> {
         info!("[Repository] Soft deleting address: {}", address_id);
 
-        let address: VictimAddress =
-            sqlx::query_as::<_, VictimAddressRow>(VictimAddressesQueries::DELETE_VICTIM_ADDRESS_BY_ID)
-                .bind(address_id)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_victim_error)?
-                .into();
+        let address: VictimAddress = sqlx::query_as::<_, VictimAddressRow>(
+            VictimAddressesQueries::DELETE_VICTIM_ADDRESS_BY_ID,
+        )
+        .bind(address_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_victim_error)?
+        .into();
 
         info!(
             "[Repository] Address {} soft deleted successfully",

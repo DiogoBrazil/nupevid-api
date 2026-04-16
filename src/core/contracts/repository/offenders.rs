@@ -9,13 +9,8 @@ use crate::core::read_models::offenders::OffenderWithDetails;
 
 #[async_trait]
 pub trait OffenderReadRepository: Send + Sync {
-    async fn get_offender_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<OffenderWithDetails, RepositoryError>;
-    async fn get_all_offenders(
-        &self,
-    ) -> Result<Vec<OffenderWithDetails>, RepositoryError>;
+    async fn get_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, RepositoryError>;
+    async fn get_all_offenders(&self) -> Result<Vec<OffenderWithDetails>, RepositoryError>;
     async fn get_offenders_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,
@@ -55,37 +50,27 @@ pub trait OffenderWriteRepository: Send + Sync {
         data: UpdateOffender,
         id: Uuid,
     ) -> Result<OffenderWriteResult, RepositoryError>;
-    async fn delete_offender_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<OffenderWriteResult, RepositoryError>;
+    async fn delete_offender_by_id(&self, id: Uuid)
+    -> Result<OffenderWriteResult, RepositoryError>;
     async fn create_phone(
         &self,
         offender_id: Uuid,
         phone_data: PhoneData,
     ) -> Result<OffenderPhone, RepositoryError>;
-    async fn get_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<OffenderPhone, RepositoryError>;
+    async fn get_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, RepositoryError>;
     async fn update_phone_by_id(
         &self,
         phone_id: Uuid,
         phone_data: PhoneData,
     ) -> Result<OffenderPhone, RepositoryError>;
-    async fn delete_phone_by_id(
-        &self,
-        phone_id: Uuid,
-    ) -> Result<OffenderPhone, RepositoryError>;
+    async fn delete_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, RepositoryError>;
     async fn create_address(
         &self,
         offender_id: Uuid,
         address_data: AddressData,
     ) -> Result<OffenderAddress, RepositoryError>;
-    async fn get_address_by_id(
-        &self,
-        address_id: Uuid,
-    ) -> Result<OffenderAddress, RepositoryError>;
+    async fn get_address_by_id(&self, address_id: Uuid)
+    -> Result<OffenderAddress, RepositoryError>;
     async fn update_address_by_id(
         &self,
         address_id: Uuid,

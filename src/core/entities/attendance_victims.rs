@@ -2,7 +2,6 @@ use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RiskLevel {
     High,
@@ -138,4 +137,3 @@ pub struct AttendanceVictimWriteResult {
     pub attendance: AttendanceVictim,
     pub address: Option<AttendanceVictimAddress>,
 }
-

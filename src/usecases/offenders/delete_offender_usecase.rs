@@ -1,12 +1,12 @@
 use log::{error, info};
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_context::AuthContext;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 
 pub struct DeleteOffenderUseCase {
@@ -28,7 +28,12 @@ impl DeleteOffenderUseCase {
             id
         );
 
-        match self.deps.offender_read_repository.get_offender_by_id(id).await {
+        match self
+            .deps
+            .offender_read_repository
+            .get_offender_by_id(id)
+            .await
+        {
             Ok(offender) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
                 auth.check_policy(&Policy::DeleteOffenders, offender.city_id)?;

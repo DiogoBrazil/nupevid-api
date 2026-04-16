@@ -2,19 +2,19 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::victims::{CreateVictim, UpdateVictim};
 use crate::core::entities::victims::{AddressData, PhoneData};
 use crate::core::filters::victims::VictimSearchQuery;
 use crate::usecases::victims::{
     CreateVictimAddressUseCase, CreateVictimPhoneUseCase, CreateVictimUseCase,
     DeleteVictimAddressUseCase, DeleteVictimPhoneUseCase, DeleteVictimUseCase,
-    GetAllVictimsUseCase, GetVictimByIdUseCase, SearchVictimsUseCase,
-    UpdateVictimAddressUseCase, UpdateVictimPhoneUseCase, UpdateVictimUseCase,
+    GetAllVictimsUseCase, GetVictimByIdUseCase, SearchVictimsUseCase, UpdateVictimAddressUseCase,
+    UpdateVictimPhoneUseCase, UpdateVictimUseCase,
 };
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
-use crate::core::application_error::ApplicationError as AppError;
 use crate::utils::pagination::PaginationParams;
 
 pub async fn create_victim(

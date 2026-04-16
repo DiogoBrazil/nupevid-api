@@ -1,11 +1,11 @@
 use log::info;
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::common::AddressData;
 use crate::core::read_models::victims::VictimAddressResponse;
 use crate::core::value_objects::policies::Policy;
-use crate::core::application_error::ApplicationError as AppError;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::helpers::load_auth_and_check_victim;
 
@@ -24,7 +24,10 @@ impl CreateVictimAddressUseCase {
         address_data: AddressData,
         claims: &UserClaims,
     ) -> Result<VictimAddressResponse, AppError> {
-        info!("[CreateVictimAddressUseCase] Adding address to victim: {}", victim_id);
+        info!(
+            "[CreateVictimAddressUseCase] Adding address to victim: {}",
+            victim_id
+        );
 
         load_auth_and_check_victim(
             &*self.deps.user_repository,

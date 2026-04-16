@@ -1,9 +1,9 @@
 use uuid::Uuid;
 
+use crate::core::application_error::ApplicationError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
-use crate::core::application_error::ApplicationError;
 
 pub async fn validate_members_same_city(
     user_repository: &dyn UserRepository,

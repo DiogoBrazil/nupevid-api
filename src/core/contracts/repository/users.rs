@@ -9,21 +9,10 @@ use crate::core::entities::users::UserRecord;
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait UserRepository: Send + Sync + 'static {
-    async fn create_user(
-        &self,
-        data: CreateUser,
-    ) -> Result<UserRecord, RepositoryError>;
-    async fn get_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserRecord, RepositoryError>;
-    async fn get_all_users(
-        &self,
-    ) -> Result<Vec<UserRecord>, RepositoryError>;
-    async fn get_users_by_name(
-        &self,
-        name: &str,
-    ) -> Result<Vec<UserRecord>, RepositoryError>;
+    async fn create_user(&self, data: CreateUser) -> Result<UserRecord, RepositoryError>;
+    async fn get_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError>;
+    async fn get_all_users(&self) -> Result<Vec<UserRecord>, RepositoryError>;
+    async fn get_users_by_name(&self, name: &str) -> Result<Vec<UserRecord>, RepositoryError>;
     async fn get_users_by_registration(
         &self,
         registration: &str,
@@ -49,23 +38,14 @@ pub trait UserRepository: Send + Sync + 'static {
         data: UpdateUser,
         id: Uuid,
     ) -> Result<UserRecord, RepositoryError>;
-    async fn delete_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserRecord, RepositoryError>;
-    async fn check_user_exists_by_email(
-        &self,
-        email: &str,
-    ) -> Result<bool, RepositoryError>;
+    async fn delete_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError>;
+    async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, RepositoryError>;
     async fn check_email_exists_for_other_user(
         &self,
         email: &str,
         id: Uuid,
     ) -> Result<bool, RepositoryError>;
-    async fn get_user_password_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<String, RepositoryError>;
+    async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, RepositoryError>;
     async fn update_user_password_by_id(
         &self,
         id: Uuid,
@@ -82,10 +62,7 @@ pub trait UserRepository: Send + Sync + 'static {
         city_id: Uuid,
         exclude_user_id: Uuid,
     ) -> Result<bool, RepositoryError>;
-    async fn get_user_policies_json_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<JsonValue, RepositoryError>;
+    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, RepositoryError>;
     async fn update_user_policies_by_id(
         &self,
         id: Uuid,

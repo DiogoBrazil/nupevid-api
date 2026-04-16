@@ -8,8 +8,12 @@ pub enum CpfValidationError {
 impl std::fmt::Display for CpfValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CpfValidationError::InvalidLength => write!(f, "cpf must be 14 characters in the format 000.000.000-00"),
-            CpfValidationError::InvalidFormat => write!(f, "cpf must match the format 000.000.000-00"),
+            CpfValidationError::InvalidLength => {
+                write!(f, "cpf must be 14 characters in the format 000.000.000-00")
+            }
+            CpfValidationError::InvalidFormat => {
+                write!(f, "cpf must match the format 000.000.000-00")
+            }
             CpfValidationError::InvalidDigits => write!(f, "cpf has invalid check digits"),
         }
     }
