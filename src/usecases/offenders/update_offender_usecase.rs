@@ -6,13 +6,11 @@ use crate::core::auth_context::AuthContext;
 use crate::core::commands::offenders::UpdateOffender;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::common::{
-    is_security_agent, normalize_flag_from_list, resolve_city_id_from_addresses,
-};
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
-use crate::validators::{cpf_validator::validate_cpf, offender_validator::OffenderValidator};
+use crate::usecases::offenders::normalization::normalize_offender_input;
+use crate::validators::common::validate_person_name;
 
 pub struct UpdateOffenderUseCase {
     deps: OffenderUseCaseDependencies,
@@ -36,23 +34,11 @@ impl UpdateOffenderUseCase {
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         let mut data = data;
-        let city_id = resolve_city_id_from_addresses(&data.addresses, data.city_id)
-            .map_err(|e| AppError::BadRequest(format!("Error updating offender: {}", e)))?;
-        data.city_id = Some(city_id);
-        data.is_public_security_agent = is_security_agent(&data.security_force);
-        let (has_psychiatric_issues, psychiatric_issues_type) =
-            normalize_flag_from_list(&data.psychiatric_issues_type);
-        data.has_psychiatric_issues = has_psychiatric_issues;
-        data.psychiatric_issues_type = psychiatric_issues_type;
-
-        if let Some(cpf) = data.cpf.as_ref() {
-            let normalized = validate_cpf(cpf, "Error updating offender")?;
-            data.cpf = Some(normalized);
-        }
+        let city_id = normalize_offender_input(&mut data, "Error updating offender")?;
 
         auth.check_policy(&Policy::UpdateOffenders, city_id)?;
 
-        OffenderValidator::validate_required_fields(&data.full_name, "Error updating offender")?;
+        validate_person_name(&data.full_name, "Error updating offender")?;
 
         match self
             .deps

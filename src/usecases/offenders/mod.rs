@@ -9,6 +9,7 @@ pub mod get_all_offenders_usecase;
 pub mod get_offender_by_id_usecase;
 pub mod get_offenders_by_victim_usecase;
 pub mod helpers;
+mod normalization;
 pub mod search_offenders_usecase;
 pub mod update_offender_address_usecase;
 pub mod update_offender_phone_usecase;
