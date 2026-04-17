@@ -5,7 +5,9 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::work_session_members::UpdateMemberFunction;
-use crate::core::commands::work_sessions::{CreateWorkSession, UpdateWorkSessionMembers};
+use crate::core::commands::work_sessions::{
+    CreateWorkSession, UpdateWorkSession, UpdateWorkSessionMembers,
+};
 use crate::core::entities::work_session_members::TeamMemberFunction;
 use crate::core::filters::common::IncludeRelatedQuery;
 use crate::core::filters::work_sessions::ListWorkSessionsQuery;
@@ -186,7 +188,7 @@ pub async fn update_member_function(
 
 pub async fn update_work_session(
     path: web::Path<Uuid>,
-    data: web::Json<CreateWorkSession>,
+    data: web::Json<UpdateWorkSession>,
     query: web::Query<IncludeRelatedQuery>,
     usecase: web::Data<UpdateWorkSessionUseCase>,
     presenter: web::Data<WorkSessionPresenter>,

@@ -17,7 +17,7 @@ use crate::utils::controller_helpers::{
 use crate::utils::pagination::PaginationParams;
 
 #[derive(serde::Deserialize)]
-pub struct PolicyCitiesPayload {
+pub struct PolicyCityAssignment {
     pub city_ids: Vec<Uuid>,
 }
 
@@ -133,9 +133,19 @@ pub async fn reset_user_password_by_id(
     Ok(success(response))
 }
 
+fn parse_policy_or_bad_request(policy_str: &str) -> Result<Policy, AppError> {
+    serde_json::from_value(serde_json::Value::String(policy_str.to_string())).map_err(|_| {
+        AppError::BadRequest(format!(
+            "Invalid policy name '{}'. Valid policies are: {:?}",
+            policy_str,
+            Policy::all().iter().map(|p| p.as_str()).collect::<Vec<_>>()
+        ))
+    })
+}
+
 pub async fn append_user_policy_cities(
     path: web::Path<(Uuid, String)>,
-    body: web::Json<PolicyCitiesPayload>,
+    body: web::Json<PolicyCityAssignment>,
     usecase: web::Data<AppendUserPolicyCitiesUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
@@ -144,14 +154,7 @@ pub async fn append_user_policy_cities(
         "[Controller] Append cities to user policy '{}' for user: {}",
         policy_str, user_id
     );
-    let policy: Policy = serde_json::from_value(serde_json::Value::String(policy_str.clone()))
-        .map_err(|_| {
-            AppError::BadRequest(format!(
-                "Invalid policy name '{}'. Valid policies are: {:?}",
-                policy_str,
-                Policy::all().iter().map(|p| p.as_str()).collect::<Vec<_>>()
-            ))
-        })?;
+    let policy = parse_policy_or_bad_request(&policy_str)?;
     let claims = request_claims(&req)?;
     let user = usecase
         .execute(user_id, &policy, &body.city_ids, &claims)
@@ -161,7 +164,7 @@ pub async fn append_user_policy_cities(
 
 pub async fn remove_user_policy_cities(
     path: web::Path<(Uuid, String)>,
-    body: web::Json<PolicyCitiesPayload>,
+    body: web::Json<PolicyCityAssignment>,
     usecase: web::Data<RemoveUserPolicyCitiesUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
@@ -170,14 +173,7 @@ pub async fn remove_user_policy_cities(
         "[Controller] Remove cities from user policy '{}' for user: {}",
         policy_str, user_id
     );
-    let policy: Policy = serde_json::from_value(serde_json::Value::String(policy_str.clone()))
-        .map_err(|_| {
-            AppError::BadRequest(format!(
-                "Invalid policy name '{}'. Valid policies are: {:?}",
-                policy_str,
-                Policy::all().iter().map(|p| p.as_str()).collect::<Vec<_>>()
-            ))
-        })?;
+    let policy = parse_policy_or_bad_request(&policy_str)?;
     let claims = request_claims(&req)?;
     let user = usecase
         .execute(user_id, &policy, &body.city_ids, &claims)
