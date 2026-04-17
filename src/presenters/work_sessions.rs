@@ -7,15 +7,15 @@ use crate::core::contracts::repository::work_sessions::WorkSessionReadRepository
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::pagination::PaginatedResult;
 use crate::core::read_models::work_sessions::{
-    WorkSessionWithMembers, WorkSessionWithMembersSummary,
+    WorkSessionWithMemberDetails, WorkSessionWithMemberUsers,
 };
 use crate::utils::pagination::Pagination;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WorkSessionResponse {
-    Simple(WorkSessionWithMembers),
-    WithEntities(WorkSessionWithMembersSummary),
+    Simple(WorkSessionWithMemberDetails),
+    WithEntities(WorkSessionWithMemberUsers),
 }
 
 pub struct WorkSessionPresenter {
@@ -39,7 +39,7 @@ impl WorkSessionPresenter {
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
             Ok(WorkSessionResponse::WithEntities(
-                WorkSessionWithMembersSummary::from_entity(session, members),
+                WorkSessionWithMemberUsers::from_entity(session, members),
             ))
         } else {
             let members = self
@@ -48,7 +48,7 @@ impl WorkSessionPresenter {
                 .await
                 .map_err(|_| AppError::InternalServerError)?;
             Ok(WorkSessionResponse::Simple(
-                WorkSessionWithMembers::from_entity(session, members),
+                WorkSessionWithMemberDetails::from_entity(session, members),
             ))
         }
     }

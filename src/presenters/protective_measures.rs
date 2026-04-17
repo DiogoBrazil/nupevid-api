@@ -12,7 +12,7 @@ use crate::core::contracts::repository::victims::VictimReadRepository;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureExtension};
 use crate::core::pagination::PaginatedResult;
 use crate::core::read_models::protective_measures::{
-    ProtectiveMeasureWithExtensions, ProtectiveMeasureWithExtensionsAndEntities,
+    ProtectiveMeasureWithExtensions, ProtectiveMeasureWithRelations,
 };
 use crate::utils::pagination::Pagination;
 
@@ -21,7 +21,7 @@ use crate::utils::pagination::Pagination;
 #[serde(untagged)]
 pub enum ProtectiveMeasureResponse {
     Simple(ProtectiveMeasureWithExtensions),
-    WithEntities(ProtectiveMeasureWithExtensionsAndEntities),
+    WithEntities(ProtectiveMeasureWithRelations),
 }
 
 pub struct ProtectiveMeasurePresenter {
@@ -103,7 +103,7 @@ impl ProtectiveMeasurePresenter {
         &self,
         measure: ProtectiveMeasure,
         extensions: Vec<ProtectiveMeasureExtension>,
-    ) -> Result<ProtectiveMeasureWithExtensionsAndEntities, AppError> {
+    ) -> Result<ProtectiveMeasureWithRelations, AppError> {
         let victim = self
             .victim_read_repository
             .get_victim_by_id(measure.victim_id)
@@ -157,7 +157,7 @@ impl ProtectiveMeasurePresenter {
                 }
             })?;
 
-        Ok(ProtectiveMeasureWithExtensionsAndEntities {
+        Ok(ProtectiveMeasureWithRelations {
             measure,
             extensions,
             victim: victim.into(),
