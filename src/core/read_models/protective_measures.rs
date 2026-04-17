@@ -13,7 +13,7 @@ pub struct ProtectiveMeasureWithExtensions {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ProtectiveMeasureWithExtensionsAndEntities {
+pub struct ProtectiveMeasureWithRelations {
     #[serde(flatten)]
     pub measure: ProtectiveMeasure,
     pub extensions: Vec<ProtectiveMeasureExtension>,

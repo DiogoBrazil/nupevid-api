@@ -23,7 +23,7 @@ pub struct WorkSessionMemberWithUser {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkSessionWithMembers {
+pub struct WorkSessionWithMemberDetails {
     pub id: Uuid,
     pub created_by_user_id: Uuid,
     pub started_at: DateTime<Utc>,
@@ -36,7 +36,7 @@ pub struct WorkSessionWithMembers {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkSessionWithMembersSummary {
+pub struct WorkSessionWithMemberUsers {
     pub id: Uuid,
     pub created_by_user_id: Uuid,
     pub started_at: DateTime<Utc>,
@@ -48,9 +48,9 @@ pub struct WorkSessionWithMembersSummary {
     pub members: Vec<WorkSessionMemberWithUser>,
 }
 
-impl WorkSessionWithMembers {
+impl WorkSessionWithMemberDetails {
     pub fn from_entity(session: WorkSession, members: Vec<WorkSessionMemberWithDetails>) -> Self {
-        WorkSessionWithMembers {
+        WorkSessionWithMemberDetails {
             id: session.id,
             created_by_user_id: session.created_by_user_id,
             started_at: session.started_at,
@@ -64,9 +64,9 @@ impl WorkSessionWithMembers {
     }
 }
 
-impl WorkSessionWithMembersSummary {
+impl WorkSessionWithMemberUsers {
     pub fn from_entity(session: WorkSession, members: Vec<WorkSessionMemberWithUser>) -> Self {
-        WorkSessionWithMembersSummary {
+        WorkSessionWithMemberUsers {
             id: session.id,
             created_by_user_id: session.created_by_user_id,
             started_at: session.started_at,

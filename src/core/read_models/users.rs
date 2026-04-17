@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
@@ -19,8 +19,8 @@ pub struct UserSummary {
     pub is_deleted: bool,
 }
 
-impl From<UserRecord> for UserSummary {
-    fn from(user: UserRecord) -> Self {
+impl From<User> for UserSummary {
+    fn from(user: User) -> Self {
         Self {
             id: user.id,
             rank: user.rank,
