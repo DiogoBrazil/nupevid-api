@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
 use crate::core::commands::protective_measures::{
-    CreateExtension, UpdateExtension, UpdateProtectiveMeasure,
+    CreateExtension, ExtensionUpsert, UpdateExtension, UpdateProtectiveMeasure,
 };
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
@@ -22,7 +22,6 @@ fn map_reference_error_for_update(msg: String) -> AppError {
         "Court district not found" => "court_district_id not found".to_string(),
         _ => msg,
     };
-
     AppError::BadRequest(format!("Error updating protective measure: {}", detail))
 }
 
@@ -44,32 +43,62 @@ impl UpdateProtectiveMeasureUseCase {
 
         let mut data = data;
 
-        let existing_measure = match self
+        let existing_measure = self.load_existing_measure(id).await?;
+        self.authorize_update(claims, &data, &existing_measure)
+            .await?;
+        self.validate_related_entities(&data, &existing_measure)
+            .await?;
+
+        ProtectiveMeasureValidator::validate_required_fields(
+            &data.process_number,
+            &data.judicial_authority,
+            &data.violence_types,
+            "Error updating protective measure",
+        )?;
+
+        self.ensure_unique_active_measure(&data, id).await?;
+
+        let extensions = data.extensions.take();
+        self.validate_extension_ownership(&extensions, id).await?;
+        let (extensions_to_create, extensions_to_update) =
+            Self::split_extensions_for_upsert(&extensions);
+
+        self.persist_measure_and_extensions(&data, id, &extensions_to_create, &extensions_to_update)
+            .await
+    }
+
+    async fn load_existing_measure(&self, id: Uuid) -> Result<ProtectiveMeasure, AppError> {
+        match self
             .deps
             .measure_read_repository
             .get_protective_measure_by_id(id)
             .await
         {
-            Ok(m) => m,
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Protective measure with id '{}' not found",
-                    id
-                )));
-            }
+            Ok(m) => Ok(m),
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+                "Protective measure with id '{}' not found",
+                id
+            ))),
             Err(e) => {
                 error!(
                     "[UpdateProtectiveMeasureUseCase] Error fetching measure: {:?}",
                     e
                 );
-                return Err(AppError::InternalServerError);
+                Err(AppError::InternalServerError)
             }
-        };
+        }
+    }
 
+    async fn authorize_update(
+        &self,
+        claims: &UserClaims,
+        data: &UpdateProtectiveMeasure,
+        existing: &ProtectiveMeasure,
+    ) -> Result<(), AppError> {
         let existing_victim = self
             .deps
             .victim_repository
-            .get_victim_by_id(existing_measure.victim_id)
+            .get_victim_by_id(existing.victim_id)
             .await
             .map_err(|e| {
                 error!(
@@ -82,7 +111,7 @@ impl UpdateProtectiveMeasureUseCase {
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::UpdateProtectiveMeasures, existing_victim.city_id)?;
 
-        if data.victim_id != existing_measure.victim_id {
+        if data.victim_id != existing.victim_id {
             let new_victim = match self
                 .deps
                 .victim_repository
@@ -104,11 +133,18 @@ impl UpdateProtectiveMeasureUseCase {
                     return Err(AppError::InternalServerError);
                 }
             };
-
             auth.check_policy(&Policy::UpdateProtectiveMeasures, new_victim.city_id)?;
         }
 
-        if data.offender_id != existing_measure.offender_id {
+        Ok(())
+    }
+
+    async fn validate_related_entities(
+        &self,
+        data: &UpdateProtectiveMeasure,
+        existing: &ProtectiveMeasure,
+    ) -> Result<(), AppError> {
+        if data.offender_id != existing.offender_id {
             match self
                 .deps
                 .offender_repository
@@ -131,19 +167,19 @@ impl UpdateProtectiveMeasureUseCase {
                 }
             }
         }
+        Ok(())
+    }
 
-        ProtectiveMeasureValidator::validate_required_fields(
-            &data.process_number,
-            &data.judicial_authority,
-            &data.violence_types,
-            "Error updating protective measure",
-        )?;
-
+    async fn ensure_unique_active_measure(
+        &self,
+        data: &UpdateProtectiveMeasure,
+        exclude_id: Uuid,
+    ) -> Result<(), AppError> {
         if data.status == ProtectiveMeasureStatus::Valid {
             let active_exists = self
                 .deps
                 .measure_read_repository
-                .check_active_measure_exists_for_victim(data.victim_id, id)
+                .check_active_measure_exists_for_victim(data.victim_id, exclude_id)
                 .await
                 .map_err(|e| {
                     error!(
@@ -163,8 +199,14 @@ impl UpdateProtectiveMeasureUseCase {
                 ));
             }
         }
+        Ok(())
+    }
 
-        let extensions = data.extensions.take();
+    async fn validate_extension_ownership(
+        &self,
+        extensions: &Option<Vec<ExtensionUpsert>>,
+        measure_id: Uuid,
+    ) -> Result<(), AppError> {
         if let Some(extensions_list) = extensions.as_ref() {
             for ext in extensions_list {
                 if let Some(ext_id) = ext.id {
@@ -190,7 +232,7 @@ impl UpdateProtectiveMeasureUseCase {
                         }
                     };
 
-                    if existing_ext.protective_measure_id != id {
+                    if existing_ext.protective_measure_id != measure_id {
                         return Err(AppError::BadRequest(
                             "Error updating protective measure: extension does not belong to this measure".to_string()
                         ));
@@ -198,14 +240,19 @@ impl UpdateProtectiveMeasureUseCase {
                 }
             }
         }
+        Ok(())
+    }
 
-        let mut extensions_to_create = Vec::new();
-        let mut extensions_to_update = Vec::new();
+    fn split_extensions_for_upsert(
+        extensions: &Option<Vec<ExtensionUpsert>>,
+    ) -> (Vec<CreateExtension>, Vec<(Uuid, UpdateExtension)>) {
+        let mut to_create = Vec::new();
+        let mut to_update = Vec::new();
 
         if let Some(extensions_list) = extensions.as_ref() {
             for ext in extensions_list {
                 if let Some(ext_id) = ext.id {
-                    extensions_to_update.push((
+                    to_update.push((
                         ext_id,
                         UpdateExtension {
                             extension_number: ext.extension_number,
@@ -215,7 +262,7 @@ impl UpdateProtectiveMeasureUseCase {
                         },
                     ));
                 } else {
-                    extensions_to_create.push(CreateExtension {
+                    to_create.push(CreateExtension {
                         extension_number: ext.extension_number,
                         extension_date: ext.extension_date,
                         new_valid_until: ext.new_valid_until,
@@ -225,40 +272,48 @@ impl UpdateProtectiveMeasureUseCase {
             }
         }
 
-        let updated = match self
+        (to_create, to_update)
+    }
+
+    async fn persist_measure_and_extensions(
+        &self,
+        data: &UpdateProtectiveMeasure,
+        id: Uuid,
+        extensions_to_create: &[CreateExtension],
+        extensions_to_update: &[(Uuid, UpdateExtension)],
+    ) -> Result<ProtectiveMeasure, AppError> {
+        match self
             .deps
             .measure_write_repository
             .update_protective_measure_with_extensions(
-                &data,
+                data,
                 id,
-                &extensions_to_create,
-                &extensions_to_update,
+                extensions_to_create,
+                extensions_to_update,
             )
             .await
         {
-            Ok(measure) => measure,
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Protective measure with id '{}' not found",
+            Ok(measure) => {
+                info!(
+                    "[UpdateProtectiveMeasureUseCase] Protective measure updated successfully: {}",
                     id
-                )));
+                );
+                Ok(measure)
             }
+            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
+                "Protective measure with id '{}' not found",
+                id
+            ))),
             Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                return Err(map_reference_error_for_update(msg));
+                Err(map_reference_error_for_update(msg))
             }
             Err(e) => {
                 error!(
                     "[UpdateProtectiveMeasureUseCase] Failed to update measure: {:?}",
                     e
                 );
-                return Err(AppError::InternalServerError);
+                Err(AppError::InternalServerError)
             }
-        };
-
-        info!(
-            "[UpdateProtectiveMeasureUseCase] Protective measure updated successfully: {}",
-            id
-        );
-        Ok(updated)
+        }
     }
 }
