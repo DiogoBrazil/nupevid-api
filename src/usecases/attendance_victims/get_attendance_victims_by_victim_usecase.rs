@@ -7,7 +7,7 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::verify_victim_access;
+use crate::usecases::attendance_victims::helpers::get_victim_or_not_found;
 
 pub struct GetAttendanceVictimsByVictimUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -29,7 +29,7 @@ impl GetAttendanceVictimsByVictimUseCase {
             victim_id
         );
 
-        let victim = verify_victim_access(&*self.deps.victim_repository, victim_id).await?;
+        let victim = get_victim_or_not_found(&*self.deps.victim_repository, victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
 

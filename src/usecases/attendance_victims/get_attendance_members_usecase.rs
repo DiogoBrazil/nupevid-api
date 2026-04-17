@@ -8,7 +8,7 @@ use crate::core::read_models::attendance_members::AttendanceMemberWithDetails;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::{
-    get_attendance_victim_or_not_found, verify_victim_access,
+    get_attendance_victim_or_not_found, get_victim_or_not_found,
 };
 
 pub struct GetAttendanceMembersUseCase {
@@ -40,7 +40,7 @@ impl GetAttendanceMembersUseCase {
         .await?;
 
         let victim =
-            verify_victim_access(&*self.deps.victim_repository, attendance.victim_id).await?;
+            get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
         auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
 
         let members = self

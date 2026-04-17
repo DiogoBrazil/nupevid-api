@@ -10,7 +10,7 @@ use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::{
-    get_attendance_victim_or_not_found, verify_victim_access,
+    get_attendance_victim_or_not_found, get_victim_or_not_found,
 };
 
 pub struct UpdateAttendanceVictimUseCase {
@@ -56,7 +56,7 @@ impl UpdateAttendanceVictimUseCase {
 
         if data.victim_id != existing.victim_id {
             let new_victim =
-                verify_victim_access(&*self.deps.victim_repository, data.victim_id).await?;
+                get_victim_or_not_found(&*self.deps.victim_repository, data.victim_id).await?;
             auth.check_policy(&Policy::UpdateAttendances, new_victim.city_id)?;
         }
 
