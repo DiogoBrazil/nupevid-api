@@ -7,6 +7,7 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
+use crate::core::policy_defaults;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 
@@ -74,5 +75,8 @@ pub async fn get_user_policies_with_defaults<T: UserRepository + ?Sized>(
         None
     };
 
-    Ok(Policy::default_for_profile(&claims.profile, city_id))
+    Ok(policy_defaults::default_for_profile(
+        &claims.profile,
+        city_id,
+    ))
 }

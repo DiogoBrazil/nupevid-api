@@ -1,3 +1,4 @@
+pub mod address_resolution;
 pub mod application_error;
 pub mod auth_context;
 pub mod auth_helpers;
@@ -8,6 +9,7 @@ pub mod entities;
 pub mod errors;
 pub mod filters;
 pub mod pagination;
+pub mod policy_defaults;
 pub mod read_models;
 pub mod responses;
 pub mod value_objects;
