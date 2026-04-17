@@ -149,7 +149,7 @@ pub async fn insert_user(
     profile: &str,
     city_id: Option<Uuid>,
 ) -> Uuid {
-    use nupevid_api::core::value_objects::policies::Policy;
+    use nupevid_api::core::policy_defaults;
     use nupevid_api::core::value_objects::profiles::Profile;
 
     let id = Uuid::new_v4();
@@ -165,7 +165,7 @@ pub async fn insert_user(
 
     // Generate default policies for the profile
     let profile_enum: Profile = profile.try_into().expect("Invalid profile string");
-    let policies = Policy::default_for_profile(&profile_enum, city_id);
+    let policies = policy_defaults::default_for_profile(&profile_enum, city_id);
     let policies_json = serde_json::to_value(&policies).expect("Failed to serialize policies");
 
     sqlx::query(
