@@ -6,7 +6,7 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::auth::Login;
 use crate::core::contracts::adapters::token_generator::TokenClaimsInput;
 use crate::core::contracts::repository::error::RepositoryError;
-use crate::core::read_models::work_sessions::WorkSessionWithMembers;
+use crate::core::read_models::work_sessions::WorkSessionWithMemberDetails;
 use crate::core::responses::auth::LoginResponse;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
@@ -107,7 +107,7 @@ impl LoginUseCase {
         user_id: Uuid,
         profile: &Profile,
         city_id: Option<Uuid>,
-    ) -> Result<Option<WorkSessionWithMembers>, AppError> {
+    ) -> Result<Option<WorkSessionWithMemberDetails>, AppError> {
         info!(
             "[LoginUseCase] Resolving login work session for user: {}",
             user_id
