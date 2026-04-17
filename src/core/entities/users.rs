@@ -7,7 +7,7 @@ use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserRecord {
+pub struct User {
     pub id: Uuid,
     pub rank: Rank,
     pub registration: String,
