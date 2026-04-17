@@ -8,7 +8,7 @@ use crate::core::commands::work_sessions::CreateWorkSession;
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::work_sessions::{
-    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMembers,
+    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMemberDetails,
 };
 
 #[async_trait]
@@ -25,7 +25,7 @@ pub trait WorkSessionReadRepository: Send + Sync {
     async fn get_session_by_id(
         &self,
         session_id: Uuid,
-    ) -> Result<WorkSessionWithMembers, RepositoryError>;
+    ) -> Result<WorkSessionWithMemberDetails, RepositoryError>;
 
     async fn get_session_by_id_base(
         &self,
@@ -35,7 +35,7 @@ pub trait WorkSessionReadRepository: Send + Sync {
     async fn get_sessions_by_user(
         &self,
         user_id: Uuid,
-    ) -> Result<Vec<WorkSessionWithMembers>, RepositoryError>;
+    ) -> Result<Vec<WorkSessionWithMemberDetails>, RepositoryError>;
 
     async fn list_sessions_filtered(
         &self,
