@@ -2,7 +2,7 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::commands::work_sessions::CreateWorkSession;
+use crate::core::commands::work_sessions::UpdateWorkSession;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_session_members::TeamMemberFunction;
@@ -31,7 +31,7 @@ impl UpdateWorkSessionUseCase {
     pub async fn execute(
         &self,
         session_id: Uuid,
-        data: CreateWorkSession,
+        data: UpdateWorkSession,
         claims: &UserClaims,
     ) -> Result<WorkSession, AppError> {
         info!(

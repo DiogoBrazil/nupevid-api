@@ -6,7 +6,7 @@ use crate::core::commands::work_sessions::UpdateWorkSessionMembers;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::work_session_members::TeamMemberFunction;
-use crate::core::read_models::work_sessions::WorkSessionWithMembers;
+use crate::core::read_models::work_sessions::WorkSessionWithMemberDetails;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::work_sessions::deps::WorkSessionUseCaseDependencies;
@@ -33,7 +33,7 @@ impl UpdateMembersUseCase {
         session_id: Uuid,
         data: UpdateWorkSessionMembers,
         claims: &UserClaims,
-    ) -> Result<WorkSessionWithMembers, AppError> {
+    ) -> Result<WorkSessionWithMemberDetails, AppError> {
         info!(
             "[UpdateMembersUseCase] Updating session members: {}",
             session_id
