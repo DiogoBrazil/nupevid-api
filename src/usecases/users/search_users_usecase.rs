@@ -2,7 +2,7 @@ use log::{error, info};
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::{build_user_read_scope, filter_users_by_scope};
 use crate::usecases::users::search_criteria::UserSearchCriteria;
@@ -21,7 +21,7 @@ impl SearchUsersUseCase {
         name: Option<String>,
         registration: Option<String>,
         claims: &UserClaims,
-    ) -> Result<Vec<UserRecord>, AppError> {
+    ) -> Result<Vec<User>, AppError> {
         info!("[SearchUsersUseCase] Starting user search");
 
         let search = UserSearchCriteria::parse(name, registration)?;

@@ -2,7 +2,7 @@ use log::info;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::pagination::PaginatedResult;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::build_user_read_scope;
@@ -21,7 +21,7 @@ impl GetAllUsersUseCase {
         &self,
         pagination: Pagination,
         claims: &UserClaims,
-    ) -> Result<PaginatedResult<UserRecord>, AppError> {
+    ) -> Result<PaginatedResult<User>, AppError> {
         let scope = build_user_read_scope(self.deps.user_repository.as_ref(), claims).await?;
 
         let total_items = self

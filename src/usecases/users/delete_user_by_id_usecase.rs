@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::authorization::check_policy;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::users::deps::UserUseCaseDependencies;
@@ -19,7 +19,7 @@ impl DeleteUserByIdUseCase {
         Self { deps }
     }
 
-    pub async fn execute(&self, id: Uuid, claims: &UserClaims) -> Result<UserRecord, AppError> {
+    pub async fn execute(&self, id: Uuid, claims: &UserClaims) -> Result<User, AppError> {
         let existing = get_existing_user(self.deps.user_repository.as_ref(), id).await?;
 
         if existing.profile == Profile::Root && claims.profile != Profile::Root {

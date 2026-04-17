@@ -5,7 +5,7 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::users::UpdateUserPassword;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::usecases::users::deps::UserUseCaseDependencies;
 
 pub struct UpdateUserPasswordUseCase {
@@ -21,7 +21,7 @@ impl UpdateUserPasswordUseCase {
         &self,
         data: UpdateUserPassword,
         claims: &UserClaims,
-    ) -> Result<UserRecord, AppError> {
+    ) -> Result<User, AppError> {
         let id = Uuid::parse_str(&claims.id)
             .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 

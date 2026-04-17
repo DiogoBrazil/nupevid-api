@@ -5,7 +5,7 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_helpers::get_user_policies_strict;
 use crate::core::authorization::check_policy;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::users::deps::UserUseCaseDependencies;
@@ -26,7 +26,7 @@ impl AppendUserPolicyCitiesUseCase {
         policy: &Policy,
         city_ids: &[Uuid],
         claims: &UserClaims,
-    ) -> Result<UserRecord, AppError> {
+    ) -> Result<User, AppError> {
         if !policy.is_assignable() {
             return Err(AppError::BadRequest(format!(
                 "Policy '{}' is not assignable; only ROOT can perform this action",

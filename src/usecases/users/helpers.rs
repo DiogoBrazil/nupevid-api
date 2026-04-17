@@ -6,7 +6,7 @@ use crate::core::auth_helpers::{PolicyMap, get_user_policies_strict};
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 
@@ -44,7 +44,7 @@ pub async fn build_user_read_scope(
     })
 }
 
-pub fn filter_users_by_scope(mut users: Vec<UserRecord>, scope: &UserReadScope) -> Vec<UserRecord> {
+pub fn filter_users_by_scope(mut users: Vec<User>, scope: &UserReadScope) -> Vec<User> {
     if scope.exclude_root {
         users.retain(|user| user.profile != Profile::Root);
     }
@@ -63,7 +63,7 @@ pub fn filter_users_by_scope(mut users: Vec<UserRecord>, scope: &UserReadScope) 
 pub async fn get_existing_user(
     user_repository: &dyn UserRepository,
     id: Uuid,
-) -> Result<UserRecord, AppError> {
+) -> Result<User, AppError> {
     match user_repository.get_user_by_id(id).await {
         Ok(user) => Ok(user),
         Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(

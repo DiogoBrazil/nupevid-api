@@ -7,7 +7,7 @@ use crate::core::authorization::check_policy;
 use crate::core::commands::users::UpdateUser;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::entities::users::UserRecord;
+use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::users::deps::UserUseCaseDependencies;
@@ -28,12 +28,27 @@ impl UpdateUserUseCase {
         data: UpdateUser,
         id: Uuid,
         claims: &UserClaims,
-    ) -> Result<UserRecord, AppError> {
+    ) -> Result<User, AppError> {
         info!("[UpdateUserUseCase] Starting user update for id: {}", id);
 
         let mut data = data;
         data.email = data.email.trim().to_lowercase();
 
+        self.authorize_update(claims, &data, id).await?;
+        self.validate_input(&data)?;
+        self.validate_policy_changes(claims, &data).await?;
+        self.validate_unique_role_rules(&data, id).await?;
+        self.check_email_uniqueness(&data.email, id).await?;
+
+        self.persist_update(data, id).await
+    }
+
+    async fn authorize_update(
+        &self,
+        claims: &UserClaims,
+        data: &UpdateUser,
+        id: Uuid,
+    ) -> Result<(), AppError> {
         if data.profile == Profile::Root && claims.profile != Profile::Root {
             return Err(AppError::Forbidden(
                 "Only ROOT can assign ROOT profile".to_string(),
@@ -63,11 +78,13 @@ impl UpdateUserUseCase {
             }
         }
 
+        Ok(())
+    }
+
+    fn validate_input(&self, data: &UpdateUser) -> Result<(), AppError> {
         UserValidator::validate_fields(
-            &data.rank,
             &data.registration,
             &data.full_name,
-            &data.profile,
             &data.email,
             None,
             "Error updating user: ",
@@ -77,26 +94,39 @@ impl UpdateUserUseCase {
             &data.profile,
             &data.city_id,
             "Error updating user",
-        )?;
+        )
+    }
 
+    async fn validate_policy_changes(
+        &self,
+        claims: &UserClaims,
+        data: &UpdateUser,
+    ) -> Result<(), AppError> {
         if let Some(policies) = data.permission_policies.as_ref() {
-            let claims_policies_json =
+            let claims_policies =
                 get_user_policies_strict(self.deps.user_repository.as_ref(), claims).await?;
             PolicyValidator::validate_assignment_permission(
                 claims,
                 &data.profile,
                 policies,
-                claims_policies_json.as_ref(),
+                claims_policies.as_ref(),
             )?;
         }
+        Ok(())
+    }
 
+    async fn validate_unique_role_rules(
+        &self,
+        data: &UpdateUser,
+        exclude_id: Uuid,
+    ) -> Result<(), AppError> {
         if data.profile == Profile::CityAdmin
             && let Some(city_id) = data.city_id
         {
             let admin_exists = self
                 .deps
                 .user_repository
-                .check_city_admin_exists_for_city(city_id, id)
+                .check_city_admin_exists_for_city(city_id, exclude_id)
                 .await
                 .map_err(|error| {
                     error!(
@@ -112,11 +142,14 @@ impl UpdateUserUseCase {
                 ));
             }
         }
+        Ok(())
+    }
 
+    async fn check_email_uniqueness(&self, email: &str, exclude_id: Uuid) -> Result<(), AppError> {
         if self
             .deps
             .user_repository
-            .check_email_exists_for_other_user(&data.email, id)
+            .check_email_exists_for_other_user(email, exclude_id)
             .await
             .map_err(|error| {
                 error!(
@@ -128,10 +161,13 @@ impl UpdateUserUseCase {
         {
             return Err(AppError::BadRequest(format!(
                 "Email '{}' is already in use by another user",
-                data.email
+                email
             )));
         }
+        Ok(())
+    }
 
+    async fn persist_update(&self, data: UpdateUser, id: Uuid) -> Result<User, AppError> {
         match self.deps.user_repository.update_user_by_id(data, id).await {
             Ok(user) => Ok(user),
             Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
