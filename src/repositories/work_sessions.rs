@@ -16,7 +16,7 @@ use crate::core::contracts::repository::work_sessions::{
 use crate::core::entities::work_session_members::{TeamMemberFunction, WorkSessionMember};
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::work_sessions::{
-    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMembers,
+    WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMemberDetails,
 };
 use crate::repositories::queries::work_sessions::{WorkSessionMembersQueries, WorkSessionsQueries};
 
@@ -87,7 +87,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
     async fn get_session_by_id(
         &self,
         session_id: Uuid,
-    ) -> Result<WorkSessionWithMembers, RepositoryError> {
+    ) -> Result<WorkSessionWithMemberDetails, RepositoryError> {
         let row: WorkSessionRow = sqlx::query_as(WorkSessionsQueries::GET_SESSION_BY_ID)
             .bind(session_id)
             .fetch_one(&self.pool)
@@ -97,7 +97,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
         let session: WorkSession = row.into();
         let members = self.get_session_members_with_details(session_id).await?;
 
-        Ok(WorkSessionWithMembers::from_entity(session, members))
+        Ok(WorkSessionWithMemberDetails::from_entity(session, members))
     }
 
     async fn get_session_by_id_base(
@@ -116,7 +116,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
     async fn get_sessions_by_user(
         &self,
         user_id: Uuid,
-    ) -> Result<Vec<WorkSessionWithMembers>, RepositoryError> {
+    ) -> Result<Vec<WorkSessionWithMemberDetails>, RepositoryError> {
         let rows: Vec<WorkSessionRow> = sqlx::query_as(WorkSessionsQueries::GET_SESSIONS_BY_USER)
             .bind(user_id)
             .fetch_all(&self.pool)
@@ -128,7 +128,7 @@ impl WorkSessionReadRepository for PgWorkSessionRepository {
 
         for session in sessions {
             let members = self.get_session_members_with_details(session.id).await?;
-            result.push(WorkSessionWithMembers::from_entity(session, members));
+            result.push(WorkSessionWithMemberDetails::from_entity(session, members));
         }
 
         Ok(result)

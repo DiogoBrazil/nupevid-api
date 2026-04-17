@@ -8,7 +8,7 @@ use super::models::users::UserRecordRow;
 use crate::core::{
     commands::users::{CreateUser, UpdateUser},
     contracts::repository::{error::RepositoryError, users::UserRepository},
-    entities::users::UserRecord,
+    entities::users::User,
 };
 use crate::repositories::queries::users::UsersQueries;
 
@@ -47,7 +47,7 @@ impl PgUserRepository {
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
-    async fn create_user(&self, user: CreateUser) -> Result<UserRecord, RepositoryError> {
+    async fn create_user(&self, user: CreateUser) -> Result<User, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
         info!(
@@ -60,21 +60,20 @@ impl UserRepository for PgUserRepository {
             None => json!({}),
         };
 
-        let user_created: UserRecord =
-            sqlx::query_as::<_, UserRecordRow>(UsersQueries::CREATE_USER)
-                .bind(id)
-                .bind(user.rank.as_str())
-                .bind(user.registration)
-                .bind(user.full_name)
-                .bind(user.profile.as_str())
-                .bind(user.email)
-                .bind(user.password)
-                .bind(user.city_id)
-                .bind(permission_policies_json)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(map_user_error)?
-                .into();
+        let user_created: User = sqlx::query_as::<_, UserRecordRow>(UsersQueries::CREATE_USER)
+            .bind(id)
+            .bind(user.rank.as_str())
+            .bind(user.registration)
+            .bind(user.full_name)
+            .bind(user.profile.as_str())
+            .bind(user.email)
+            .bind(user.password)
+            .bind(user.city_id)
+            .bind(permission_policies_json)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into();
 
         info!(
             "[Repository] User successfully inserted into database with ID: {}",
@@ -84,11 +83,7 @@ impl UserRepository for PgUserRepository {
         Ok(user_created)
     }
 
-    async fn update_user_by_id(
-        &self,
-        data: UpdateUser,
-        id: Uuid,
-    ) -> Result<UserRecord, RepositoryError> {
+    async fn update_user_by_id(&self, data: UpdateUser, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update user with ID: {}",
             id
@@ -99,7 +94,7 @@ impl UserRepository for PgUserRepository {
             None => json!({}),
         };
 
-        let user_updated: UserRecord =
+        let user_updated: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_BY_ID)
                 .bind(id)
                 .bind(data.rank.as_str())
@@ -122,13 +117,13 @@ impl UserRepository for PgUserRepository {
         Ok(user_updated)
     }
 
-    async fn get_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError> {
+    async fn get_user_by_id(&self, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get user with id: {}",
             id
         );
 
-        let user: UserRecord = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USER_BY_ID)
+        let user: User = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USER_BY_ID)
             .bind(id)
             .fetch_one(&self.pool)
             .await
@@ -183,39 +178,37 @@ impl UserRepository for PgUserRepository {
         Ok(result)
     }
 
-    async fn get_all_users(&self) -> Result<Vec<UserRecord>, RepositoryError> {
+    async fn get_all_users(&self) -> Result<Vec<User>, RepositoryError> {
         info!("[Repository] Executing SQL query to get all users");
 
-        let users: Vec<UserRecord> =
-            sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_ALL_USERS)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_user_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let users: Vec<User> = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_ALL_USERS)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         info!("[Repository] Found {} users in database", users.len());
 
         Ok(users)
     }
 
-    async fn get_users_by_name(&self, name: &str) -> Result<Vec<UserRecord>, RepositoryError> {
+    async fn get_users_by_name(&self, name: &str) -> Result<Vec<User>, RepositoryError> {
         let pattern = format!("%{}%", name);
         info!(
             "[Repository] Executing SQL query to get users by name pattern: {}",
             pattern
         );
 
-        let users: Vec<UserRecord> =
-            sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_NAME)
-                .bind(pattern)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(map_user_error)?
-                .into_iter()
-                .map(Into::into)
-                .collect();
+        let users: Vec<User> = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_NAME)
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         info!("[Repository] Found {} users by name", users.len());
 
@@ -225,13 +218,13 @@ impl UserRepository for PgUserRepository {
     async fn get_users_by_registration(
         &self,
         registration: &str,
-    ) -> Result<Vec<UserRecord>, RepositoryError> {
+    ) -> Result<Vec<User>, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get users by registration: {}",
             registration
         );
 
-        let users: Vec<UserRecord> =
+        let users: Vec<User> =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_REGISTRATION)
                 .bind(registration)
                 .fetch_all(&self.pool)
@@ -252,10 +245,10 @@ impl UserRepository for PgUserRepository {
         exclude_root: bool,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<UserRecord>, RepositoryError> {
+    ) -> Result<Vec<User>, RepositoryError> {
         info!("[Repository] Executing SQL query to get paginated users");
 
-        let users: Vec<UserRecord> = match allowed_cities {
+        let users: Vec<User> = match allowed_cities {
             Some(city_ids) => {
                 sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED_BY_CITIES)
                     .bind(city_ids)
@@ -308,13 +301,13 @@ impl UserRepository for PgUserRepository {
         Ok(count)
     }
 
-    async fn delete_user_by_id(&self, id: Uuid) -> Result<UserRecord, RepositoryError> {
+    async fn delete_user_by_id(&self, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to delete user with id: {}",
             id
         );
 
-        let deleted_user: UserRecord =
+        let deleted_user: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::DELETE_USER_BY_ID)
                 .bind(id)
                 .fetch_one(&self.pool)
@@ -354,13 +347,13 @@ impl UserRepository for PgUserRepository {
         &self,
         id: Uuid,
         new_password: String,
-    ) -> Result<UserRecord, RepositoryError> {
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update password for user with id: {}",
             id
         );
 
-        let updated_user: UserRecord =
+        let updated_user: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_PASSWORD_BY_ID)
                 .bind(id)
                 .bind(new_password)
@@ -382,13 +375,13 @@ impl UserRepository for PgUserRepository {
         id: Uuid,
         new_password: String,
         expires_at: chrono::DateTime<chrono::Utc>,
-    ) -> Result<UserRecord, RepositoryError> {
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to reset password for user with id: {}",
             id
         );
 
-        let updated_user: UserRecord =
+        let updated_user: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::RESET_USER_PASSWORD_BY_ID)
                 .bind(id)
                 .bind(new_password)
@@ -452,12 +445,12 @@ impl UserRepository for PgUserRepository {
         &self,
         id: Uuid,
         policies: JsonValue,
-    ) -> Result<UserRecord, RepositoryError> {
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update permission_policies for user {}",
             id
         );
-        let user: UserRecord =
+        let user: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_POLICIES_BY_ID)
                 .bind(id)
                 .bind(policies)
