@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::read_models::work_sessions::WorkSessionWithMembers;
+use crate::core::read_models::work_sessions::WorkSessionWithMemberDetails;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
@@ -14,5 +14,5 @@ pub struct LoginResponse {
     pub rank: Rank,
     pub registration: String,
     pub profile: Profile,
-    pub work_session: Option<WorkSessionWithMembers>,
+    pub work_session: Option<WorkSessionWithMemberDetails>,
 }
