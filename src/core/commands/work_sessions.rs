@@ -8,6 +8,8 @@ pub struct CreateWorkSession {
     pub members: Vec<AddWorkSessionMember>,
 }
 
+pub type UpdateWorkSession = CreateWorkSession;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateWorkSessionMembers {
     pub members: Vec<AddWorkSessionMember>,
