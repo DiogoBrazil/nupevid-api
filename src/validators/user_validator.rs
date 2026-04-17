@@ -1,6 +1,5 @@
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::value_objects::profiles::Profile;
-use crate::core::value_objects::ranks::Rank;
 use crate::core::value_objects::registrations::{
     REGISTRATION_MAX_LENGTH, REGISTRATION_PREFIX, is_valid_registration,
 };
@@ -11,10 +10,8 @@ pub struct UserValidator;
 
 impl UserValidator {
     pub fn validate_fields(
-        _rank: &Rank,
         registration: &str,
         full_name: &str,
-        _profile: &Profile,
         email: &str,
         password: Option<&str>,
         error_context: &str,
@@ -71,10 +68,8 @@ mod tests {
     #[test]
     fn test_validate_fields_success() {
         let result = UserValidator::validate_fields(
-            &Rank::CelPm,
             "100012345",
             "João Silva",
-            &Profile::Root,
             "joao@example.com",
             Some("senha123"),
             "test",
@@ -85,10 +80,8 @@ mod tests {
     #[test]
     fn test_validate_fields_invalid_registration() {
         let result = UserValidator::validate_fields(
-            &Rank::CelPm,
             "999912345",
             "João Silva",
-            &Profile::Root,
             "joao@example.com",
             Some("senha123"),
             "test",
@@ -105,10 +98,8 @@ mod tests {
     #[test]
     fn test_validate_fields_invalid_email() {
         let result = UserValidator::validate_fields(
-            &Rank::CelPm,
             "100012345",
             "João Silva",
-            &Profile::Root,
             "invalid-email",
             Some("senha123"),
             "test",

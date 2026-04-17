@@ -30,3 +30,7 @@ pub fn validate_required_fields(
     }
     Ok(())
 }
+
+pub fn validate_person_name(full_name: &str, error_context: &str) -> Result<(), AppError> {
+    validate_required_fields(&[("full_name", full_name.trim().is_empty())], error_context)
+}
