@@ -1,5 +1,4 @@
 use log::{error, info};
-use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
@@ -10,8 +9,9 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_offenders::helpers::{
-    verify_offender_access, verify_victim_access,
+    get_offender_or_not_found, get_victim_or_not_found,
 };
+use crate::usecases::attendance_victims::helpers::get_active_session_members;
 
 pub struct CreateAttendanceOffenderUseCase {
     deps: AttendanceOffenderUseCaseDependencies,
@@ -29,14 +29,11 @@ impl CreateAttendanceOffenderUseCase {
     ) -> Result<AttendanceOffenderWithAddress, AppError> {
         info!("[CreateAttendanceOffenderUseCase] Creating attendance offender");
 
-        let user_id = Uuid::parse_str(&claims.id)
-            .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
-
         let offender =
-            verify_offender_access(&*self.deps.offender_repository, attendance.offender_id).await?;
+            get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
+                .await?;
 
-        let _victim =
-            verify_victim_access(&*self.deps.victim_repository, attendance.victim_id).await?;
+        get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
 
         if let Some(pm_id) = attendance.protective_measure_id {
             match self
@@ -65,28 +62,8 @@ impl CreateAttendanceOffenderUseCase {
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::CreateAttendances, offender.city_id)?;
 
-        let active_session = self
-            .deps
-            .work_session_repository
-            .get_active_session_by_user(user_id)
-            .await
-            .map_err(|_| {
-                AppError::BadRequest(
-                    "No active work session found. You must have an active work session to create an attendance.".to_string(),
-                )
-            })?;
-
-        let session_members = self
-            .deps
-            .work_session_repository
-            .get_session_members(active_session.id)
-            .await
-            .map_err(|_| AppError::InternalServerError)?;
-
-        let members_for_tx: Vec<(Uuid, Option<Uuid>)> = session_members
-            .iter()
-            .map(|m| (m.user_id, Some(active_session.id)))
-            .collect();
+        let members_for_tx =
+            get_active_session_members(claims, &*self.deps.work_session_repository).await?;
 
         match self
             .deps

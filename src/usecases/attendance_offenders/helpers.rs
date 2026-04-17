@@ -25,7 +25,7 @@ pub async fn get_attendance_offender_or_not_found(
         })
 }
 
-pub async fn verify_offender_access(
+pub async fn get_offender_or_not_found(
     offender_repository: &dyn OffenderReadRepository,
     offender_id: Uuid,
 ) -> Result<OffenderWithDetails, AppError> {
@@ -41,7 +41,7 @@ pub async fn verify_offender_access(
         })
 }
 
-pub async fn verify_victim_access(
+pub async fn get_victim_or_not_found(
     victim_repository: &dyn VictimReadRepository,
     victim_id: Uuid,
 ) -> Result<VictimWithDetails, AppError> {

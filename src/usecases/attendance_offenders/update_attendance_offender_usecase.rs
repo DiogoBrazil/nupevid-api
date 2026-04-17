@@ -10,7 +10,7 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_offenders::helpers::{
-    get_attendance_offender_or_not_found, verify_offender_access, verify_victim_access,
+    get_attendance_offender_or_not_found, get_offender_or_not_found, get_victim_or_not_found,
 };
 
 pub struct UpdateAttendanceOffenderUseCase {
@@ -57,13 +57,14 @@ impl UpdateAttendanceOffenderUseCase {
 
         if data.offender_id != existing.offender_id {
             let new_offender =
-                verify_offender_access(&*self.deps.offender_repository, data.offender_id).await?;
+                get_offender_or_not_found(&*self.deps.offender_repository, data.offender_id)
+                    .await?;
             auth.check_policy(&Policy::UpdateAttendances, new_offender.city_id)?;
         }
 
         if data.victim_id != existing.victim_id {
             let victim =
-                verify_victim_access(&*self.deps.victim_repository, data.victim_id).await?;
+                get_victim_or_not_found(&*self.deps.victim_repository, data.victim_id).await?;
             auth.check_policy(&Policy::UpdateAttendances, victim.city_id)?;
         }
 
