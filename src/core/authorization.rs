@@ -119,6 +119,8 @@ mod tests {
         UserClaims {
             id: "test-user-id".to_string(),
             exp: 9999999999,
+            iss: "nupevid-api".to_string(),
+            aud: "nupevid-api".to_string(),
             rank: Rank::CapPm,
             registration: "100012345".to_string(),
             full_name: "Test User".to_string(),

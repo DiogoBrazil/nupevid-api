@@ -1,5 +1,4 @@
 use log::error;
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -8,14 +7,10 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::policy_defaults;
-use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::policies::PermissionPolicies;
 use crate::core::value_objects::profiles::Profile;
 
-pub type PolicyMap = HashMap<Policy, Vec<Uuid>>;
-
-fn parse_policies_json(json: &JsonValue) -> PolicyMap {
-    serde_json::from_value::<PolicyMap>(json.clone()).unwrap_or_default()
-}
+pub type PolicyMap = PermissionPolicies;
 
 pub fn extract_city_id_from_claims(claims: &UserClaims) -> Result<Uuid, AppError> {
     claims
@@ -39,8 +34,8 @@ pub async fn get_user_policies_strict<T: UserRepository + ?Sized>(
     let user_id = Uuid::parse_str(&claims.id)
         .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-    match user_repository.get_user_policies_json_by_id(user_id).await {
-        Ok(policies) => Ok(Some(parse_policies_json(&policies))),
+    match user_repository.get_user_policies_by_id(user_id).await {
+        Ok(policies) => Ok(Some(policies)),
         Err(RepositoryError::NotFound) => Ok(None),
         Err(e) => {
             error!("[ServiceHelper] Failed to retrieve user policies: {:?}", e);
@@ -60,8 +55,8 @@ pub async fn get_user_policies_with_defaults<T: UserRepository + ?Sized>(
     let user_id = Uuid::parse_str(&claims.id)
         .map_err(|_| AppError::Unauthorized("Invalid user id in token".to_string()))?;
 
-    match user_repository.get_user_policies_json_by_id(user_id).await {
-        Ok(policies) => return Ok(parse_policies_json(&policies)),
+    match user_repository.get_user_policies_by_id(user_id).await {
+        Ok(policies) => return Ok(policies),
         Err(RepositoryError::NotFound) => {}
         Err(e) => {
             error!("[ServiceHelper] Failed to retrieve user policies: {:?}", e);
