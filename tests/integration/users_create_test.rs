@@ -276,6 +276,8 @@ async fn test_city_user_cannot_create_users() {
             .unwrap()
             .as_secs() as usize
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::SdPm,
         registration: "100022000".to_string(),
         full_name: "City User".to_string(),

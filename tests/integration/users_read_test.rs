@@ -145,6 +145,8 @@ async fn non_root_list_users_should_not_include_root() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CbPm,
         registration: "100009991".to_string(),
         full_name: "Any User".to_string(),
@@ -365,6 +367,8 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),

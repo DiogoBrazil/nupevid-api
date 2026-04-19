@@ -95,6 +95,8 @@ async fn non_root_cannot_access_or_modify_root_user() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CapPm,
         registration: "100009990".to_string(),
         full_name: "City Admin".to_string(),

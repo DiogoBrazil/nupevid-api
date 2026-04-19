@@ -63,6 +63,8 @@ async fn non_root_cannot_create_city() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CbPm,
         registration: "100009999".to_string(),
         full_name: "Any User".to_string(),

@@ -40,12 +40,16 @@ pub fn build_test_config() -> Config {
     let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
     let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
     let api_key = env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
+    let jwt_issuer = env::var("JWT_ISSUER").unwrap_or_else(|_| "nupevid-api".to_string());
+    let jwt_audience = env::var("JWT_AUDIENCE").unwrap_or_else(|_| "nupevid-api".to_string());
 
     Config {
         database_url,
         server_addr,
         jwt_secret,
         api_key,
+        jwt_issuer,
+        jwt_audience,
         db_max_connections: 5,
         enable_bootstrap_root: false,
     }
@@ -109,6 +113,8 @@ pub fn build_root_claims() -> UserClaims {
     UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CelPm,
         registration: "100000001".to_string(),
         full_name: "Root User".to_string(),
@@ -122,6 +128,8 @@ pub fn build_city_admin_claims(city_id: Uuid) -> UserClaims {
     UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CapPm,
         registration: "100000002".to_string(),
         full_name: "City Admin".to_string(),
@@ -135,6 +143,8 @@ pub fn build_city_user_claims(city_id: Uuid) -> UserClaims {
     UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: default_exp(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::SdPm,
         registration: "100000003".to_string(),
         full_name: "City User".to_string(),

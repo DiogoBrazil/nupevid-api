@@ -98,6 +98,8 @@ async fn city_admin_cannot_get_user_from_other_city() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
@@ -217,6 +219,8 @@ async fn city_admin_cannot_update_user_from_other_city() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
@@ -346,6 +350,8 @@ async fn city_admin_cannot_delete_user_from_other_city() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),

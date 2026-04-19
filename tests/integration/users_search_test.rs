@@ -241,6 +241,8 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
             .unwrap()
             .as_secs() as usize)
             + 3600,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::CapPm,
         registration: "100077774".to_string(),
         full_name: "City Admin".to_string(),

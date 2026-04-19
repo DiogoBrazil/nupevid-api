@@ -25,6 +25,8 @@ fn build_token_for_user(
                 .as_secs() as usize)
                 + 3600
         },
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: rank.try_into().expect("Invalid rank"),
         registration: registration.to_string(),
         full_name: full_name.to_string(),
