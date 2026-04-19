@@ -108,7 +108,8 @@ impl From<WorkSessionMemberWithUserRowModel> for WorkSessionMemberWithUser {
                 profile: row.user_profile,
                 email: row.user_email,
                 city_id: row.user_city_id,
-                permission_policies: row.user_permission_policies,
+                permission_policies: serde_json::from_value(row.user_permission_policies)
+                    .unwrap_or_default(),
                 is_deleted: row.user_is_deleted,
             },
         }

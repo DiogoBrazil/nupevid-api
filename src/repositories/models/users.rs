@@ -32,7 +32,7 @@ impl From<UserRecordRow> for User {
             profile: row.profile,
             email: row.email,
             city_id: row.city_id,
-            permission_policies: row.permission_policies,
+            permission_policies: serde_json::from_value(row.permission_policies).unwrap_or_default(),
             created_at: row.created_at,
             updated_at: row.updated_at,
             is_deleted: row.is_deleted,
