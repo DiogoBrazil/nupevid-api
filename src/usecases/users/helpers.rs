@@ -84,16 +84,14 @@ pub async fn get_claims_policies_or_empty(
 }
 
 pub fn generate_temporary_password() -> String {
-    let uuid_str = Uuid::new_v4().to_string();
-    let digits: String = uuid_str.chars().filter(|c| c.is_ascii_digit()).collect();
-    let raw_suffix = digits
-        .chars()
-        .rev()
-        .take(6)
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect::<String>();
-    let suffix = format!("{:0>6}", raw_suffix);
+    use rand::Rng;
+    use rand::distributions::Alphanumeric;
+    use rand::rngs::OsRng;
+
+    let suffix: String = OsRng
+        .sample_iter(&Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect();
     format!("prov{}", suffix)
 }

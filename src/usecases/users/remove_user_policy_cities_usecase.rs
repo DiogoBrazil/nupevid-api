@@ -78,17 +78,8 @@ impl RemoveUserPolicyCitiesUseCase {
         }
 
         let mut policies = target_user.permission_policies.clone();
-        if let Some(array) = policies.get_mut(policy.as_str())
-            && let Some(items) = array.as_array_mut()
-        {
-            items.retain(|value| {
-                if let Some(value) = value.as_str()
-                    && let Ok(city_id) = Uuid::parse_str(value)
-                {
-                    return !city_ids.contains(&city_id);
-                }
-                true
-            });
+        if let Some(list) = policies.get_mut(policy) {
+            list.retain(|id| !city_ids.contains(id));
         }
 
         self.deps

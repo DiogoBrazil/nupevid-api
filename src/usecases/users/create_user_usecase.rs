@@ -1,5 +1,4 @@
 use log::{error, info};
-use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_helpers::{extract_city_id_from_claims, get_user_policies_strict};
@@ -99,7 +98,7 @@ impl CreateUserUseCase {
             let admin_exists = self
                 .deps
                 .user_repository
-                .check_city_admin_exists_for_city(city_id, Uuid::nil())
+                .check_city_admin_exists_for_city(city_id, None)
                 .await
                 .map_err(|error| {
                     error!(

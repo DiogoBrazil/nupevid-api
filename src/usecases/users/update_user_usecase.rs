@@ -126,7 +126,7 @@ impl UpdateUserUseCase {
             let admin_exists = self
                 .deps
                 .user_repository
-                .check_city_admin_exists_for_city(city_id, exclude_id)
+                .check_city_admin_exists_for_city(city_id, Some(exclude_id))
                 .await
                 .map_err(|error| {
                     error!(

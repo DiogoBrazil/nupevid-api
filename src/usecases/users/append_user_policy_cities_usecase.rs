@@ -72,20 +72,12 @@ impl AppendUserPolicyCitiesUseCase {
         }
 
         let mut policies = target_user.permission_policies.clone();
-        let mut list = policies
-            .get(policy.as_str())
-            .and_then(|value| value.as_array())
-            .cloned()
-            .unwrap_or_default();
-
+        let entry = policies.entry(policy.clone()).or_default();
         for city_id in city_ids {
-            let city_id = city_id.to_string();
-            if !list.iter().any(|value| value.as_str() == Some(&city_id)) {
-                list.push(serde_json::Value::String(city_id));
+            if !entry.contains(city_id) {
+                entry.push(*city_id);
             }
         }
-
-        policies[policy.as_str()] = serde_json::Value::Array(list);
 
         self.deps
             .user_repository
