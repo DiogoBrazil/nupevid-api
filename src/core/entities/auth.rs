@@ -26,6 +26,8 @@ pub struct CompleteUserData {
 pub struct UserClaims {
     pub id: String,
     pub exp: usize,
+    pub iss: String,
+    pub aud: String,
     pub rank: Rank,
     pub registration: String,
     pub full_name: String,
