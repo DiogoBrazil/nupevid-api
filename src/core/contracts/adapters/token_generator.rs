@@ -10,6 +10,8 @@ pub struct TokenClaimsInput<'a> {
     pub profile: &'a Profile,
     pub email: &'a str,
     pub city_id: Option<&'a str>,
+    pub issuer: &'a str,
+    pub audience: &'a str,
 }
 
 pub trait TokenGeneratorPort: Send + Sync {
