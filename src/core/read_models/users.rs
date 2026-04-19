@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 use crate::core::entities::users::User;
+use crate::core::value_objects::policies::PermissionPolicies;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
@@ -15,7 +15,7 @@ pub struct UserSummary {
     pub profile: Profile,
     pub email: String,
     pub city_id: Option<Uuid>,
-    pub permission_policies: JsonValue,
+    pub permission_policies: PermissionPolicies,
     pub is_deleted: bool,
 }
 
