@@ -118,7 +118,7 @@ impl UsersQueries {
             WHERE city_id = $1
             AND profile = 'CITY_ADMIN'
             AND is_deleted = false
-            AND id != $2
+            AND ($2::uuid IS NULL OR id != $2)
         ) as exists
     "#;
 
