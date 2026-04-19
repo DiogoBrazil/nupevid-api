@@ -20,6 +20,8 @@ fn make_claims(profile: Profile, city_id: Uuid) -> UserClaims {
     UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: 9999999999,
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
         rank: Rank::SdPm,
         registration: "100012345".to_string(),
         full_name: "Test User".to_string(),
@@ -89,19 +91,12 @@ fn make_deps(
 
 fn mock_user_repo_with_policies(city_id: Uuid) -> MockUserRepository {
     let mut user_repo = MockUserRepository::new();
-    let mut policies = serde_json::Map::new();
-    policies.insert(
-        Policy::CreateVictims.to_string(),
-        serde_json::json!([city_id.to_string()]),
-    );
-    policies.insert(
-        Policy::ReadVictims.to_string(),
-        serde_json::json!([city_id.to_string()]),
-    );
-    let json = serde_json::Value::Object(policies);
+    let mut policies = std::collections::HashMap::new();
+    policies.insert(Policy::CreateVictims, vec![city_id]);
+    policies.insert(Policy::ReadVictims, vec![city_id]);
     user_repo
-        .expect_get_user_policies_json_by_id()
-        .returning(move |_| Ok(json.clone()));
+        .expect_get_user_policies_by_id()
+        .returning(move |_| Ok(policies.clone()));
     user_repo
 }
 
