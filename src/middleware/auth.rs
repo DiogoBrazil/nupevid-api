@@ -4,12 +4,13 @@ use crate::validators::common::is_public_route;
 use actix_web::{
     Error, HttpMessage,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
-    error::ErrorUnauthorized,
+    error::{ErrorInternalServerError, ErrorUnauthorized},
     http::Method,
     web,
 };
 use futures::future::{LocalBoxFuture, Ready, err, ok};
-use jsonwebtoken::{DecodingKey, Validation, decode};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
+use subtle::ConstantTimeEq;
 
 pub struct AuthMiddleware;
 
@@ -51,7 +52,11 @@ where
             return Box::pin(self.service.call(req));
         }
 
-        let config = req.app_data::<web::Data<Config>>().unwrap();
+        let Some(config) = req.app_data::<web::Data<Config>>() else {
+            return Box::pin(err(ErrorInternalServerError(
+                "missing application config",
+            )));
+        };
 
         if let Err(e) = self.verify_api_key(&req, config) {
             return Box::pin(err(e));
@@ -77,15 +82,15 @@ impl<S> AuthMiddlewareService<S> {
             return Ok(());
         }
 
-        match req.headers().get("api_key") {
-            Some(api_key_header) => {
-                if api_key_header.to_str().unwrap_or_default() != config.api_key {
-                    Err(ErrorUnauthorized("wrong api_key"))
-                } else {
-                    Ok(())
-                }
-            }
-            None => Err(ErrorUnauthorized("empty api_key")),
+        let Some(header) = req.headers().get("api_key") else {
+            return Err(ErrorUnauthorized("empty api_key"));
+        };
+        let provided = header.as_bytes();
+        let expected = config.api_key.as_bytes();
+        if provided.len() == expected.len() && provided.ct_eq(expected).into() {
+            Ok(())
+        } else {
+            Err(ErrorUnauthorized("wrong api_key"))
         }
     }
 
@@ -101,10 +106,14 @@ impl<S> AuthMiddlewareService<S> {
         }
 
         let token = &auth_header[7..];
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.set_issuer(&[&config.jwt_issuer]);
+        validation.set_audience(&[&config.jwt_audience]);
+
         decode::<UserClaims>(
             token,
             &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
-            &Validation::default(),
+            &validation,
         )
         .map(|data| data.claims)
         .map_err(|_| ErrorUnauthorized("Invalid token"))
