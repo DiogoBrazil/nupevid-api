@@ -78,6 +78,8 @@ impl LoginUseCase {
                     profile: &user.profile,
                     email: &email,
                     city_id: city_id.as_deref(),
+                    issuer: &self.deps.config.jwt_issuer,
+                    audience: &self.deps.config.jwt_audience,
                 },
                 &self.deps.config.jwt_secret,
             )
