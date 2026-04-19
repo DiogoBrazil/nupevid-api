@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
+use uuid::Uuid;
+
+pub type PermissionPolicies = HashMap<Policy, Vec<Uuid>>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Policy {
