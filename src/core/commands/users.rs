@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::core::value_objects::policies::Policy;
+pub use crate::core::value_objects::policies::PermissionPolicies;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
-
-pub type PermissionPolicies = HashMap<Policy, Vec<Uuid>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateUser {
