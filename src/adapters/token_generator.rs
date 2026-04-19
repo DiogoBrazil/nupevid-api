@@ -1,4 +1,4 @@
-use jsonwebtoken::{EncodingKey, Header, encode};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::core::entities::auth::UserClaims;
@@ -36,6 +36,8 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         let claims = UserClaims {
             id: claims.id.to_string(),
             exp: expiration,
+            iss: claims.issuer.to_string(),
+            aud: claims.audience.to_string(),
             rank: claims.rank.clone(),
             registration: claims.registration.to_string(),
             full_name: claims.full_name.to_string(),
@@ -45,7 +47,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         };
 
         encode(
-            &Header::default(),
+            &Header::new(Algorithm::HS256),
             &claims,
             &EncodingKey::from_secret(secret.as_bytes()),
         )
