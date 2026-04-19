@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 use super::error::RepositoryError;
 use crate::core::commands::users::{CreateUser, UpdateUser};
 use crate::core::entities::users::User;
+use crate::core::value_objects::policies::PermissionPolicies;
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -56,12 +56,15 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn check_city_admin_exists_for_city(
         &self,
         city_id: Uuid,
-        exclude_user_id: Uuid,
+        exclude_user_id: Option<Uuid>,
     ) -> Result<bool, RepositoryError>;
-    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, RepositoryError>;
+    async fn get_user_policies_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<PermissionPolicies, RepositoryError>;
     async fn update_user_policies_by_id(
         &self,
         id: Uuid,
-        policies: JsonValue,
+        policies: PermissionPolicies,
     ) -> Result<User, RepositoryError>;
 }

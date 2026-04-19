@@ -31,7 +31,7 @@ pub trait ProtectiveMeasureReadRepository: Send + Sync {
     async fn check_active_measure_exists_for_victim(
         &self,
         victim_id: Uuid,
-        exclude_measure_id: Uuid,
+        exclude_measure_id: Option<Uuid>,
     ) -> Result<bool, RepositoryError>;
 }
 
