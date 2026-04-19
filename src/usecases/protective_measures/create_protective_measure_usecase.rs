@@ -1,5 +1,4 @@
 use log::{error, info};
-use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
@@ -97,7 +96,7 @@ impl CreateProtectiveMeasureUseCase {
             let active_exists = self
                 .deps
                 .measure_read_repository
-                .check_active_measure_exists_for_victim(measure.victim_id, Uuid::nil())
+                .check_active_measure_exists_for_victim(measure.victim_id, None)
                 .await
                 .map_err(|e| {
                     error!(

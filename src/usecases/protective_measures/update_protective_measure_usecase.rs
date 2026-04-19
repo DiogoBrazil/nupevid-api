@@ -179,7 +179,7 @@ impl UpdateProtectiveMeasureUseCase {
             let active_exists = self
                 .deps
                 .measure_read_repository
-                .check_active_measure_exists_for_victim(data.victim_id, exclude_id)
+                .check_active_measure_exists_for_victim(data.victim_id, Some(exclude_id))
                 .await
                 .map_err(|e| {
                     error!(
