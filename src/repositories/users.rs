@@ -9,6 +9,7 @@ use crate::core::{
     commands::users::{CreateUser, UpdateUser},
     contracts::repository::{error::RepositoryError, users::UserRepository},
     entities::users::User,
+    value_objects::policies::PermissionPolicies,
 };
 use crate::repositories::queries::users::UsersQueries;
 
@@ -402,10 +403,10 @@ impl UserRepository for PgUserRepository {
     async fn check_city_admin_exists_for_city(
         &self,
         city_id: Uuid,
-        exclude_user_id: Uuid,
+        exclude_user_id: Option<Uuid>,
     ) -> Result<bool, RepositoryError> {
         info!(
-            "[Repository] Executing SQL query to check if CITY_ADMIN exists for city: {} excluding user: {}",
+            "[Repository] Executing SQL query to check if CITY_ADMIN exists for city: {} excluding user: {:?}",
             city_id, exclude_user_id
         );
 
@@ -424,13 +425,16 @@ impl UserRepository for PgUserRepository {
         Ok(result)
     }
 
-    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, RepositoryError> {
+    async fn get_user_policies_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<PermissionPolicies, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get permission_policies for user {}",
             id
         );
 
-        let policies: JsonValue = sqlx::query_scalar(UsersQueries::GET_USER_POLICIES_BY_ID)
+        let policies_json: JsonValue = sqlx::query_scalar(UsersQueries::GET_USER_POLICIES_BY_ID)
             .bind(id)
             .fetch_one(&self.pool)
             .await
@@ -438,22 +442,23 @@ impl UserRepository for PgUserRepository {
 
         info!("[Repository] Retrieved permission_policies for user {}", id);
 
-        Ok(policies)
+        Ok(serde_json::from_value(policies_json).unwrap_or_default())
     }
 
     async fn update_user_policies_by_id(
         &self,
         id: Uuid,
-        policies: JsonValue,
+        policies: PermissionPolicies,
     ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update permission_policies for user {}",
             id
         );
+        let policies_json = serde_json::to_value(&policies).unwrap_or_else(|_| json!({}));
         let user: User =
             sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_POLICIES_BY_ID)
                 .bind(id)
-                .bind(policies)
+                .bind(policies_json)
                 .fetch_one(&self.pool)
                 .await
                 .map_err(map_user_error)?

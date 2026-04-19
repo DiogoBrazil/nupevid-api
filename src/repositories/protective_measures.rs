@@ -261,10 +261,10 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
     async fn check_active_measure_exists_for_victim(
         &self,
         victim_id: Uuid,
-        exclude_measure_id: Uuid,
+        exclude_measure_id: Option<Uuid>,
     ) -> Result<bool, RepositoryError> {
         info!(
-            "[Repository] Checking if active measure exists for victim: {} excluding measure: {}",
+            "[Repository] Checking if active measure exists for victim: {} excluding measure: {:?}",
             victim_id, exclude_measure_id
         );
 
