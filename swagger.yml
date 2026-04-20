@@ -1662,6 +1662,7 @@ components:
     # --- Attendance Victim Schemas ---
     AttendanceVictim:
       type: object
+      description: "Resposta de atendimento à vítima. O vínculo com vítima, agressor e medida protetiva vem da medida protetiva informada na criação/atualização."
       properties:
         id:
           type: string
@@ -1793,6 +1794,7 @@ components:
 
     CreateAttendanceVictimRequest:
       type: object
+      description: "Payload para criar atendimento à vítima. Informe apenas a medida protetiva; victim_id e offender_id são derivados dela pela API."
       required:
         - protective_measure_id
         - was_victim_present
@@ -1868,6 +1870,7 @@ components:
 
     UpdateAttendanceVictimRequest:
       type: object
+      description: "Payload para atualizar atendimento à vítima. Informe a medida protetiva; victim_id e offender_id são derivados dela pela API."
       required:
         - protective_measure_id
         - was_victim_present
@@ -1948,6 +1951,7 @@ components:
 
     CreateAttendanceOffender:
       type: object
+      description: "Payload para criar atendimento ao agressor. Informe apenas a medida protetiva; offender_id e victim_id são derivados dela pela API."
       required:
         - protective_measure_id
         - was_offender_present
@@ -1998,6 +2002,7 @@ components:
 
     UpdateAttendanceOffender:
       type: object
+      description: "Payload para atualizar atendimento ao agressor. Informe a medida protetiva; offender_id e victim_id são derivados dela pela API."
       required:
         - protective_measure_id
         - was_offender_present
@@ -2046,6 +2051,7 @@ components:
 
     AttendanceOffenderWithAddress:
       type: object
+      description: "Resposta de atendimento ao agressor. O vínculo com agressor, vítima e medida protetiva vem da medida protetiva informada na criação/atualização."
       properties:
         id:
           type: string
@@ -5904,11 +5910,30 @@ paths:
                 data:
                   - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                     victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                    victim_name: "Maria da Silva Santos"
+                    was_victim_present: true
                     attendance_date: "2025-03-15"
                     attendance_time: "14:30:00"
                     description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                     is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
                     created_at: "2025-03-15T14:30:00Z"
                     updated_at: "2025-03-15T14:30:00Z"
                     is_deleted: false
@@ -5941,7 +5966,7 @@ paths:
       tags:
         - "Attendance Victims"
       summary: "Criar novo atendimento à vítima"
-      description: "Cria um novo registro de atendimento a uma vítima"
+      description: "Cria um novo atendimento à vítima a partir da medida protetiva informada. A API deriva victim_id e offender_id da medida protetiva."
       operationId: "createAttendanceVictim"
       security:
         - bearerAuth: []
@@ -5952,6 +5977,29 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateAttendanceVictimRequest"
+            example:
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+              was_victim_present: true
+              attendance_date: "2025-03-15"
+              attendance_time: "14:30:00"
+              description: "Atendimento inicial à vítima"
+              latitude: -8.7612
+              longitude: -63.9004
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
+                complement: null
+              is_remote: false
+              risk_level: "Medium"
+              offender_freedom_status: "Free"
+              offender_has_firearm_access: "Unknown"
+              needs_legal_assistance: false
+              needs_psychological_support: true
+              was_instructed_about_protective_measure_procedures: true
+              offender_violated_protective_measure: false
       responses:
         "201":
           description: "Atendimento criado com sucesso"
@@ -5966,16 +6014,35 @@ paths:
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                  victim_name: "Maria da Silva Santos"
+                  was_victim_present: true
                   attendance_date: "2025-03-15"
                   attendance_time: "14:30:00"
                   description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                   is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
                   created_at: "2025-03-15T14:30:00Z"
                   updated_at: "2025-03-15T14:30:00Z"
                   is_deleted: false
@@ -6010,14 +6077,14 @@ paths:
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
         "404":
-          description: "Medida protetiva não encontrada"
+          description: "Medida protetiva ou vítima derivada não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Not Found"
-                message: "Not Found: protective measure not found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
                 status_code: 404
 
   /attendance-victims/{id}:
@@ -6058,11 +6125,30 @@ paths:
                 data:
                   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                  victim_name: "Maria da Silva Santos"
+                  was_victim_present: true
                   attendance_date: "2025-03-15"
                   attendance_time: "14:30:00"
                   description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                   is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
                   created_at: "2025-03-15T14:30:00Z"
                   updated_at: "2025-03-15T14:30:00Z"
                   is_deleted: false
@@ -6101,7 +6187,7 @@ paths:
       tags:
         - "Attendance Victims"
       summary: "Atualizar atendimento à vítima"
-      description: "Atualiza informações de um atendimento existente"
+      description: "Atualiza um atendimento à vítima. A medida protetiva informada define a vítima e o agressor relacionados ao atendimento."
       operationId: "updateAttendanceVictim"
       security:
         - bearerAuth: []
@@ -6112,6 +6198,29 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateAttendanceVictimRequest"
+            example:
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+              was_victim_present: true
+              attendance_date: "2025-03-15"
+              attendance_time: "15:00:00"
+              description: "Atendimento atualizado"
+              latitude: -8.7612
+              longitude: -63.9004
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
+                complement: null
+              is_remote: false
+              risk_level: "Medium"
+              offender_freedom_status: "Free"
+              offender_has_firearm_access: "Unknown"
+              needs_legal_assistance: false
+              needs_psychological_support: true
+              was_instructed_about_protective_measure_procedures: true
+              offender_violated_protective_measure: false
       responses:
         "200":
           description: "Atendimento atualizado com sucesso"
@@ -6131,11 +6240,30 @@ paths:
                 data:
                   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                  victim_name: "Maria da Silva Santos"
+                  was_victim_present: true
                   attendance_date: "2025-03-15"
                   attendance_time: "15:00:00"
                   description: "Atendimento atualizado"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                   is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
                   created_at: "2025-03-15T14:30:00Z"
                   updated_at: "2025-03-15T15:00:00Z"
                   is_deleted: false
@@ -6170,7 +6298,7 @@ paths:
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
         "404":
-          description: "Atendimento não encontrado"
+          description: "Atendimento, medida protetiva ou vítima não encontrada"
           content:
             application/json:
               schema:
@@ -6208,11 +6336,30 @@ paths:
                 data:
                   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                  victim_name: "Maria da Silva Santos"
+                  was_victim_present: true
                   attendance_date: "2025-03-15"
                   attendance_time: "14:30:00"
                   description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                   is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
                   created_at: "2025-03-15T14:30:00Z"
                   updated_at: "2025-03-15T16:00:00Z"
                   is_deleted: true
@@ -6329,7 +6476,7 @@ paths:
             example:
               user_id: "550e8400-e29b-41d4-a716-446655440003"
       responses:
-        "201":
+        "200":
           description: "Membro adicionado com sucesso"
           content:
             application/json:
@@ -6338,28 +6485,34 @@ paths:
                 properties:
                   status:
                     type: integer
-                    example: 201
+                    example: 200
                   data:
-                    $ref: "#/components/schemas/AttendanceMember"
+                    type: string
+                    example: "Member added successfully"
               example:
                 message: "Operation successful"
-                status: 201
-                data:
-                  id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
-                  user_id: "550e8400-e29b-41d4-a716-446655440003"
-                  user_name: "Pedro Almeida Costa"
-                  work_session_id: null
-                  created_at: "2025-03-15T15:00:00Z"
+                status: 200
+                data: "Member added successfully"
         "400":
-          description: "Membro de cidade diferente ou já existe"
+          description: "Usuário de cidade diferente"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Bad Request"
-                message: "Member already exists in this attendance"
+                message: "Bad Request: User must be from the same city as the victim"
                 status_code: 400
+        "409":
+          description: "Membro já adicionado ao atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Conflict"
+                message: "Conflict: Member already added to attendance"
+                status_code: 409
         "401":
           description: "Token JWT ausente, inválido ou expirado"
           content:
@@ -6380,6 +6533,16 @@ paths:
                 error: "Forbidden"
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
+        "404":
+          description: "Atendimento, vítima ou usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: User '550e8400-e29b-41d4-a716-446655440003' not found"
+                status_code: 404
 
   /attendance-victims/{id}/members/{user_id}:
     parameters:
@@ -6470,19 +6633,11 @@ paths:
       tags:
         - "Attendance Victims"
       summary: "Listar atendimentos por vítima"
-      description: "Retorna todos os atendimentos relacionados a uma vítima específica. Opcionalmente filtra por medida protetiva."
+      description: "Retorna todos os atendimentos relacionados a uma vítima específica. Este endpoint não filtra por medida protetiva; para isso use /attendance-victims/by-measure/{protective_measure_id}."
       operationId: "getAttendanceVictimsByVictim"
       security:
         - bearerAuth: []
           api_key: []
-      parameters:
-        - name: "protective_measure_id"
-          in: "query"
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -6504,11 +6659,30 @@ paths:
                 data:
                   - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                     victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                    victim_name: "Maria da Silva Santos"
+                    was_victim_present: true
                     attendance_date: "2025-03-15"
                     attendance_time: "14:30:00"
                     description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
                     is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
                     created_at: "2025-03-15T14:30:00Z"
                     updated_at: "2025-03-15T14:30:00Z"
                     is_deleted: false
@@ -6541,6 +6715,104 @@ paths:
               example:
                 error: "Not Found"
                 message: "Not Found: victim not found"
+                status_code: 404
+
+  /attendance-victims/by-measure/{protective_measure_id}:
+    parameters:
+      - name: "protective_measure_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar atendimentos de vítimas por medida protetiva"
+      description: "Retorna todos os atendimentos de vítimas relacionados a uma medida protetiva, ordenados por data de criação crescente."
+      operationId: "getAttendanceVictimsByMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    was_victim_present: true
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar atendimentos da cidade da vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
                 status_code: 404
 
   # --- Attendance Offenders Endpoints ---
@@ -6613,6 +6885,7 @@ paths:
                     violence_aggravator_other: null
                     description: "Atendimento ao agressor"
                     address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                       street: "Rua das Flores"
                       number: "123"
                       district: "Centro"
@@ -6651,7 +6924,7 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Criar novo atendimento ao agressor"
-      description: "Cria um novo registro de atendimento a um agressor"
+      description: "Cria um novo atendimento ao agressor a partir da medida protetiva informada. A API deriva offender_id e victim_id da medida protetiva."
       operationId: "createAttendanceOffender"
       security:
         - bearerAuth: []
@@ -6693,7 +6966,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/AttendanceOffenderWithAddress"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
@@ -6709,6 +6982,7 @@ paths:
                   violence_aggravator_other: null
                   description: "Atendimento inicial ao agressor"
                   address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                     street: "Rua das Flores"
                     number: "123"
                     district: "Centro"
@@ -6749,14 +7023,14 @@ paths:
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
         "404":
-          description: "Agressor ou vítima não encontrada"
+          description: "Medida protetiva, agressor ou vítima derivada não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Not Found"
-                message: "Not Found: offender not found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
                 status_code: 404
 
   /attendance-offenders/{id}:
@@ -6808,6 +7082,7 @@ paths:
                   violence_aggravator_other: null
                   description: "Atendimento ao agressor"
                   address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                     street: "Rua das Flores"
                     number: "123"
                     district: "Centro"
@@ -6852,7 +7127,7 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Atualizar atendimento ao agressor"
-      description: "Atualiza informações de um atendimento existente"
+      description: "Atualiza um atendimento ao agressor. A medida protetiva informada define o agressor e a vítima relacionados ao atendimento."
       operationId: "updateAttendanceOffender"
       security:
         - bearerAuth: []
@@ -6910,6 +7185,7 @@ paths:
                   violence_aggravator_other: null
                   description: "Atendimento de acompanhamento"
                   address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                     street: "Rua das Flores"
                     number: "123"
                     district: "Centro"
@@ -6950,7 +7226,7 @@ paths:
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
         "404":
-          description: "Atendimento não encontrado"
+          description: "Atendimento, medida protetiva, agressor ou vítima não encontrada"
           content:
             application/json:
               schema:
@@ -6999,6 +7275,7 @@ paths:
                   violence_aggravator_other: null
                   description: "Atendimento ao agressor"
                   address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                     street: "Rua das Flores"
                     number: "123"
                     district: "Centro"
@@ -7121,7 +7398,7 @@ paths:
             example:
               user_id: "550e8400-e29b-41d4-a716-446655440003"
       responses:
-        "201":
+        "200":
           description: "Membro adicionado com sucesso"
           content:
             application/json:
@@ -7130,28 +7407,34 @@ paths:
                 properties:
                   status:
                     type: integer
-                    example: 201
+                    example: 200
                   data:
-                    $ref: "#/components/schemas/AttendanceMember"
+                    type: string
+                    example: "Member added successfully"
               example:
                 message: "Operation successful"
-                status: 201
-                data:
-                  id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
-                  user_id: "550e8400-e29b-41d4-a716-446655440003"
-                  user_name: "Pedro Almeida Costa"
-                  work_session_id: null
-                  created_at: "2025-03-15T15:00:00Z"
+                status: 200
+                data: "Member added successfully"
         "400":
-          description: "Membro de cidade diferente ou já existe"
+          description: "Usuário de cidade diferente"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Bad Request"
-                message: "Member already exists in this attendance"
+                message: "Bad Request: User must be from the same city as the offender"
                 status_code: 400
+        "409":
+          description: "Membro já adicionado ao atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Conflict"
+                message: "Conflict: Member already added to attendance"
+                status_code: 409
         "401":
           description: "Token JWT ausente, inválido ou expirado"
           content:
@@ -7172,6 +7455,16 @@ paths:
                 error: "Forbidden"
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
+        "404":
+          description: "Atendimento, agressor ou usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: User '550e8400-e29b-41d4-a716-446655440003' not found"
+                status_code: 404
 
   /attendance-offenders/{id}/members/{user_id}:
     parameters:
@@ -7248,33 +7541,25 @@ paths:
                 message: "Not Found: member not found"
                 status_code: 404
 
-  /attendance-offenders/by-offender/{offender_id}:
+  /attendance-offenders/by-measure/{protective_measure_id}:
     parameters:
-      - name: "offender_id"
+      - name: "protective_measure_id"
         in: "path"
         required: true
         schema:
           type: string
           format: uuid
-        description: "ID do agressor"
+        description: "ID da medida protetiva"
 
     get:
       tags:
         - "Attendance Offenders"
-      summary: "Listar atendimentos por agressor"
-      description: "Retorna todos os atendimentos relacionados a um agressor específico. Opcionalmente filtra por medida protetiva."
-      operationId: "getAttendanceOffendersByOffender"
+      summary: "Listar atendimentos aos agressores por medida protetiva"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma medida protetiva, ordenados por data de criação crescente."
+      operationId: "getAttendanceOffendersByMeasure"
       security:
         - bearerAuth: []
           api_key: []
-      parameters:
-        - name: "protective_measure_id"
-          in: "query"
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -7307,6 +7592,99 @@ paths:
                     violence_aggravator_other: null
                     description: "Atendimento ao agressor"
                     address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar atendimentos da cidade do agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
+                status_code: 404
+
+  /attendance-offenders/by-offender/{offender_id}:
+    parameters:
+      - name: "offender_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos por agressor"
+      description: "Retorna todos os atendimentos relacionados a um agressor específico. Este endpoint não filtra por medida protetiva; para isso use /attendance-offenders/by-measure/{protective_measure_id}."
+      operationId: "getAttendanceOffendersByOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    was_offender_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    is_remote: false
+                    assaults_children: false
+                    violence_aggravator: "AlcoholUse"
+                    violence_aggravator_other: null
+                    description: "Atendimento ao agressor"
+                    address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                       street: "Rua das Flores"
                       number: "123"
                       district: "Centro"
@@ -7361,19 +7739,11 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Listar atendimentos aos agressores por vítima"
-      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica. Opcionalmente filtra por medida protetiva."
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica. Este endpoint não filtra por medida protetiva; para isso use /attendance-offenders/by-measure/{protective_measure_id}."
       operationId: "getAttendanceOffendersByVictim"
       security:
         - bearerAuth: []
           api_key: []
-      parameters:
-        - name: "protective_measure_id"
-          in: "query"
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: "Filtrar por medida protetiva específica"
       responses:
         "200":
           description: "Lista de atendimentos retornada com sucesso"
@@ -7406,6 +7776,7 @@ paths:
                     violence_aggravator_other: null
                     description: "Atendimento ao agressor"
                     address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
                       street: "Rua das Flores"
                       number: "123"
                       district: "Centro"
