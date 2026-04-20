@@ -53,9 +53,7 @@ where
         }
 
         let Some(config) = req.app_data::<web::Data<Config>>() else {
-            return Box::pin(err(ErrorInternalServerError(
-                "missing application config",
-            )));
+            return Box::pin(err(ErrorInternalServerError("missing application config")));
         };
 
         if let Err(e) = self.verify_api_key(&req, config) {
