@@ -264,35 +264,22 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
     async fn get_attendance_offenders_by_offender(
         &self,
         offender_id: Uuid,
-        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError> {
         info!(
             "[Repository] Fetching attendance offenders for offender: {}",
             offender_id
         );
 
-        let attendances: Vec<AttendanceOffender> =
-            match protective_measure_id {
-                Some(measure_id) => sqlx::query_as::<_, AttendanceOffenderRow>(
-                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER_AND_MEASURE,
-                )
-                .bind(offender_id)
-                .bind(measure_id)
-                .fetch_all(&self.pool)
-                .await,
-                None => {
-                    sqlx::query_as::<_, AttendanceOffenderRow>(
-                        AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER,
-                    )
-                    .bind(offender_id)
-                    .fetch_all(&self.pool)
-                    .await
-                }
-            }
-            .map_err(map_attendance_offender_error)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let attendances: Vec<AttendanceOffender> = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_OFFENDER,
+        )
+        .bind(offender_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
         let mut result = Vec::with_capacity(attendances.len());
 
@@ -315,32 +302,18 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
     async fn get_attendance_offenders_by_victim(
         &self,
         victim_id: Uuid,
-        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError> {
         info!(
             "[Repository] Fetching attendance offenders for victim: {}",
             victim_id
         );
 
-        let attendances: Vec<AttendanceOffender> = match protective_measure_id {
-            Some(measure_id) => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(
-                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM_AND_MEASURE,
-                )
-                .bind(victim_id)
-                .bind(measure_id)
-                .fetch_all(&self.pool)
-                .await
-            }
-            None => {
-                sqlx::query_as::<_, AttendanceOffenderRow>(
-                    AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM,
-                )
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-            }
-        }
+        let attendances: Vec<AttendanceOffender> = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_VICTIM,
+        )
+        .bind(victim_id)
+        .fetch_all(&self.pool)
+        .await
         .map_err(map_attendance_offender_error)?
         .into_iter()
         .map(Into::into)
@@ -359,6 +332,44 @@ impl AttendanceOffenderReadRepository for PgAttendanceOffenderRepository {
             "[Repository] Found {} attendance offenders for victim: {}",
             result.len(),
             victim_id
+        );
+
+        Ok(result)
+    }
+
+    async fn get_attendance_offenders_by_protective_measure(
+        &self,
+        protective_measure_id: Uuid,
+    ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError> {
+        info!(
+            "[Repository] Fetching attendance offenders for protective measure: {}",
+            protective_measure_id
+        );
+
+        let attendances: Vec<AttendanceOffender> = sqlx::query_as::<_, AttendanceOffenderRow>(
+            AttendanceOffendersQueries::GET_ATTENDANCE_OFFENDERS_BY_MEASURE,
+        )
+        .bind(protective_measure_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_attendance_offender_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+        let mut result = Vec::with_capacity(attendances.len());
+
+        for attendance in attendances {
+            let address = self.get_address_by_attendance_id(attendance.id).await?;
+            result.push(AttendanceOffenderWithAddress::from_entity(
+                attendance, address,
+            ));
+        }
+
+        info!(
+            "[Repository] Found {} attendance offenders for protective measure: {}",
+            result.len(),
+            protective_measure_id
         );
 
         Ok(result)

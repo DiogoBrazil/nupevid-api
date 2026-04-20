@@ -261,32 +261,18 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
     async fn get_attendance_victims_by_victim(
         &self,
         victim_id: Uuid,
-        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceVictimWithAddress>, RepositoryError> {
         info!(
             "[Repository] Fetching attendance victims for victim: {}",
             victim_id
         );
 
-        let attendances: Vec<AttendanceVictim> = match protective_measure_id {
-            Some(measure_id) => {
-                sqlx::query_as::<_, AttendanceVictimRow>(
-                    AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM_AND_MEASURE,
-                )
-                .bind(victim_id)
-                .bind(measure_id)
-                .fetch_all(&self.pool)
-                .await
-            }
-            None => {
-                sqlx::query_as::<_, AttendanceVictimRow>(
-                    AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM,
-                )
-                .bind(victim_id)
-                .fetch_all(&self.pool)
-                .await
-            }
-        }
+        let attendances: Vec<AttendanceVictim> = sqlx::query_as::<_, AttendanceVictimRow>(
+            AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_VICTIM,
+        )
+        .bind(victim_id)
+        .fetch_all(&self.pool)
+        .await
         .map_err(map_attendance_victim_error)?
         .into_iter()
         .map(Into::into)
@@ -305,6 +291,44 @@ impl AttendanceVictimReadRepository for PgAttendanceVictimRepository {
             "[Repository] Found {} attendance victims for victim: {}",
             result.len(),
             victim_id
+        );
+
+        Ok(result)
+    }
+
+    async fn get_attendance_victims_by_protective_measure(
+        &self,
+        protective_measure_id: Uuid,
+    ) -> Result<Vec<AttendanceVictimWithAddress>, RepositoryError> {
+        info!(
+            "[Repository] Fetching attendance victims for protective measure: {}",
+            protective_measure_id
+        );
+
+        let attendances: Vec<AttendanceVictim> = sqlx::query_as::<_, AttendanceVictimRow>(
+            AttendanceVictimsQueries::GET_ATTENDANCE_VICTIMS_BY_MEASURE,
+        )
+        .bind(protective_measure_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_attendance_victim_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+        let mut result = Vec::with_capacity(attendances.len());
+
+        for attendance in attendances {
+            let address = self.get_address_by_attendance_id(attendance.id).await?;
+            result.push(AttendanceVictimWithAddress::from_entity(
+                attendance, address,
+            ));
+        }
+
+        info!(
+            "[Repository] Found {} attendance victims for protective measure: {}",
+            result.len(),
+            protective_measure_id
         );
 
         Ok(result)
