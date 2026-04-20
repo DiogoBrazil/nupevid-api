@@ -30,12 +30,14 @@ pub trait AttendanceOffenderReadRepository: Send + Sync {
     async fn get_attendance_offenders_by_offender(
         &self,
         offender_id: Uuid,
-        protective_measure_id: Option<Uuid>,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError>;
     async fn get_attendance_offenders_by_victim(
         &self,
         victim_id: Uuid,
-        protective_measure_id: Option<Uuid>,
+    ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError>;
+    async fn get_attendance_offenders_by_protective_measure(
+        &self,
+        protective_measure_id: Uuid,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, RepositoryError>;
 }
 
