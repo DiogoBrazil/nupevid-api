@@ -84,35 +84,84 @@ async fn setup_test_data() -> (
     )
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Attendance Victims - filter by protective_measure_id
-// ──────────────────────────────────────────────────────────────────────────────
+async fn set_victim_attendance_created_at(pool: &sqlx::PgPool, id: Uuid, timestamp: &str) {
+    sqlx::query(
+        "UPDATE attendance_victims
+         SET created_at = $2::timestamptz, updated_at = $2::timestamptz
+         WHERE id = $1",
+    )
+    .bind(id)
+    .bind(timestamp)
+    .execute(pool)
+    .await
+    .expect("failed to update victim attendance created_at");
+}
+
+async fn set_offender_attendance_created_at(pool: &sqlx::PgPool, id: Uuid, timestamp: &str) {
+    sqlx::query(
+        "UPDATE attendance_offenders
+         SET created_at = $2::timestamptz, updated_at = $2::timestamptz
+         WHERE id = $1",
+    )
+    .bind(id)
+    .bind(timestamp)
+    .execute(pool)
+    .await
+    .expect("failed to update offender attendance created_at");
+}
 
 #[actix_rt::test]
-async fn attendance_victims_by_victim_filter_by_measure_returns_only_matching() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
+async fn attendance_victims_by_measure_returns_matching_in_created_order() {
+    let (pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    // Create 2 attendances with measure_a, 1 with measure_b
-    for measure in [measure_a, measure_a, measure_b] {
-        let payload = build_victim_attendance_payload(measure);
-        let req = test_helpers::with_auth_headers(
-            test::TestRequest::post()
-                .uri("/api/v1/attendance-victims")
-                .set_json(&payload),
-            &config,
-            &root_token,
-        )
-        .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::CREATED);
-    }
+    let payload = build_victim_attendance_payload(measure_a);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let first_body: serde_json::Value = test::read_body_json(resp).await;
+    let first_id = Uuid::parse_str(first_body["data"]["id"].as_str().unwrap()).unwrap();
 
-    // Filter by measure_a -> should return 2
+    let payload = build_victim_attendance_payload(measure_a);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let second_body: serde_json::Value = test::read_body_json(resp).await;
+    let second_id = Uuid::parse_str(second_body["data"]["id"].as_str().unwrap()).unwrap();
+
+    let payload = build_victim_attendance_payload(measure_b);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-victims")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    set_victim_attendance_created_at(&pool, first_id, "2025-01-02T00:00:00Z").await;
+    set_victim_attendance_created_at(&pool, second_id, "2025-01-01T00:00:00Z").await;
+
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-victims/by-victim/{}?protective_measure_id={}",
-            victim_id, measure_a
+            "/api/v1/attendance-victims/by-measure/{}",
+            measure_a
         )),
         &config,
         &root_token,
@@ -124,18 +173,67 @@ async fn attendance_victims_by_victim_filter_by_measure_returns_only_matching() 
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 2, "Should return 2 attendances for measure_a");
-
-    for attendance in data {
-        assert_eq!(
-            attendance["protective_measure_id"].as_str().unwrap(),
-            measure_a.to_string()
-        );
-    }
+    assert_eq!(data.len(), 2);
+    assert_eq!(data[0]["id"].as_str().unwrap(), second_id.to_string());
+    assert_eq!(data[1]["id"].as_str().unwrap(), first_id.to_string());
+    let measure_a_str = measure_a.to_string();
+    assert!(data.iter().all(|attendance| {
+        attendance["protective_measure_id"].as_str() == Some(measure_a_str.as_str())
+    }));
 }
 
 #[actix_rt::test]
-async fn attendance_victims_by_victim_filter_by_measure_b_returns_one() {
+async fn attendance_victims_by_measure_without_attendances_returns_empty() {
+    let (_pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, _measure_b) =
+        setup_test_data().await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-victims/by-measure/{}",
+            measure_a
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"].as_array().unwrap().len(), 0);
+}
+
+#[actix_rt::test]
+async fn attendance_victims_by_measure_nonexistent_measure_returns_not_found() {
+    let (
+        _pool,
+        config,
+        app,
+        root_token,
+        _city_id,
+        _victim_id,
+        _offender_id,
+        _measure_a,
+        _measure_b,
+    ) = setup_test_data().await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-victims/by-measure/{}",
+            Uuid::new_v4()
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn attendance_victims_by_victim_returns_all_without_measure_filter() {
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
@@ -153,50 +251,6 @@ async fn attendance_victims_by_victim_filter_by_measure_b_returns_one() {
         assert_eq!(resp.status(), StatusCode::CREATED);
     }
 
-    // Filter by measure_b -> should return 1
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-victims/by-victim/{}?protective_measure_id={}",
-            victim_id, measure_b
-        )),
-        &config,
-        &root_token,
-    )
-    .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 1, "Should return 1 attendance for measure_b");
-    assert_eq!(
-        data[0]["protective_measure_id"].as_str().unwrap(),
-        measure_b.to_string()
-    );
-}
-
-#[actix_rt::test]
-async fn attendance_victims_by_victim_without_filter_returns_all() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
-
-    // Create 1 with measure_a, 1 with measure_b
-    for measure in [measure_a, measure_b] {
-        let payload = build_victim_attendance_payload(measure);
-        let req = test_helpers::with_auth_headers(
-            test::TestRequest::post()
-                .uri("/api/v1/attendance-victims")
-                .set_json(&payload),
-            &config,
-            &root_token,
-        )
-        .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::CREATED);
-    }
-
-    // No filter -> should return all 2
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
             "/api/v1/attendance-victims/by-victim/{}",
@@ -212,31 +266,56 @@ async fn attendance_victims_by_victim_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(
-        data.len(),
-        2,
-        "Without filter should return all attendances"
+    assert_eq!(data.len(), 2);
+    let measure_a_str = measure_a.to_string();
+    let measure_b_str = measure_b.to_string();
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_a_str.as_str()))
     );
-
-    let has_measure_a = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_measure_b = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
-    assert!(has_measure_a, "Should include attendance with measure_a");
-    assert!(has_measure_b, "Should include attendance with measure_b");
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_b_str.as_str()))
+    );
 }
 
 #[actix_rt::test]
-async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, _measure_b) =
+async fn attendance_offenders_by_measure_returns_matching_in_created_order() {
+    let (pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    let payload = build_victim_attendance_payload(measure_a);
+    let payload = build_offender_attendance_payload(measure_a);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
-            .uri("/api/v1/attendance-victims")
+            .uri("/api/v1/attendance-offenders")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let first_body: serde_json::Value = test::read_body_json(resp).await;
+    let first_id = Uuid::parse_str(first_body["data"]["id"].as_str().unwrap()).unwrap();
+
+    let payload = build_offender_attendance_payload(measure_a);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-offenders")
+            .set_json(&payload),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let second_body: serde_json::Value = test::read_body_json(resp).await;
+    let second_id = Uuid::parse_str(second_body["data"]["id"].as_str().unwrap()).unwrap();
+
+    let payload = build_offender_attendance_payload(measure_b);
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/attendance-offenders")
             .set_json(&payload),
         &config,
         &root_token,
@@ -245,12 +324,13 @@ async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty()
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::CREATED);
 
-    // Filter by a random UUID that doesn't match any measure
-    let random_uuid = Uuid::new_v4();
+    set_offender_attendance_created_at(&pool, first_id, "2025-01-02T00:00:00Z").await;
+    set_offender_attendance_created_at(&pool, second_id, "2025-01-01T00:00:00Z").await;
+
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-victims/by-victim/{}?protective_measure_id={}",
-            victim_id, random_uuid
+            "/api/v1/attendance-offenders/by-measure/{}",
+            measure_a
         )),
         &config,
         &root_token,
@@ -262,41 +342,24 @@ async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty()
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(
-        data.len(),
-        0,
-        "Filter with nonexistent measure should return empty"
-    );
+    assert_eq!(data.len(), 2);
+    assert_eq!(data[0]["id"].as_str().unwrap(), second_id.to_string());
+    assert_eq!(data[1]["id"].as_str().unwrap(), first_id.to_string());
+    let measure_a_str = measure_a.to_string();
+    assert!(data.iter().all(|attendance| {
+        attendance["protective_measure_id"].as_str() == Some(measure_a_str.as_str())
+    }));
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Attendance Offenders - filter by protective_measure_id (by-offender)
-// ──────────────────────────────────────────────────────────────────────────────
-
 #[actix_rt::test]
-async fn attendance_offenders_by_offender_filter_by_measure_returns_only_matching() {
-    let (_pool, config, app, root_token, _city_id, _victim_id, offender_id, measure_a, measure_b) =
+async fn attendance_offenders_by_measure_without_attendances_returns_empty() {
+    let (_pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, _measure_b) =
         setup_test_data().await;
 
-    for measure in [measure_a, measure_a, measure_b] {
-        let payload = build_offender_attendance_payload(measure);
-        let req = test_helpers::with_auth_headers(
-            test::TestRequest::post()
-                .uri("/api/v1/attendance-offenders")
-                .set_json(&payload),
-            &config,
-            &root_token,
-        )
-        .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::CREATED);
-    }
-
-    // Filter by measure_a -> should return 2
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-offenders/by-offender/{}?protective_measure_id={}",
-            offender_id, measure_a
+            "/api/v1/attendance-offenders/by-measure/{}",
+            measure_a
         )),
         &config,
         &root_token,
@@ -307,19 +370,39 @@ async fn attendance_offenders_by_offender_filter_by_measure_returns_only_matchin
     assert_eq!(resp.status(), StatusCode::OK);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 2, "Should return 2 attendances for measure_a");
-
-    for attendance in data {
-        assert_eq!(
-            attendance["protective_measure_id"].as_str().unwrap(),
-            measure_a.to_string()
-        );
-    }
+    assert_eq!(body["data"].as_array().unwrap().len(), 0);
 }
 
 #[actix_rt::test]
-async fn attendance_offenders_by_offender_without_filter_returns_all() {
+async fn attendance_offenders_by_measure_nonexistent_measure_returns_not_found() {
+    let (
+        _pool,
+        config,
+        app,
+        root_token,
+        _city_id,
+        _victim_id,
+        _offender_id,
+        _measure_a,
+        _measure_b,
+    ) = setup_test_data().await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/attendance-offenders/by-measure/{}",
+            Uuid::new_v4()
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn attendance_offenders_by_offender_returns_all_without_measure_filter() {
     let (_pool, config, app, root_token, _city_id, _victim_id, offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
@@ -352,70 +435,21 @@ async fn attendance_offenders_by_offender_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(
-        data.len(),
-        2,
-        "Without filter should return all attendances"
+    assert_eq!(data.len(), 2);
+    let measure_a_str = measure_a.to_string();
+    let measure_b_str = measure_b.to_string();
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_a_str.as_str()))
     );
-
-    let has_measure_a = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_measure_b = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
-    assert!(has_measure_a, "Should include attendance with measure_a");
-    assert!(has_measure_b, "Should include attendance with measure_b");
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Attendance Offenders - filter by protective_measure_id (by-victim)
-// ──────────────────────────────────────────────────────────────────────────────
-
-#[actix_rt::test]
-async fn attendance_offenders_by_victim_filter_by_measure_returns_only_matching() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
-
-    for measure in [measure_a, measure_b] {
-        let payload = build_offender_attendance_payload(measure);
-        let req = test_helpers::with_auth_headers(
-            test::TestRequest::post()
-                .uri("/api/v1/attendance-offenders")
-                .set_json(&payload),
-            &config,
-            &root_token,
-        )
-        .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::CREATED);
-    }
-
-    // Filter by measure_a -> should return 1
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-offenders/by-victim/{}?protective_measure_id={}",
-            victim_id, measure_a
-        )),
-        &config,
-        &root_token,
-    )
-    .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    let data = body["data"].as_array().unwrap();
-    assert_eq!(data.len(), 1, "Should return 1 attendance for measure_a");
-    assert_eq!(
-        data[0]["protective_measure_id"].as_str().unwrap(),
-        measure_a.to_string()
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_b_str.as_str()))
     );
 }
 
 #[actix_rt::test]
-async fn attendance_offenders_by_victim_without_filter_returns_all() {
+async fn attendance_offenders_by_victim_returns_all_without_measure_filter() {
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
@@ -448,58 +482,15 @@ async fn attendance_offenders_by_victim_without_filter_returns_all() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     let data = body["data"].as_array().unwrap();
-    assert_eq!(
-        data.len(),
-        2,
-        "Without filter should return all attendances"
+    assert_eq!(data.len(), 2);
+    let measure_a_str = measure_a.to_string();
+    let measure_b_str = measure_b.to_string();
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_a_str.as_str()))
     );
-
-    let has_measure_a = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_measure_b = data
-        .iter()
-        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
-    assert!(has_measure_a, "Should include attendance with measure_a");
-    assert!(has_measure_b, "Should include attendance with measure_b");
-}
-
-#[actix_rt::test]
-async fn attendance_offenders_by_victim_filter_nonexistent_measure_returns_empty() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, _measure_b) =
-        setup_test_data().await;
-
-    let payload = build_offender_attendance_payload(measure_a);
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/attendance-offenders")
-            .set_json(&payload),
-        &config,
-        &root_token,
-    )
-    .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let random_uuid = Uuid::new_v4();
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::get().uri(&format!(
-            "/api/v1/attendance-offenders/by-victim/{}?protective_measure_id={}",
-            victim_id, random_uuid
-        )),
-        &config,
-        &root_token,
-    )
-    .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    let data = body["data"].as_array().unwrap();
-    assert_eq!(
-        data.len(),
-        0,
-        "Filter with nonexistent measure should return empty"
+    assert!(
+        data.iter()
+            .any(|a| a["protective_measure_id"].as_str() == Some(measure_b_str.as_str()))
     );
 }
