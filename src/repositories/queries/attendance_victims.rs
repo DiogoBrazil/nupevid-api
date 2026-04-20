@@ -89,15 +89,15 @@ impl AttendanceVictimsQueries {
         ORDER BY attendance_date DESC, attendance_time DESC
     "#;
 
-    pub const GET_ATTENDANCE_VICTIMS_BY_VICTIM_AND_MEASURE: &'static str = r#"
+    pub const GET_ATTENDANCE_VICTIMS_BY_MEASURE: &'static str = r#"
         SELECT id, victim_id, was_victim_present, attendance_date, attendance_time, description,
                latitude, longitude, created_at, updated_at, is_deleted, offender_id,
                protective_measure_id, is_remote, risk_level, offender_freedom_status,
                offender_has_firearm_access, needs_legal_assistance, needs_psychological_support,
                was_instructed_about_protective_measure_procedures, offender_violated_protective_measure
         FROM attendance_victims
-        WHERE victim_id = $1 AND protective_measure_id = $2 AND is_deleted = false
-        ORDER BY attendance_date DESC, attendance_time DESC
+        WHERE protective_measure_id = $1 AND is_deleted = false
+        ORDER BY created_at ASC
     "#;
 
     pub const UPDATE_ATTENDANCE_VICTIM_BY_ID: &'static str = r#"

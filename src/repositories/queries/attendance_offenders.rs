@@ -81,16 +81,6 @@ impl AttendanceOffendersQueries {
         ORDER BY attendance_date DESC, attendance_time DESC
     "#;
 
-    pub const GET_ATTENDANCE_OFFENDERS_BY_OFFENDER_AND_MEASURE: &'static str = r#"
-        SELECT id, offender_id, victim_id, protective_measure_id, was_offender_present,
-               attendance_date, attendance_time, is_remote, assaults_children,
-               violence_aggravator, violence_aggravator_other, description,
-               created_at, updated_at, is_deleted
-        FROM attendance_offenders
-        WHERE offender_id = $1 AND protective_measure_id = $2 AND is_deleted = false
-        ORDER BY attendance_date DESC, attendance_time DESC
-    "#;
-
     pub const GET_ATTENDANCE_OFFENDERS_BY_VICTIM: &'static str = r#"
         SELECT id, offender_id, victim_id, protective_measure_id, was_offender_present,
                attendance_date, attendance_time, is_remote, assaults_children,
@@ -101,14 +91,14 @@ impl AttendanceOffendersQueries {
         ORDER BY attendance_date DESC, attendance_time DESC
     "#;
 
-    pub const GET_ATTENDANCE_OFFENDERS_BY_VICTIM_AND_MEASURE: &'static str = r#"
+    pub const GET_ATTENDANCE_OFFENDERS_BY_MEASURE: &'static str = r#"
         SELECT id, offender_id, victim_id, protective_measure_id, was_offender_present,
                attendance_date, attendance_time, is_remote, assaults_children,
                violence_aggravator, violence_aggravator_other, description,
                created_at, updated_at, is_deleted
         FROM attendance_offenders
-        WHERE victim_id = $1 AND protective_measure_id = $2 AND is_deleted = false
-        ORDER BY attendance_date DESC, attendance_time DESC
+        WHERE protective_measure_id = $1 AND is_deleted = false
+        ORDER BY created_at ASC
     "#;
 
     pub const UPDATE_ATTENDANCE_OFFENDER_BY_ID: &'static str = r#"
