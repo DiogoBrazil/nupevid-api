@@ -4,32 +4,14 @@ use uuid::Uuid;
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
 use crate::core::contracts::repository::error::RepositoryError;
-use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureReadRepository;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::victims::VictimReadRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasureExtension;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::get_extension_or_not_found;
 use crate::usecases::extensions::deps::ExtensionUseCaseDependencies;
-
-pub async fn get_extension_or_not_found(
-    extension_repository: &dyn ExtensionRepository,
-    id: Uuid,
-    label: &str,
-) -> Result<ProtectiveMeasureExtension, AppError> {
-    match extension_repository.get_extension_by_id(id).await {
-        Ok(ext) => Ok(ext),
-        Err(RepositoryError::NotFound) => {
-            error!("[{}] Extension not found: {}", label, id);
-            Err(AppError::NotFound("Extension not found".to_string()))
-        }
-        Err(e) => {
-            error!("[{}] Database error: {:?}", label, e);
-            Err(AppError::InternalServerError)
-        }
-    }
-}
 
 pub async fn authorize_extension_access(
     protective_measure_repository: &dyn ProtectiveMeasureReadRepository,
@@ -97,8 +79,7 @@ pub async fn load_auth_and_check_extension(
     claims: &UserClaims,
     label: &str,
 ) -> Result<ProtectiveMeasureExtension, AppError> {
-    let extension =
-        get_extension_or_not_found(&*deps.extension_repository, extension_id, label).await?;
+    let extension = get_extension_or_not_found(&*deps.extension_repository, extension_id).await?;
 
     let protective_measure = deps
         .protective_measure_repository
