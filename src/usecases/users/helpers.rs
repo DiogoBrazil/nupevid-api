@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::{PolicyMap, get_user_policies_strict};
-use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::auth_helpers::get_user_policies_strict;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::User;
@@ -58,29 +56,6 @@ pub fn filter_users_by_scope(mut users: Vec<User>, scope: &UserReadScope) -> Vec
     }
 
     users
-}
-
-pub async fn get_existing_user(
-    user_repository: &dyn UserRepository,
-    id: Uuid,
-) -> Result<User, AppError> {
-    match user_repository.get_user_by_id(id).await {
-        Ok(user) => Ok(user),
-        Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
-            "User with id '{}' not found",
-            id
-        ))),
-        Err(_) => Err(AppError::InternalServerError),
-    }
-}
-
-pub async fn get_claims_policies_or_empty(
-    user_repository: &dyn UserRepository,
-    claims: &UserClaims,
-) -> Result<PolicyMap, AppError> {
-    Ok(get_user_policies_strict(user_repository, claims)
-        .await?
-        .unwrap_or_else(HashMap::new))
 }
 
 pub fn generate_temporary_password() -> String {
