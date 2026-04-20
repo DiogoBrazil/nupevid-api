@@ -1794,7 +1794,7 @@ components:
     CreateAttendanceVictimRequest:
       type: object
       required:
-        - victim_id
+        - protective_measure_id
         - was_victim_present
         - attendance_date
         - attendance_time
@@ -1804,9 +1804,10 @@ components:
         - was_instructed_about_protective_measure_procedures
         - offender_violated_protective_measure
       properties:
-        victim_id:
+        protective_measure_id:
           type: string
           format: uuid
+          description: "ID da medida protetiva associada ao atendimento (vítima e agressor são derivados dela)"
         was_victim_present:
           type: boolean
         attendance_date:
@@ -1829,16 +1830,6 @@ components:
         address:
           $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
-        offender_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID do agressor associado ao atendimento"
-        protective_measure_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID da medida protetiva associada ao atendimento"
         is_remote:
           type: boolean
           description: "Indica se o atendimento foi realizado remotamente"
@@ -1878,7 +1869,7 @@ components:
     UpdateAttendanceVictimRequest:
       type: object
       required:
-        - victim_id
+        - protective_measure_id
         - was_victim_present
         - attendance_date
         - attendance_time
@@ -1888,9 +1879,10 @@ components:
         - was_instructed_about_protective_measure_procedures
         - offender_violated_protective_measure
       properties:
-        victim_id:
+        protective_measure_id:
           type: string
           format: uuid
+          description: "ID da medida protetiva associada ao atendimento (vítima e agressor são derivados dela)"
         was_victim_present:
           type: boolean
         attendance_date:
@@ -1913,16 +1905,6 @@ components:
         address:
           $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
-        offender_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID do agressor associado ao atendimento"
-        protective_measure_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID da medida protetiva associada ao atendimento"
         is_remote:
           type: boolean
           description: "Indica se o atendimento foi realizado remotamente"
@@ -1967,8 +1949,7 @@ components:
     CreateAttendanceOffender:
       type: object
       required:
-        - offender_id
-        - victim_id
+        - protective_measure_id
         - was_offender_present
         - attendance_date
         - attendance_time
@@ -1976,19 +1957,10 @@ components:
         - assaults_children
         - violence_aggravator
       properties:
-        offender_id:
-          type: string
-          format: uuid
-          description: "ID do agressor atendido"
-        victim_id:
-          type: string
-          format: uuid
-          description: "ID da vítima relacionada"
         protective_measure_id:
           type: string
           format: uuid
-          nullable: true
-          description: "ID da medida protetiva relacionada"
+          description: "ID da medida protetiva relacionada (agressor e vítima são derivados dela)"
         was_offender_present:
           type: boolean
           description: "Indica se o agressor estava presente no atendimento"
@@ -2027,8 +1999,7 @@ components:
     UpdateAttendanceOffender:
       type: object
       required:
-        - offender_id
-        - victim_id
+        - protective_measure_id
         - was_offender_present
         - attendance_date
         - attendance_time
@@ -2036,19 +2007,10 @@ components:
         - assaults_children
         - violence_aggravator
       properties:
-        offender_id:
-          type: string
-          format: uuid
-          description: "ID do agressor atendido"
-        victim_id:
-          type: string
-          format: uuid
-          description: "ID da vítima relacionada"
         protective_measure_id:
           type: string
           format: uuid
-          nullable: true
-          description: "ID da medida protetiva relacionada"
+          description: "ID da medida protetiva relacionada (agressor e vítima são derivados dela)"
         was_offender_present:
           type: boolean
           description: "Indica se o agressor estava presente no atendimento"
@@ -6025,7 +5987,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Bad Request"
-                message: "Validation error: victim_id is required"
+                message: "Validation error: protective_measure_id is required"
                 status_code: 400
         "401":
           description: "Token JWT ausente, inválido ou expirado"
@@ -6048,14 +6010,14 @@ paths:
                 message: "Forbidden: insufficient permissions"
                 status_code: 403
         "404":
-          description: "Vítima não encontrada"
+          description: "Medida protetiva não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Not Found"
-                message: "Not Found: victim not found"
+                message: "Not Found: protective measure not found"
                 status_code: 404
 
   /attendance-victims/{id}:
@@ -6701,8 +6663,6 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateAttendanceOffender"
             example:
-              offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
-              victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
               protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
               was_offender_present: true
               attendance_date: "2025-01-15"
@@ -6766,7 +6726,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Bad Request"
-                message: "Validation error: offender_id is required"
+                message: "Validation error: protective_measure_id is required"
                 status_code: 400
         "401":
           description: "Token JWT ausente, inválido ou expirado"
@@ -6904,8 +6864,6 @@ paths:
             schema:
               $ref: "#/components/schemas/UpdateAttendanceOffender"
             example:
-              offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
-              victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
               protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
               was_offender_present: true
               attendance_date: "2025-01-15"
