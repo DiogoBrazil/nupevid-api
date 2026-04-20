@@ -4,9 +4,8 @@ use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
+fn build_attendance_payload(pm_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "victim_id": victim_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -14,8 +13,7 @@ fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
         "latitude": serde_json::Value::Null,
         "longitude": serde_json::Value::Null,
         "address": serde_json::Value::Null,
-        "offender_id": serde_json::Value::Null,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "is_remote": false,
         "risk_level": serde_json::Value::Null,
         "offender_freedom_status": serde_json::Value::Null,
@@ -27,9 +25,8 @@ fn build_attendance_payload(victim_id: Uuid) -> serde_json::Value {
     })
 }
 
-fn build_attendance_payload_with_address(victim_id: Uuid, city_id: Uuid) -> serde_json::Value {
+fn build_attendance_payload_with_address(pm_id: Uuid, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "victim_id": victim_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
@@ -44,8 +41,7 @@ fn build_attendance_payload_with_address(victim_id: Uuid, city_id: Uuid) -> serd
             "zip_code": "22222-222",
             "complement": "Casa"
         },
-        "offender_id": serde_json::Value::Null,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "is_remote": false,
         "risk_level": serde_json::Value::Null,
         "offender_freedom_status": serde_json::Value::Null,
@@ -67,6 +63,9 @@ async fn create_attendance_success_for_victim_in_own_city() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with default policies and work session
     let user_id =
@@ -78,7 +77,7 @@ async fn create_attendance_success_for_victim_in_own_city() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_payload(victim_id);
+    let payload = build_attendance_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -110,11 +109,14 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim() {
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
-    let payload = build_attendance_payload(victim_b);
+    let payload = build_attendance_payload(pm_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -140,6 +142,12 @@ async fn list_attendance_victims_filtered_by_city() {
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_a =
+        db_fixtures::insert_protective_measure(&pool, victim_a, offender_a, city_a, "Valid").await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     // Create ROOT user with work session
     let root_user_id =
@@ -151,8 +159,8 @@ async fn list_attendance_victims_filtered_by_city() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance for both victims as ROOT
-    for victim_id in [victim_a, victim_b] {
-        let payload = build_attendance_payload(victim_id);
+    for pm_id in [pm_a, pm_b] {
+        let payload = build_attendance_payload(pm_id);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-victims")
@@ -193,6 +201,9 @@ async fn delete_attendance_soft_delete_and_not_listed() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade Del").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -203,7 +214,7 @@ async fn delete_attendance_soft_delete_and_not_listed() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_payload(victim_id);
+    let payload = build_attendance_payload(pm_id);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -274,7 +285,10 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
-    let payload = build_attendance_payload(victim_b);
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
+    let payload = build_attendance_payload(pm_b);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -312,6 +326,9 @@ async fn create_attendance_with_address_in_single_request() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade Addr").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create ROOT user with work session
     let user_id = db_fixtures::insert_user(&pool, "100001", "root@test.com", "ROOT", None).await;
@@ -322,7 +339,7 @@ async fn create_attendance_with_address_in_single_request() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance with address
-    let payload = build_attendance_payload_with_address(victim_id, city);
+    let payload = build_attendance_payload_with_address(pm_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -372,6 +389,9 @@ async fn get_attendance_returns_address_when_exists() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade Get").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create ROOT user with work session
     let root_user_id =
@@ -383,7 +403,7 @@ async fn get_attendance_returns_address_when_exists() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance with address
-    let payload = build_attendance_payload_with_address(victim_id, city);
+    let payload = build_attendance_payload_with_address(pm_id, city);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -426,6 +446,9 @@ async fn update_attendance_can_add_or_update_address() {
 
     let city = db_fixtures::insert_city(&pool, "Cidade Update").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create ROOT user with work session
     let root_user_id =
@@ -437,7 +460,7 @@ async fn update_attendance_can_add_or_update_address() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance without address
-    let payload = build_attendance_payload(victim_id);
+    let payload = build_attendance_payload(pm_id);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -456,7 +479,6 @@ async fn update_attendance_can_add_or_update_address() {
 
     // Update attendance adding address
     let update_payload = serde_json::json!({
-        "victim_id": victim_id,
         "was_victim_present": false,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(16, 0, 0).unwrap(),
@@ -471,8 +493,7 @@ async fn update_attendance_can_add_or_update_address() {
             "zip_code": "20000-000",
             "complement": null
         },
-        "offender_id": null,
-        "protective_measure_id": null,
+        "protective_measure_id": pm_id,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -523,12 +544,15 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to create attendance with address for victim in city B
-    let payload = build_attendance_payload_with_address(victim_b, city_b);
+    let payload = build_attendance_payload_with_address(pm_b, city_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -552,6 +576,10 @@ async fn create_attendance_without_active_session_fails() {
 
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
     // CITY_ADMIN has the necessary policies, so we can test the work session requirement
@@ -571,7 +599,7 @@ async fn create_attendance_without_active_session_fails() {
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = build_attendance_payload(victim_id);
+    let payload = build_attendance_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -604,6 +632,14 @@ async fn get_attendance_victims_by_victim_id_success() {
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
     let victim1_id = db_fixtures::insert_victim(&pool, "Victim 1", city_id).await;
     let victim2_id = db_fixtures::insert_victim(&pool, "Victim 2", city_id).await;
+    let offender1_id = db_fixtures::insert_offender(&pool, "Offender 1", city_id).await;
+    let offender2_id = db_fixtures::insert_offender(&pool, "Offender 2", city_id).await;
+    let pm1 =
+        db_fixtures::insert_protective_measure(&pool, victim1_id, offender1_id, city_id, "Valid")
+            .await;
+    let pm2 =
+        db_fixtures::insert_protective_measure(&pool, victim2_id, offender2_id, city_id, "Valid")
+            .await;
 
     // Create ROOT user with work session
     let root_user_id =
@@ -617,7 +653,7 @@ async fn get_attendance_victims_by_victim_id_success() {
     // Create 2 attendances for victim1
     for i in 0..2 {
         let payload = serde_json::json!({
-            "victim_id": victim1_id,
+            "protective_measure_id": pm1,
             "was_victim_present": true,
             "attendance_date": format!("2025-01-{:02}", i + 1),
             "attendance_time": "14:30:00",
@@ -642,7 +678,7 @@ async fn get_attendance_victims_by_victim_id_success() {
     }
 
     // Create 1 attendance for victim2
-    let payload2 = build_attendance_payload(victim2_id);
+    let payload2 = build_attendance_payload(pm2);
     let req2 = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -697,6 +733,9 @@ async fn get_attendance_victims_by_victim_different_city_forbidden() {
     let city_b = db_fixtures::insert_city(&pool, "City B").await;
 
     let victim_b = db_fixtures::insert_victim(&pool, "Victim B", city_b).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Offender B", city_b).await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     // Create ROOT user with work session to create attendance in city B
     let root_user_id =
@@ -708,7 +747,7 @@ async fn get_attendance_victims_by_victim_different_city_forbidden() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance for victim in city B
-    let payload = build_attendance_payload(victim_b);
+    let payload = build_attendance_payload(pm_b);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")

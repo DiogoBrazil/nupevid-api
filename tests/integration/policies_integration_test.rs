@@ -610,18 +610,19 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
 
     // Cria vítima e atendimento em city_b
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_b, "Valid")
+            .await;
     let attendance_payload = json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2024-01-01",
         "attendance_time": "10:00:00",
         "description": "Atendimento B",
         "latitude": null,
         "longitude": null,
-        "address": null
-        ,
-        "offender_id": null,
-        "protective_measure_id": null,
+        "address": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,

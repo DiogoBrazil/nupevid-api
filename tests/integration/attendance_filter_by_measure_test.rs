@@ -4,17 +4,13 @@ use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-fn build_victim_attendance_payload(
-    victim_id: Uuid,
-    protective_measure_id: Option<Uuid>,
-) -> serde_json::Value {
+fn build_victim_attendance_payload(protective_measure_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": protective_measure_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
         "is_remote": false,
-        "protective_measure_id": protective_measure_id,
         "needs_legal_assistance": false,
         "needs_psychological_support": false,
         "was_instructed_about_protective_measure_procedures": false,
@@ -22,14 +18,8 @@ fn build_victim_attendance_payload(
     })
 }
 
-fn build_offender_attendance_payload(
-    offender_id: Uuid,
-    victim_id: Uuid,
-    protective_measure_id: Option<Uuid>,
-) -> serde_json::Value {
+fn build_offender_attendance_payload(protective_measure_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
         "protective_measure_id": protective_measure_id,
         "was_offender_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
@@ -103,9 +93,9 @@ async fn attendance_victims_by_victim_filter_by_measure_returns_only_matching() 
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    // Create 2 attendances with measure_a, 1 with measure_b, 1 without measure
-    for measure in [Some(measure_a), Some(measure_a), Some(measure_b), None] {
-        let payload = build_victim_attendance_payload(victim_id, measure);
+    // Create 2 attendances with measure_a, 1 with measure_b
+    for measure in [measure_a, measure_a, measure_b] {
+        let payload = build_victim_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-victims")
@@ -149,8 +139,8 @@ async fn attendance_victims_by_victim_filter_by_measure_b_returns_one() {
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    for measure in [Some(measure_a), Some(measure_b)] {
-        let payload = build_victim_attendance_payload(victim_id, measure);
+    for measure in [measure_a, measure_b] {
+        let payload = build_victim_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-victims")
@@ -188,12 +178,12 @@ async fn attendance_victims_by_victim_filter_by_measure_b_returns_one() {
 
 #[actix_rt::test]
 async fn attendance_victims_by_victim_without_filter_returns_all() {
-    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, _measure_b) =
+    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    // Create 1 with measure, 1 without
-    for measure in [Some(measure_a), None] {
-        let payload = build_victim_attendance_payload(victim_id, measure);
+    // Create 1 with measure_a, 1 with measure_b
+    for measure in [measure_a, measure_b] {
+        let payload = build_victim_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-victims")
@@ -228,16 +218,14 @@ async fn attendance_victims_by_victim_without_filter_returns_all() {
         "Without filter should return all attendances"
     );
 
-    // Verify both types are present: one with measure and one without
-    let has_with_measure = data
+    let has_measure_a = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
-    assert!(has_with_measure, "Should include attendance with measure");
-    assert!(
-        has_without_measure,
-        "Should include attendance without measure"
-    );
+    let has_measure_b = data
+        .iter()
+        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
+    assert!(has_measure_a, "Should include attendance with measure_a");
+    assert!(has_measure_b, "Should include attendance with measure_b");
 }
 
 #[actix_rt::test]
@@ -245,7 +233,7 @@ async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty()
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, _measure_b) =
         setup_test_data().await;
 
-    let payload = build_victim_attendance_payload(victim_id, Some(measure_a));
+    let payload = build_victim_attendance_payload(measure_a);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-victims")
@@ -287,11 +275,11 @@ async fn attendance_victims_by_victim_filter_nonexistent_measure_returns_empty()
 
 #[actix_rt::test]
 async fn attendance_offenders_by_offender_filter_by_measure_returns_only_matching() {
-    let (_pool, config, app, root_token, _city_id, victim_id, offender_id, measure_a, measure_b) =
+    let (_pool, config, app, root_token, _city_id, _victim_id, offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    for measure in [Some(measure_a), Some(measure_a), Some(measure_b), None] {
-        let payload = build_offender_attendance_payload(offender_id, victim_id, measure);
+    for measure in [measure_a, measure_a, measure_b] {
+        let payload = build_offender_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -332,11 +320,11 @@ async fn attendance_offenders_by_offender_filter_by_measure_returns_only_matchin
 
 #[actix_rt::test]
 async fn attendance_offenders_by_offender_without_filter_returns_all() {
-    let (_pool, config, app, root_token, _city_id, victim_id, offender_id, measure_a, _measure_b) =
+    let (_pool, config, app, root_token, _city_id, _victim_id, offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    for measure in [Some(measure_a), None] {
-        let payload = build_offender_attendance_payload(offender_id, victim_id, measure);
+    for measure in [measure_a, measure_b] {
+        let payload = build_offender_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -370,15 +358,14 @@ async fn attendance_offenders_by_offender_without_filter_returns_all() {
         "Without filter should return all attendances"
     );
 
-    let has_with_measure = data
+    let has_measure_a = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
-    assert!(has_with_measure, "Should include attendance with measure");
-    assert!(
-        has_without_measure,
-        "Should include attendance without measure"
-    );
+    let has_measure_b = data
+        .iter()
+        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
+    assert!(has_measure_a, "Should include attendance with measure_a");
+    assert!(has_measure_b, "Should include attendance with measure_b");
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -387,11 +374,11 @@ async fn attendance_offenders_by_offender_without_filter_returns_all() {
 
 #[actix_rt::test]
 async fn attendance_offenders_by_victim_filter_by_measure_returns_only_matching() {
-    let (_pool, config, app, root_token, _city_id, victim_id, offender_id, measure_a, measure_b) =
+    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    for measure in [Some(measure_a), Some(measure_b), None] {
-        let payload = build_offender_attendance_payload(offender_id, victim_id, measure);
+    for measure in [measure_a, measure_b] {
+        let payload = build_offender_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -429,11 +416,11 @@ async fn attendance_offenders_by_victim_filter_by_measure_returns_only_matching(
 
 #[actix_rt::test]
 async fn attendance_offenders_by_victim_without_filter_returns_all() {
-    let (_pool, config, app, root_token, _city_id, victim_id, offender_id, measure_a, _measure_b) =
+    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
         setup_test_data().await;
 
-    for measure in [Some(measure_a), None] {
-        let payload = build_offender_attendance_payload(offender_id, victim_id, measure);
+    for measure in [measure_a, measure_b] {
+        let payload = build_offender_attendance_payload(measure);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -467,23 +454,22 @@ async fn attendance_offenders_by_victim_without_filter_returns_all() {
         "Without filter should return all attendances"
     );
 
-    let has_with_measure = data
+    let has_measure_a = data
         .iter()
         .any(|a| a["protective_measure_id"].as_str() == Some(&measure_a.to_string()));
-    let has_without_measure = data.iter().any(|a| a["protective_measure_id"].is_null());
-    assert!(has_with_measure, "Should include attendance with measure");
-    assert!(
-        has_without_measure,
-        "Should include attendance without measure"
-    );
+    let has_measure_b = data
+        .iter()
+        .any(|a| a["protective_measure_id"].as_str() == Some(&measure_b.to_string()));
+    assert!(has_measure_a, "Should include attendance with measure_a");
+    assert!(has_measure_b, "Should include attendance with measure_b");
 }
 
 #[actix_rt::test]
 async fn attendance_offenders_by_victim_filter_nonexistent_measure_returns_empty() {
-    let (_pool, config, app, root_token, _city_id, victim_id, offender_id, measure_a, _measure_b) =
+    let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, _measure_b) =
         setup_test_data().await;
 
-    let payload = build_offender_attendance_payload(offender_id, victim_id, Some(measure_a));
+    let payload = build_offender_attendance_payload(measure_a);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
