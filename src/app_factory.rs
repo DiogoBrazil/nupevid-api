@@ -211,6 +211,7 @@ impl AppDependencies {
             Arc::clone(&attendance_victim_read_repository),
             Arc::clone(&attendance_victim_write_repository),
             Arc::clone(&victim_read_repository),
+            Arc::clone(&protective_measure_read_repository),
             Arc::clone(&user_repository),
             Arc::clone(&work_session_read_repository),
             Arc::clone(&attendance_member_repository),
