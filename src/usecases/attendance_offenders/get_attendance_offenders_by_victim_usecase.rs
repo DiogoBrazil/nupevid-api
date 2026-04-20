@@ -21,7 +21,6 @@ impl GetAttendanceOffendersByVictimUseCase {
     pub async fn execute(
         &self,
         victim_id: Uuid,
-        protective_measure_id: Option<Uuid>,
         claims: &UserClaims,
     ) -> Result<Vec<AttendanceOffenderWithAddress>, AppError> {
         info!(
@@ -37,7 +36,7 @@ impl GetAttendanceOffendersByVictimUseCase {
         match self
             .deps
             .attendance_offender_read_repository
-            .get_attendance_offenders_by_victim(victim_id, protective_measure_id)
+            .get_attendance_offenders_by_victim(victim_id)
             .await
         {
             Ok(attendances_list) => Ok(attendances_list),
