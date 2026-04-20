@@ -2,16 +2,15 @@ use log::{error, info, warn};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::PolicyMap;
 use crate::core::entities::auth::UserClaims;
-use crate::core::value_objects::policies::Policy;
+use crate::core::value_objects::policies::{PermissionPolicies, Policy};
 use crate::core::value_objects::profiles::Profile;
 
-pub fn check_policy(
+pub(crate) fn check_policy(
     claims: &UserClaims,
     policy: &Policy,
     city_id: Uuid,
-    user_policies: &PolicyMap,
+    user_policies: &PermissionPolicies,
 ) -> Result<(), AppError> {
     info!(
         "[Authorization] Checking policy '{}' for city '{}' by user '{}'",
@@ -43,10 +42,10 @@ pub fn check_policy(
     )))
 }
 
-pub fn get_allowed_cities_for_policy(
+pub(crate) fn get_allowed_cities_for_policy(
     claims: &UserClaims,
     policy: &Policy,
-    user_policies: &PolicyMap,
+    user_policies: &PermissionPolicies,
 ) -> Option<Vec<Uuid>> {
     info!(
         "[Authorization] Getting allowed cities for policy '{}' by user '{}'",

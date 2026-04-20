@@ -10,8 +10,6 @@ use crate::core::policy_defaults;
 use crate::core::value_objects::policies::PermissionPolicies;
 use crate::core::value_objects::profiles::Profile;
 
-pub type PolicyMap = PermissionPolicies;
-
 pub fn extract_city_id_from_claims(claims: &UserClaims) -> Result<Uuid, AppError> {
     claims
         .city_id
@@ -26,7 +24,7 @@ pub fn extract_city_id_from_claims(claims: &UserClaims) -> Result<Uuid, AppError
 pub async fn get_user_policies_strict<T: UserRepository + ?Sized>(
     user_repository: &T,
     claims: &UserClaims,
-) -> Result<Option<PolicyMap>, AppError> {
+) -> Result<Option<PermissionPolicies>, AppError> {
     if claims.profile == Profile::Root {
         return Ok(None);
     }
@@ -47,7 +45,7 @@ pub async fn get_user_policies_strict<T: UserRepository + ?Sized>(
 pub async fn get_user_policies_with_defaults<T: UserRepository + ?Sized>(
     user_repository: &T,
     claims: &UserClaims,
-) -> Result<PolicyMap, AppError> {
+) -> Result<PermissionPolicies, AppError> {
     if claims.profile == Profile::Root {
         return Ok(HashMap::new());
     }
