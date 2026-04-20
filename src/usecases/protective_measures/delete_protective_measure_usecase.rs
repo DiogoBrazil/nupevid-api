@@ -7,6 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::{get_protective_measure_or_not_found, get_victim_or_not_found};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
 pub struct DeleteProtectiveMeasureUseCase {
@@ -28,40 +29,11 @@ impl DeleteProtectiveMeasureUseCase {
             id
         );
 
-        let measure = match self
-            .deps
-            .measure_read_repository
-            .get_protective_measure_by_id(id)
-            .await
-        {
-            Ok(m) => m,
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Protective measure with id '{}' not found",
-                    id
-                )));
-            }
-            Err(e) => {
-                error!(
-                    "[DeleteProtectiveMeasureUseCase] Error fetching measure: {:?}",
-                    e
-                );
-                return Err(AppError::InternalServerError);
-            }
-        };
+        let measure =
+            get_protective_measure_or_not_found(&*self.deps.measure_read_repository, id).await?;
 
-        let victim = self
-            .deps
-            .victim_repository
-            .get_victim_by_id(measure.victim_id)
-            .await
-            .map_err(|e| {
-                error!(
-                    "[DeleteProtectiveMeasureUseCase] Error fetching victim: {:?}",
-                    e
-                );
-                AppError::InternalServerError
-            })?;
+        let victim =
+            get_victim_or_not_found(&*self.deps.victim_repository, measure.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::DeleteProtectiveMeasures, victim.city_id)?;

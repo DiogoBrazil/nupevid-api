@@ -7,20 +7,13 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::{get_offender_or_not_found, get_victim_or_not_found};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
+use crate::usecases::protective_measures::errors::map_reference_error;
 use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
 
 pub struct CreateProtectiveMeasureUseCase {
     deps: ProtectiveMeasureUseCaseDependencies,
-}
-
-fn map_reference_error_for_create(msg: String) -> AppError {
-    let detail = match msg.as_str() {
-        "Court district not found" => "court_district_id not found".to_string(),
-        _ => msg,
-    };
-
-    AppError::BadRequest(format!("Error adding protective measure: {}", detail))
 }
 
 impl CreateProtectiveMeasureUseCase {
@@ -38,49 +31,9 @@ impl CreateProtectiveMeasureUseCase {
             measure.victim_id
         );
 
-        let victim = match self
-            .deps
-            .victim_repository
-            .get_victim_by_id(measure.victim_id)
-            .await
-        {
-            Ok(v) => v,
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Victim with id '{}' not found",
-                    measure.victim_id
-                )));
-            }
-            Err(e) => {
-                error!(
-                    "[CreateProtectiveMeasureUseCase] Error checking victim: {:?}",
-                    e
-                );
-                return Err(AppError::InternalServerError);
-            }
-        };
-
-        match self
-            .deps
-            .offender_repository
-            .get_offender_by_id(measure.offender_id)
-            .await
-        {
-            Ok(_) => {}
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Offender with id '{}' not found",
-                    measure.offender_id
-                )));
-            }
-            Err(e) => {
-                error!(
-                    "[CreateProtectiveMeasureUseCase] Error checking offender: {:?}",
-                    e
-                );
-                return Err(AppError::InternalServerError);
-            }
-        }
+        let victim =
+            get_victim_or_not_found(&*self.deps.victim_repository, measure.victim_id).await?;
+        get_offender_or_not_found(&*self.deps.offender_repository, measure.offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::CreateProtectiveMeasures, victim.city_id)?;
@@ -152,7 +105,7 @@ impl CreateProtectiveMeasureUseCase {
         {
             Ok(measure) => measure,
             Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                return Err(map_reference_error_for_create(msg));
+                return Err(map_reference_error(msg, "Error adding protective measure"));
             }
             Err(e) => {
                 error!(
