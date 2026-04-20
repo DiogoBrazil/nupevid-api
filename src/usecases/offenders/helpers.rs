@@ -2,25 +2,12 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
+use crate::core::contracts::repository::users::UserRepository;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
-
-pub async fn get_offender_or_not_found(
-    offender_read_repository: &dyn OffenderReadRepository,
-    id: Uuid,
-) -> Result<OffenderWithDetails, AppError> {
-    match offender_read_repository.get_offender_by_id(id).await {
-        Ok(offender) => Ok(offender),
-        Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
-            "Offender with id '{}' not found",
-            id
-        ))),
-        Err(_) => Err(AppError::InternalServerError),
-    }
-}
+use crate::usecases::helpers_common::get_offender_or_not_found;
 
 pub async fn authorize_offender_access(
     auth: &AuthContext,
@@ -34,7 +21,7 @@ pub async fn authorize_offender_access(
 }
 
 pub async fn load_auth_and_check_offender(
-    user_repository: &dyn crate::core::contracts::repository::users::UserRepository,
+    user_repository: &dyn UserRepository,
     claims: &UserClaims,
     offender_read_repository: &dyn OffenderReadRepository,
     offender_id: Uuid,
