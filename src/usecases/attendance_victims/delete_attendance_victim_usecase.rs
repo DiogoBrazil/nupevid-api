@@ -3,12 +3,11 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::get_attendance_victim_or_not_found;
+use crate::usecases::helpers_common::{get_attendance_victim_or_not_found, get_victim_or_not_found};
 
 pub struct DeleteAttendanceVictimUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -29,25 +28,12 @@ impl DeleteAttendanceVictimUseCase {
             id
         );
 
-        let attendance = get_attendance_victim_or_not_found(
-            &*self.deps.attendance_victim_read_repository,
-            id,
-            "DeleteAttendanceVictimUseCase",
-        )
-        .await?;
+        let attendance =
+            get_attendance_victim_or_not_found(&*self.deps.attendance_victim_read_repository, id)
+                .await?;
 
-        let victim = self
-            .deps
-            .victim_repository
-            .get_victim_by_id(attendance.victim_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => AppError::NotFound(format!(
-                    "Victim with id '{}' not found",
-                    attendance.victim_id
-                )),
-                _ => AppError::InternalServerError,
-            })?;
+        let victim =
+            get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::DeleteAttendances, victim.city_id)?;
 

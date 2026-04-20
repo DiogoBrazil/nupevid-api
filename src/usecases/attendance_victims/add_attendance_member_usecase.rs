@@ -8,9 +8,7 @@ use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::{
-    get_attendance_victim_or_not_found, get_victim_or_not_found,
-};
+use crate::usecases::helpers_common::{get_attendance_victim_or_not_found, get_victim_or_not_found};
 
 pub struct AddAttendanceMemberUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -37,7 +35,6 @@ impl AddAttendanceMemberUseCase {
         let attendance = get_attendance_victim_or_not_found(
             &*self.deps.attendance_victim_read_repository,
             attendance_id,
-            "AddAttendanceMemberUseCase",
         )
         .await?;
 

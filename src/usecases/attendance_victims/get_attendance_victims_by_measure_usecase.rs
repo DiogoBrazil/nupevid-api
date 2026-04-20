@@ -6,9 +6,8 @@ use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::attendance_offenders::helpers::load_pm_or_not_found;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::get_victim_or_not_found;
+use crate::usecases::helpers_common::{get_protective_measure_or_not_found, get_victim_or_not_found};
 
 pub struct GetAttendanceVictimsByMeasureUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -29,7 +28,7 @@ impl GetAttendanceVictimsByMeasureUseCase {
             protective_measure_id
         );
 
-        let pm = load_pm_or_not_found(
+        let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
             protective_measure_id,
         )

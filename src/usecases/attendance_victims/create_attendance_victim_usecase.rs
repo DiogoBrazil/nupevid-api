@@ -7,11 +7,9 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::attendance_offenders::helpers::load_pm_or_not_found;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::{
-    get_active_session_members, get_victim_or_not_found,
-};
+use crate::usecases::attendance_victims::helpers::get_active_session_members;
+use crate::usecases::helpers_common::{get_protective_measure_or_not_found, get_victim_or_not_found};
 
 pub struct CreateAttendanceVictimUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -29,7 +27,7 @@ impl CreateAttendanceVictimUseCase {
     ) -> Result<AttendanceVictimWithAddress, AppError> {
         info!("[CreateAttendanceVictimUseCase] Creating attendance victim");
 
-        let pm = load_pm_or_not_found(
+        let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
             attendance.protective_measure_id,
         )
