@@ -18,7 +18,7 @@ pub struct AttendanceAddressData {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateAttendanceVictim {
-    pub victim_id: Uuid,
+    pub protective_measure_id: Uuid,
     pub was_victim_present: bool,
     pub attendance_date: NaiveDate,
     pub attendance_time: NaiveTime,
@@ -26,8 +26,6 @@ pub struct CreateAttendanceVictim {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub address: Option<AttendanceAddressData>,
-    pub offender_id: Option<Uuid>,
-    pub protective_measure_id: Option<Uuid>,
     pub is_remote: bool,
     pub risk_level: Option<RiskLevel>,
     pub offender_freedom_status: Option<OffenderFreedomStatus>,
@@ -40,7 +38,7 @@ pub struct CreateAttendanceVictim {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateAttendanceVictim {
-    pub victim_id: Uuid,
+    pub protective_measure_id: Uuid,
     pub was_victim_present: bool,
     pub attendance_date: NaiveDate,
     pub attendance_time: NaiveTime,
@@ -48,8 +46,6 @@ pub struct UpdateAttendanceVictim {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub address: Option<AttendanceAddressData>,
-    pub offender_id: Option<Uuid>,
-    pub protective_measure_id: Option<Uuid>,
     pub is_remote: bool,
     pub risk_level: Option<RiskLevel>,
     pub offender_freedom_status: Option<OffenderFreedomStatus>,

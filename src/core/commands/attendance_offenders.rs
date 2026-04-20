@@ -7,9 +7,7 @@ use crate::core::entities::attendance_offenders::ViolenceAggravator;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateAttendanceOffender {
-    pub offender_id: Uuid,
-    pub victim_id: Uuid,
-    pub protective_measure_id: Option<Uuid>,
+    pub protective_measure_id: Uuid,
     pub was_offender_present: bool,
     pub attendance_date: NaiveDate,
     pub attendance_time: NaiveTime,
@@ -23,9 +21,7 @@ pub struct CreateAttendanceOffender {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateAttendanceOffender {
-    pub offender_id: Uuid,
-    pub victim_id: Uuid,
-    pub protective_measure_id: Option<Uuid>,
+    pub protective_measure_id: Uuid,
     pub was_offender_present: bool,
     pub attendance_date: NaiveDate,
     pub attendance_time: NaiveTime,
