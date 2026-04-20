@@ -34,3 +34,44 @@ pub fn validate_required_fields(
 pub fn validate_person_name(full_name: &str, error_context: &str) -> Result<(), AppError> {
     validate_required_fields(&[("full_name", full_name.trim().is_empty())], error_context)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_person_name_success_victim() {
+        let result = validate_person_name("Maria da Silva", "test");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_person_name_success_offender() {
+        let result = validate_person_name("João dos Santos", "test");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_person_name_empty() {
+        let result = validate_person_name("", "test");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("full_name cannot be empty")
+        );
+    }
+
+    #[test]
+    fn test_validate_person_name_whitespace() {
+        let result = validate_person_name("   ", "test");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("full_name cannot be empty")
+        );
+    }
+}
