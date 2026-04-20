@@ -8,7 +8,6 @@ pub mod get_attendance_offender_by_id_usecase;
 pub mod get_attendance_offenders_by_measure_usecase;
 pub mod get_attendance_offenders_by_offender_usecase;
 pub mod get_attendance_offenders_by_victim_usecase;
-pub mod helpers;
 pub mod remove_attendance_member_usecase;
 pub mod update_attendance_offender_usecase;
 

@@ -9,9 +9,9 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::attendance_offenders::helpers::{
-    get_attendance_offender_or_not_found, get_offender_or_not_found, get_victim_or_not_found,
-    load_pm_or_not_found,
+use crate::usecases::helpers_common::{
+    get_attendance_offender_or_not_found, get_offender_or_not_found,
+    get_protective_measure_or_not_found, get_victim_or_not_found,
 };
 
 pub struct UpdateAttendanceOffenderUseCase {
@@ -40,23 +40,14 @@ impl UpdateAttendanceOffenderUseCase {
         )
         .await?;
 
-        let existing_offender = self
-            .deps
-            .offender_repository
-            .get_offender_by_id(existing.offender_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => AppError::NotFound(format!(
-                    "Offender with id '{}' not found",
-                    existing.offender_id
-                )),
-                _ => AppError::InternalServerError,
-            })?;
+        let existing_offender =
+            get_offender_or_not_found(&*self.deps.offender_repository, existing.offender_id)
+                .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::UpdateAttendances, existing_offender.city_id)?;
 
-        let pm = load_pm_or_not_found(
+        let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
             data.protective_measure_id,
         )
