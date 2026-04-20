@@ -4,7 +4,9 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::attendance_offenders::AttendanceOffenderReadRepository;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
+use crate::core::contracts::repository::protective_measures::ProtectiveMeasureReadRepository;
 use crate::core::contracts::repository::victims::VictimReadRepository;
+use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::read_models::victims::VictimWithDetails;
@@ -54,5 +56,20 @@ pub async fn get_victim_or_not_found(
             } else {
                 AppError::InternalServerError
             }
+        })
+}
+
+pub async fn load_pm_or_not_found(
+    pm_repository: &dyn ProtectiveMeasureReadRepository,
+    pm_id: Uuid,
+) -> Result<ProtectiveMeasure, AppError> {
+    pm_repository
+        .get_protective_measure_by_id(pm_id)
+        .await
+        .map_err(|e| match e {
+            RepositoryError::NotFound => {
+                AppError::NotFound(format!("Protective measure '{}' not found", pm_id))
+            }
+            _ => AppError::InternalServerError,
         })
 }

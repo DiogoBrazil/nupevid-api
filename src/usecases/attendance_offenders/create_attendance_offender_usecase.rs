@@ -9,7 +9,7 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_offenders::helpers::{
-    get_offender_or_not_found, get_victim_or_not_found,
+    get_offender_or_not_found, get_victim_or_not_found, load_pm_or_not_found,
 };
 use crate::usecases::attendance_victims::helpers::get_active_session_members;
 
@@ -29,35 +29,16 @@ impl CreateAttendanceOffenderUseCase {
     ) -> Result<AttendanceOffenderWithAddress, AppError> {
         info!("[CreateAttendanceOffenderUseCase] Creating attendance offender");
 
+        let pm = load_pm_or_not_found(
+            &*self.deps.protective_measure_repository,
+            attendance.protective_measure_id,
+        )
+        .await?;
+
         let offender =
-            get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
-                .await?;
+            get_offender_or_not_found(&*self.deps.offender_repository, pm.offender_id).await?;
 
-        get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
-
-        if let Some(pm_id) = attendance.protective_measure_id {
-            match self
-                .deps
-                .protective_measure_repository
-                .get_protective_measure_by_id(pm_id)
-                .await
-            {
-                Ok(_) => {}
-                Err(RepositoryError::NotFound) => {
-                    return Err(AppError::NotFound(format!(
-                        "Protective measure with id '{}' not found",
-                        pm_id
-                    )));
-                }
-                Err(e) => {
-                    error!(
-                        "[CreateAttendanceOffenderUseCase] Error checking protective measure: {:?}",
-                        e
-                    );
-                    return Err(AppError::InternalServerError);
-                }
-            }
-        }
+        get_victim_or_not_found(&*self.deps.victim_repository, pm.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::CreateAttendances, offender.city_id)?;
@@ -68,7 +49,7 @@ impl CreateAttendanceOffenderUseCase {
         match self
             .deps
             .attendance_offender_write_repository
-            .create_attendance_offender(attendance, members_for_tx)
+            .create_attendance_offender(attendance, pm.offender_id, pm.victim_id, members_for_tx)
             .await
         {
             Ok(attendance_with_address) => {
