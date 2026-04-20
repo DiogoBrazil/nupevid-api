@@ -44,12 +44,16 @@ pub trait AttendanceOffenderWriteRepository: Send + Sync {
     async fn create_attendance_offender(
         &self,
         attendance: CreateAttendanceOffender,
+        offender_id: Uuid,
+        victim_id: Uuid,
         session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceOffenderWriteResult, RepositoryError>;
     async fn update_attendance_offender_by_id(
         &self,
         data: UpdateAttendanceOffender,
         id: Uuid,
+        offender_id: Uuid,
+        victim_id: Uuid,
     ) -> Result<AttendanceOffenderWriteResult, RepositoryError>;
     async fn delete_attendance_offender_by_id(
         &self,
