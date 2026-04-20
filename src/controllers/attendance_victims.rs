@@ -1,6 +1,5 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
-use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
@@ -9,18 +8,13 @@ use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::usecases::attendance_victims::{
     AddAttendanceMemberUseCase, CreateAttendanceVictimUseCase, DeleteAttendanceVictimUseCase,
     GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase, GetAttendanceVictimByIdUseCase,
-    GetAttendanceVictimsByVictimUseCase, RemoveAttendanceMemberUseCase,
-    UpdateAttendanceVictimUseCase,
+    GetAttendanceVictimsByMeasureUseCase, GetAttendanceVictimsByVictimUseCase,
+    RemoveAttendanceMemberUseCase, UpdateAttendanceVictimUseCase,
 };
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
 use crate::utils::pagination::PaginationParams;
-
-#[derive(Debug, Deserialize)]
-pub struct AttendanceFilterParams {
-    pub protective_measure_id: Option<Uuid>,
-}
 
 pub async fn create_attendance_victim(
     data: web::Json<CreateAttendanceVictim>,
@@ -62,20 +56,31 @@ pub async fn get_all_attendance_victims(
 
 pub async fn get_attendance_victims_by_victim(
     path: web::Path<Uuid>,
-    query: web::Query<AttendanceFilterParams>,
     usecase: web::Data<GetAttendanceVictimsByVictimUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let victim_id = path.into_inner();
-    let filter = query.into_inner();
     info!(
         "[Controller] Received request to get attendance victims for victim: {}",
         victim_id
     );
     let claims = request_claims(&req)?;
-    let attendances = usecase
-        .execute(victim_id, filter.protective_measure_id, &claims)
-        .await?;
+    let attendances = usecase.execute(victim_id, &claims).await?;
+    Ok(success(attendances))
+}
+
+pub async fn get_attendance_victims_by_measure(
+    path: web::Path<Uuid>,
+    usecase: web::Data<GetAttendanceVictimsByMeasureUseCase>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let protective_measure_id = path.into_inner();
+    info!(
+        "[Controller] Received request to get attendance victims for protective measure: {}",
+        protective_measure_id
+    );
+    let claims = request_claims(&req)?;
+    let attendances = usecase.execute(protective_measure_id, &claims).await?;
     Ok(success(attendances))
 }
 
