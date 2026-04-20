@@ -43,15 +43,16 @@ use crate::usecases::attendance_offenders::{
     AddAttendanceOffenderMemberUseCase, AttendanceOffenderUseCaseDependencies,
     CreateAttendanceOffenderUseCase, DeleteAttendanceOffenderUseCase,
     GetAllAttendanceOffendersUseCase, GetAttendanceOffenderByIdUseCase,
-    GetAttendanceOffenderMembersUseCase, GetAttendanceOffendersByOffenderUseCase,
-    GetAttendanceOffendersByVictimUseCase, RemoveAttendanceOffenderMemberUseCase,
-    UpdateAttendanceOffenderUseCase,
+    GetAttendanceOffenderMembersUseCase, GetAttendanceOffendersByMeasureUseCase,
+    GetAttendanceOffendersByOffenderUseCase, GetAttendanceOffendersByVictimUseCase,
+    RemoveAttendanceOffenderMemberUseCase, UpdateAttendanceOffenderUseCase,
 };
 use crate::usecases::attendance_victims::{
     AddAttendanceMemberUseCase, AttendanceVictimUseCaseDependencies, CreateAttendanceVictimUseCase,
     DeleteAttendanceVictimUseCase, GetAllAttendanceVictimsUseCase, GetAttendanceMembersUseCase,
-    GetAttendanceVictimByIdUseCase, GetAttendanceVictimsByVictimUseCase,
-    RemoveAttendanceMemberUseCase, UpdateAttendanceVictimUseCase,
+    GetAttendanceVictimByIdUseCase, GetAttendanceVictimsByMeasureUseCase,
+    GetAttendanceVictimsByVictimUseCase, RemoveAttendanceMemberUseCase,
+    UpdateAttendanceVictimUseCase,
 };
 use crate::usecases::auth::{AuthUseCaseDependencies, LoginUseCase};
 use crate::usecases::cities::{
@@ -369,6 +370,9 @@ impl AppDependencies {
         register!(GetAttendanceVictimsByVictimUseCase::new(
             attendance_victim_usecase_deps.clone()
         ));
+        register!(GetAttendanceVictimsByMeasureUseCase::new(
+            attendance_victim_usecase_deps.clone()
+        ));
         register!(UpdateAttendanceVictimUseCase::new(
             attendance_victim_usecase_deps.clone()
         ));
@@ -399,6 +403,9 @@ impl AppDependencies {
             attendance_offender_usecase_deps.clone()
         ));
         register!(GetAttendanceOffendersByVictimUseCase::new(
+            attendance_offender_usecase_deps.clone()
+        ));
+        register!(GetAttendanceOffendersByMeasureUseCase::new(
             attendance_offender_usecase_deps.clone()
         ));
         register!(UpdateAttendanceOffenderUseCase::new(
