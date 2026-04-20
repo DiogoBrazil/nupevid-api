@@ -8,10 +8,10 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::attendance_offenders::helpers::load_pm_or_not_found;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
-use crate::usecases::attendance_victims::helpers::{
-    get_attendance_victim_or_not_found, get_victim_or_not_found,
+use crate::usecases::helpers_common::{
+    get_attendance_victim_or_not_found, get_protective_measure_or_not_found,
+    get_victim_or_not_found,
 };
 
 pub struct UpdateAttendanceVictimUseCase {
@@ -34,28 +34,16 @@ impl UpdateAttendanceVictimUseCase {
             id
         );
 
-        let existing = get_attendance_victim_or_not_found(
-            &*self.deps.attendance_victim_read_repository,
-            id,
-            "UpdateAttendanceVictimUseCase",
-        )
-        .await?;
+        let existing =
+            get_attendance_victim_or_not_found(&*self.deps.attendance_victim_read_repository, id)
+                .await?;
 
-        let existing_victim = self
-            .deps
-            .victim_repository
-            .get_victim_by_id(existing.victim_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => {
-                    AppError::NotFound(format!("Victim with id '{}' not found", existing.victim_id))
-                }
-                _ => AppError::InternalServerError,
-            })?;
+        let existing_victim =
+            get_victim_or_not_found(&*self.deps.victim_repository, existing.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::UpdateAttendances, existing_victim.city_id)?;
 
-        let pm = load_pm_or_not_found(
+        let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
             data.protective_measure_id,
         )
