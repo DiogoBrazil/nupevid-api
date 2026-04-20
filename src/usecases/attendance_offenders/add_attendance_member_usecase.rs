@@ -8,7 +8,7 @@ use crate::core::entities::attendance_members::AddAttendanceMember;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::attendance_offenders::helpers::{
+use crate::usecases::helpers_common::{
     get_attendance_offender_or_not_found, get_offender_or_not_found,
 };
 

@@ -3,11 +3,13 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
+use crate::usecases::helpers_common::{
+    get_attendance_offender_or_not_found, get_offender_or_not_found,
+};
 
 pub struct GetAttendanceOffenderByIdUseCase {
     deps: AttendanceOffenderUseCaseDependencies,
@@ -28,36 +30,21 @@ impl GetAttendanceOffenderByIdUseCase {
             id
         );
 
-        match self
-            .deps
-            .attendance_offender_read_repository
-            .get_attendance_offender_by_id(id)
-            .await
-        {
-            Ok(attendance_with_address) => {
-                let offender = self
-                    .deps
-                    .offender_repository
-                    .get_offender_by_id(attendance_with_address.offender_id)
-                    .await
-                    .map_err(|e| match e {
-                        RepositoryError::NotFound => AppError::NotFound(format!(
-                            "Offender with id '{}' not found",
-                            attendance_with_address.offender_id
-                        )),
-                        _ => AppError::InternalServerError,
-                    })?;
+        let attendance_with_address = get_attendance_offender_or_not_found(
+            &*self.deps.attendance_offender_read_repository,
+            id,
+        )
+        .await?;
 
-                let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
+        let offender = get_offender_or_not_found(
+            &*self.deps.offender_repository,
+            attendance_with_address.offender_id,
+        )
+        .await?;
 
-                Ok(attendance_with_address)
-            }
-            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
-                "Attendance offender '{}' not found",
-                id
-            ))),
-            Err(_) => Err(AppError::InternalServerError),
-        }
+        let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
+        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
+
+        Ok(attendance_with_address)
     }
 }

@@ -7,7 +7,7 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::attendance_offenders::helpers::get_victim_or_not_found;
+use crate::usecases::helpers_common::get_victim_or_not_found;
 
 pub struct GetAttendanceOffendersByVictimUseCase {
     deps: AttendanceOffenderUseCaseDependencies,

@@ -3,12 +3,13 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::attendance_offenders::helpers::get_attendance_offender_or_not_found;
+use crate::usecases::helpers_common::{
+    get_attendance_offender_or_not_found, get_offender_or_not_found,
+};
 
 pub struct DeleteAttendanceOffenderUseCase {
     deps: AttendanceOffenderUseCaseDependencies,
@@ -35,18 +36,9 @@ impl DeleteAttendanceOffenderUseCase {
         )
         .await?;
 
-        let offender = self
-            .deps
-            .offender_repository
-            .get_offender_by_id(attendance.offender_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => AppError::NotFound(format!(
-                    "Offender with id '{}' not found",
-                    attendance.offender_id
-                )),
-                _ => AppError::InternalServerError,
-            })?;
+        let offender =
+            get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
+                .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::DeleteAttendances, offender.city_id)?;
