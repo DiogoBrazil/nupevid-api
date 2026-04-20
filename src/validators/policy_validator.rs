@@ -1,7 +1,6 @@
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::PolicyMap;
-use crate::core::commands::users::PermissionPolicies;
 use crate::core::entities::auth::UserClaims;
+use crate::core::value_objects::policies::PermissionPolicies;
 use crate::core::value_objects::profiles::Profile;
 
 pub struct PolicyValidator;
@@ -11,7 +10,7 @@ impl PolicyValidator {
         claims: &UserClaims,
         target_profile: &Profile,
         policies: &PermissionPolicies,
-        claims_policies: Option<&PolicyMap>,
+        claims_policies: Option<&PermissionPolicies>,
     ) -> Result<(), AppError> {
         match &claims.profile {
             Profile::Root => Ok(()),
@@ -151,7 +150,7 @@ mod tests {
         let city_id = Uuid::new_v4();
         let claims = create_test_claims(Profile::CityAdmin, Uuid::new_v4());
 
-        let mut claims_policies: PolicyMap = HashMap::new();
+        let mut claims_policies: PermissionPolicies = HashMap::new();
         claims_policies.insert(Policy::ReadVictims, vec![city_id]);
 
         let mut policies: PermissionPolicies = HashMap::new();
@@ -171,7 +170,7 @@ mod tests {
         let city_id = Uuid::new_v4();
         let claims = create_test_claims(Profile::CityAdmin, Uuid::new_v4());
 
-        let claims_policies: PolicyMap = HashMap::new();
+        let claims_policies: PermissionPolicies = HashMap::new();
 
         let mut policies: PermissionPolicies = HashMap::new();
         policies.insert(Policy::ReadVictims, vec![city_id]);
