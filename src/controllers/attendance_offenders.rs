@@ -1,6 +1,5 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
-use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
@@ -12,18 +11,14 @@ use crate::usecases::attendance_offenders::{
     AddAttendanceOffenderMemberUseCase, CreateAttendanceOffenderUseCase,
     DeleteAttendanceOffenderUseCase, GetAllAttendanceOffendersUseCase,
     GetAttendanceOffenderByIdUseCase, GetAttendanceOffenderMembersUseCase,
-    GetAttendanceOffendersByOffenderUseCase, GetAttendanceOffendersByVictimUseCase,
-    RemoveAttendanceOffenderMemberUseCase, UpdateAttendanceOffenderUseCase,
+    GetAttendanceOffendersByMeasureUseCase, GetAttendanceOffendersByOffenderUseCase,
+    GetAttendanceOffendersByVictimUseCase, RemoveAttendanceOffenderMemberUseCase,
+    UpdateAttendanceOffenderUseCase,
 };
 use crate::utils::controller_helpers::{
     created, paginated, request_claims, request_pagination, success,
 };
 use crate::utils::pagination::PaginationParams;
-
-#[derive(Debug, Deserialize)]
-pub struct AttendanceFilterParams {
-    pub protective_measure_id: Option<Uuid>,
-}
 
 pub async fn create_attendance_offender(
     data: web::Json<CreateAttendanceOffender>,
@@ -65,39 +60,46 @@ pub async fn get_all_attendance_offenders(
 
 pub async fn get_attendance_offenders_by_offender(
     path: web::Path<Uuid>,
-    query: web::Query<AttendanceFilterParams>,
     usecase: web::Data<GetAttendanceOffendersByOffenderUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let offender_id = path.into_inner();
-    let filter = query.into_inner();
     info!(
         "[Controller] Received request to get attendance offenders for offender: {}",
         offender_id
     );
     let claims = request_claims(&req)?;
-    let attendances = usecase
-        .execute(offender_id, filter.protective_measure_id, &claims)
-        .await?;
+    let attendances = usecase.execute(offender_id, &claims).await?;
     Ok(success(attendances))
 }
 
 pub async fn get_attendance_offenders_by_victim(
     path: web::Path<Uuid>,
-    query: web::Query<AttendanceFilterParams>,
     usecase: web::Data<GetAttendanceOffendersByVictimUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let victim_id = path.into_inner();
-    let filter = query.into_inner();
     info!(
         "[Controller] Received request to get attendance offenders for victim: {}",
         victim_id
     );
     let claims = request_claims(&req)?;
-    let attendances = usecase
-        .execute(victim_id, filter.protective_measure_id, &claims)
-        .await?;
+    let attendances = usecase.execute(victim_id, &claims).await?;
+    Ok(success(attendances))
+}
+
+pub async fn get_attendance_offenders_by_measure(
+    path: web::Path<Uuid>,
+    usecase: web::Data<GetAttendanceOffendersByMeasureUseCase>,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let protective_measure_id = path.into_inner();
+    info!(
+        "[Controller] Received request to get attendance offenders for protective measure: {}",
+        protective_measure_id
+    );
+    let claims = request_claims(&req)?;
+    let attendances = usecase.execute(protective_measure_id, &claims).await?;
     Ok(success(attendances))
 }
 
