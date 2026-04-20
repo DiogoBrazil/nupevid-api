@@ -3,10 +3,10 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::get_victim_or_not_found;
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
 pub struct GetMeasuresByVictimUseCase {
@@ -28,27 +28,7 @@ impl GetMeasuresByVictimUseCase {
             victim_id
         );
 
-        let victim = match self
-            .deps
-            .victim_repository
-            .get_victim_by_id(victim_id)
-            .await
-        {
-            Ok(v) => v,
-            Err(RepositoryError::NotFound) => {
-                return Err(AppError::NotFound(format!(
-                    "Victim with id '{}' not found",
-                    victim_id
-                )));
-            }
-            Err(e) => {
-                error!(
-                    "[GetMeasuresByVictimUseCase] Error checking victim: {:?}",
-                    e
-                );
-                return Err(AppError::InternalServerError);
-            }
-        };
+        let victim = get_victim_or_not_found(&*self.deps.victim_repository, victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;

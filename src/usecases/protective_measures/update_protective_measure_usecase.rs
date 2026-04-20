@@ -10,19 +10,16 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::{
+    get_extension_or_not_found, get_offender_or_not_found, get_protective_measure_or_not_found,
+    get_victim_or_not_found,
+};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
+use crate::usecases::protective_measures::errors::map_reference_error;
 use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
 
 pub struct UpdateProtectiveMeasureUseCase {
     deps: ProtectiveMeasureUseCaseDependencies,
-}
-
-fn map_reference_error_for_update(msg: String) -> AppError {
-    let detail = match msg.as_str() {
-        "Court district not found" => "court_district_id not found".to_string(),
-        _ => msg,
-    };
-    AppError::BadRequest(format!("Error updating protective measure: {}", detail))
 }
 
 impl UpdateProtectiveMeasureUseCase {
@@ -68,25 +65,7 @@ impl UpdateProtectiveMeasureUseCase {
     }
 
     async fn load_existing_measure(&self, id: Uuid) -> Result<ProtectiveMeasure, AppError> {
-        match self
-            .deps
-            .measure_read_repository
-            .get_protective_measure_by_id(id)
-            .await
-        {
-            Ok(m) => Ok(m),
-            Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(
-                "Protective measure with id '{}' not found",
-                id
-            ))),
-            Err(e) => {
-                error!(
-                    "[UpdateProtectiveMeasureUseCase] Error fetching measure: {:?}",
-                    e
-                );
-                Err(AppError::InternalServerError)
-            }
-        }
+        get_protective_measure_or_not_found(&*self.deps.measure_read_repository, id).await
     }
 
     async fn authorize_update(
@@ -95,44 +74,15 @@ impl UpdateProtectiveMeasureUseCase {
         data: &UpdateProtectiveMeasure,
         existing: &ProtectiveMeasure,
     ) -> Result<(), AppError> {
-        let existing_victim = self
-            .deps
-            .victim_repository
-            .get_victim_by_id(existing.victim_id)
-            .await
-            .map_err(|e| {
-                error!(
-                    "[UpdateProtectiveMeasureUseCase] Error fetching existing victim: {:?}",
-                    e
-                );
-                AppError::InternalServerError
-            })?;
+        let existing_victim =
+            get_victim_or_not_found(&*self.deps.victim_repository, existing.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
         auth.check_policy(&Policy::UpdateProtectiveMeasures, existing_victim.city_id)?;
 
         if data.victim_id != existing.victim_id {
-            let new_victim = match self
-                .deps
-                .victim_repository
-                .get_victim_by_id(data.victim_id)
-                .await
-            {
-                Ok(v) => v,
-                Err(RepositoryError::NotFound) => {
-                    return Err(AppError::NotFound(format!(
-                        "Victim with id '{}' not found",
-                        data.victim_id
-                    )));
-                }
-                Err(e) => {
-                    error!(
-                        "[UpdateProtectiveMeasureUseCase] Error checking new victim: {:?}",
-                        e
-                    );
-                    return Err(AppError::InternalServerError);
-                }
-            };
+            let new_victim =
+                get_victim_or_not_found(&*self.deps.victim_repository, data.victim_id).await?;
             auth.check_policy(&Policy::UpdateProtectiveMeasures, new_victim.city_id)?;
         }
 
@@ -145,27 +95,7 @@ impl UpdateProtectiveMeasureUseCase {
         existing: &ProtectiveMeasure,
     ) -> Result<(), AppError> {
         if data.offender_id != existing.offender_id {
-            match self
-                .deps
-                .offender_repository
-                .get_offender_by_id(data.offender_id)
-                .await
-            {
-                Ok(_) => {}
-                Err(RepositoryError::NotFound) => {
-                    return Err(AppError::NotFound(format!(
-                        "Offender with id '{}' not found",
-                        data.offender_id
-                    )));
-                }
-                Err(e) => {
-                    error!(
-                        "[UpdateProtectiveMeasureUseCase] Error checking offender: {:?}",
-                        e
-                    );
-                    return Err(AppError::InternalServerError);
-                }
-            }
+            get_offender_or_not_found(&*self.deps.offender_repository, data.offender_id).await?;
         }
         Ok(())
     }
@@ -210,27 +140,9 @@ impl UpdateProtectiveMeasureUseCase {
         if let Some(extensions_list) = extensions.as_ref() {
             for ext in extensions_list {
                 if let Some(ext_id) = ext.id {
-                    let existing_ext = match self
-                        .deps
-                        .extension_repository
-                        .get_extension_by_id(ext_id)
-                        .await
-                    {
-                        Ok(found) => found,
-                        Err(RepositoryError::NotFound) => {
-                            return Err(AppError::NotFound(format!(
-                                "Extension with id '{}' not found",
-                                ext_id
-                            )));
-                        }
-                        Err(e) => {
-                            error!(
-                                "[UpdateProtectiveMeasureUseCase] Error fetching extension: {:?}",
-                                e
-                            );
-                            return Err(AppError::InternalServerError);
-                        }
-                    };
+                    let existing_ext =
+                        get_extension_or_not_found(&*self.deps.extension_repository, ext_id)
+                            .await?;
 
                     if existing_ext.protective_measure_id != measure_id {
                         return Err(AppError::BadRequest(
@@ -304,9 +216,10 @@ impl UpdateProtectiveMeasureUseCase {
                 "Protective measure with id '{}' not found",
                 id
             ))),
-            Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
-                Err(map_reference_error_for_update(msg))
-            }
+            Err(RepositoryError::ReferencedEntityNotFound(msg)) => Err(map_reference_error(
+                msg,
+                "Error updating protective measure",
+            )),
             Err(e) => {
                 error!(
                     "[UpdateProtectiveMeasureUseCase] Failed to update measure: {:?}",

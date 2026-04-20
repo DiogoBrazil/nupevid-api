@@ -1,6 +1,7 @@
 pub mod create_protective_measure_usecase;
 pub mod delete_protective_measure_usecase;
 pub mod deps;
+mod errors;
 pub mod get_all_protective_measures_usecase;
 pub mod get_measures_by_victim_usecase;
 pub mod get_protective_measure_by_id_usecase;
