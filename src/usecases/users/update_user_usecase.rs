@@ -2,16 +2,16 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_context::AuthContext;
 use crate::core::auth_helpers::get_user_policies_strict;
-use crate::core::authorization::check_policy;
 use crate::core::commands::users::UpdateUser;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
+use crate::usecases::helpers_common::get_user_or_not_found;
 use crate::usecases::users::deps::UserUseCaseDependencies;
-use crate::usecases::users::helpers::{get_claims_policies_or_empty, get_existing_user};
 use crate::validators::{policy_validator::PolicyValidator, user_validator::UserValidator};
 
 pub struct UpdateUserUseCase {
@@ -55,7 +55,7 @@ impl UpdateUserUseCase {
             ));
         }
 
-        let existing = get_existing_user(self.deps.user_repository.as_ref(), id).await?;
+        let existing = get_user_or_not_found(self.deps.user_repository.as_ref(), id).await?;
 
         if existing.profile == Profile::Root && claims.profile != Profile::Root {
             return Err(AppError::Forbidden(
@@ -64,17 +64,16 @@ impl UpdateUserUseCase {
         }
 
         if claims.profile != Profile::Root {
-            let policies =
-                get_claims_policies_or_empty(self.deps.user_repository.as_ref(), claims).await?;
+            let auth = AuthContext::load(self.deps.user_repository.as_ref(), claims).await?;
 
             if let Some(existing_city_id) = existing.city_id {
-                check_policy(claims, &Policy::UpdateUsers, existing_city_id, &policies)?;
+                auth.check_policy(&Policy::UpdateUsers, existing_city_id)?;
             }
 
             if let Some(new_city_id) = data.city_id
                 && Some(new_city_id) != existing.city_id
             {
-                check_policy(claims, &Policy::UpdateUsers, new_city_id, &policies)?;
+                auth.check_policy(&Policy::UpdateUsers, new_city_id)?;
             }
         }
 

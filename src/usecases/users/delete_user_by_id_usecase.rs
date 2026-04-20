@@ -2,13 +2,13 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::authorization::check_policy;
+use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
+use crate::usecases::helpers_common::get_user_or_not_found;
 use crate::usecases::users::deps::UserUseCaseDependencies;
-use crate::usecases::users::helpers::{get_claims_policies_or_empty, get_existing_user};
 
 pub struct DeleteUserByIdUseCase {
     deps: UserUseCaseDependencies,
@@ -20,7 +20,7 @@ impl DeleteUserByIdUseCase {
     }
 
     pub async fn execute(&self, id: Uuid, claims: &UserClaims) -> Result<User, AppError> {
-        let existing = get_existing_user(self.deps.user_repository.as_ref(), id).await?;
+        let existing = get_user_or_not_found(self.deps.user_repository.as_ref(), id).await?;
 
         if existing.profile == Profile::Root && claims.profile != Profile::Root {
             return Err(AppError::Forbidden(
@@ -31,9 +31,8 @@ impl DeleteUserByIdUseCase {
         if claims.profile != Profile::Root
             && let Some(user_city_id) = existing.city_id
         {
-            let policies =
-                get_claims_policies_or_empty(self.deps.user_repository.as_ref(), claims).await?;
-            check_policy(claims, &Policy::DeleteUsers, user_city_id, &policies)?;
+            let auth = AuthContext::load(self.deps.user_repository.as_ref(), claims).await?;
+            auth.check_policy(&Policy::DeleteUsers, user_city_id)?;
         }
 
         match self.deps.user_repository.delete_user_by_id(id).await {

@@ -7,8 +7,9 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::responses::users::ResetUserPasswordResponse;
 use crate::core::value_objects::profiles::Profile;
+use crate::usecases::helpers_common::get_user_or_not_found;
 use crate::usecases::users::deps::UserUseCaseDependencies;
-use crate::usecases::users::helpers::{generate_temporary_password, get_existing_user};
+use crate::usecases::users::helpers::generate_temporary_password;
 
 pub struct ResetUserPasswordByIdUseCase {
     deps: UserUseCaseDependencies,
@@ -30,7 +31,7 @@ impl ResetUserPasswordByIdUseCase {
             ));
         }
 
-        let target_user = get_existing_user(self.deps.user_repository.as_ref(), id).await?;
+        let target_user = get_user_or_not_found(self.deps.user_repository.as_ref(), id).await?;
 
         if claims.profile == Profile::CityAdmin {
             let admin_city_id = extract_city_id_from_claims(claims)?;
