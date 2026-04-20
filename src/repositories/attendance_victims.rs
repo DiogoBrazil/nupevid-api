@@ -316,13 +316,15 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
     async fn create_attendance_victim(
         &self,
         attendance: CreateAttendanceVictim,
+        victim_id: Uuid,
+        offender_id: Option<Uuid>,
         session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceVictimWriteResult, RepositoryError> {
         let attendance_id = Uuid::new_v4();
 
         info!(
             "[Repository] Starting transaction to create attendance victim for victim: {} with ID: {}",
-            attendance.victim_id, attendance_id
+            victim_id, attendance_id
         );
 
         let mut tx = self
@@ -335,14 +337,14 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             AttendanceVictimsQueries::CREATE_ATTENDANCE_VICTIM,
         )
         .bind(attendance_id)
-        .bind(attendance.victim_id)
+        .bind(victim_id)
         .bind(attendance.was_victim_present)
         .bind(attendance.attendance_date)
         .bind(attendance.attendance_time)
         .bind(&attendance.description)
         .bind(attendance.latitude)
         .bind(attendance.longitude)
-        .bind(attendance.offender_id)
+        .bind(offender_id)
         .bind(attendance.protective_measure_id)
         .bind(attendance.is_remote)
         .bind(&attendance.risk_level)
@@ -399,6 +401,8 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
         &self,
         data: UpdateAttendanceVictim,
         id: Uuid,
+        victim_id: Uuid,
+        offender_id: Option<Uuid>,
     ) -> Result<AttendanceVictimWriteResult, RepositoryError> {
         info!(
             "[Repository] Starting transaction to update attendance victim: {}",
@@ -415,14 +419,14 @@ impl AttendanceVictimWriteRepository for PgAttendanceVictimRepository {
             AttendanceVictimsQueries::UPDATE_ATTENDANCE_VICTIM_BY_ID,
         )
         .bind(id)
-        .bind(data.victim_id)
+        .bind(victim_id)
         .bind(data.was_victim_present)
         .bind(data.attendance_date)
         .bind(data.attendance_time)
         .bind(&data.description)
         .bind(data.latitude)
         .bind(data.longitude)
-        .bind(data.offender_id)
+        .bind(offender_id)
         .bind(data.protective_measure_id)
         .bind(data.is_remote)
         .bind(&data.risk_level)

@@ -370,13 +370,15 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
     async fn create_attendance_offender(
         &self,
         attendance: CreateAttendanceOffender,
+        offender_id: Uuid,
+        victim_id: Uuid,
         session_members: Vec<(Uuid, Option<Uuid>)>,
     ) -> Result<AttendanceOffenderWriteResult, RepositoryError> {
         let attendance_id = Uuid::new_v4();
 
         info!(
             "[Repository] Starting transaction to create attendance offender for offender: {} with ID: {}",
-            attendance.offender_id, attendance_id
+            offender_id, attendance_id
         );
 
         let mut tx = self
@@ -389,8 +391,8 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
             AttendanceOffendersQueries::CREATE_ATTENDANCE_OFFENDER,
         )
         .bind(attendance_id)
-        .bind(attendance.offender_id)
-        .bind(attendance.victim_id)
+        .bind(offender_id)
+        .bind(victim_id)
         .bind(attendance.protective_measure_id)
         .bind(attendance.was_offender_present)
         .bind(attendance.attendance_date)
@@ -447,6 +449,8 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
         &self,
         data: UpdateAttendanceOffender,
         id: Uuid,
+        offender_id: Uuid,
+        victim_id: Uuid,
     ) -> Result<AttendanceOffenderWriteResult, RepositoryError> {
         info!(
             "[Repository] Starting transaction to update attendance offender: {}",
@@ -463,8 +467,8 @@ impl AttendanceOffenderWriteRepository for PgAttendanceOffenderRepository {
             AttendanceOffendersQueries::UPDATE_ATTENDANCE_OFFENDER_BY_ID,
         )
         .bind(id)
-        .bind(data.offender_id)
-        .bind(data.victim_id)
+        .bind(offender_id)
+        .bind(victim_id)
         .bind(data.protective_measure_id)
         .bind(data.was_offender_present)
         .bind(data.attendance_date)
