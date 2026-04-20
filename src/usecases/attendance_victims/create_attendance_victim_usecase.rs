@@ -44,7 +44,12 @@ impl CreateAttendanceVictimUseCase {
         match self
             .deps
             .attendance_victim_write_repository
-            .create_attendance_victim(attendance, pm.victim_id, Some(pm.offender_id), members_for_tx)
+            .create_attendance_victim(
+                attendance,
+                pm.victim_id,
+                Some(pm.offender_id),
+                members_for_tx,
+            )
             .await
         {
             Ok(attendance_with_address) => {
