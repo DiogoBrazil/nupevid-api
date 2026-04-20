@@ -28,6 +28,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::delete().to(attendance_offenders::remove_attendance_member)),
             )
             .service(
+                web::resource("/by-measure/{protective_measure_id}").route(
+                    web::get().to(attendance_offenders::get_attendance_offenders_by_measure),
+                ),
+            )
+            .service(
                 web::resource("/by-offender/{offender_id}").route(
                     web::get().to(attendance_offenders::get_attendance_offenders_by_offender),
                 ),
