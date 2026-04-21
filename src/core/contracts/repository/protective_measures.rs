@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use super::error::RepositoryError;
 use crate::core::commands::protective_measures::{
-    CreateExtension, CreateProtectiveMeasure, UpdateExtension, UpdateProtectiveMeasure,
+    CreateProtectiveMeasure, UpdateProtectiveMeasure,
 };
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 
@@ -31,6 +31,7 @@ pub trait ProtectiveMeasureReadRepository: Send + Sync {
     async fn check_active_measure_exists_for_victim(
         &self,
         victim_id: Uuid,
+        offender_id: Uuid,
         exclude_measure_id: Option<Uuid>,
     ) -> Result<bool, RepositoryError>;
 }
@@ -41,22 +42,10 @@ pub trait ProtectiveMeasureWriteRepository: Send + Sync {
         &self,
         measure: CreateProtectiveMeasure,
     ) -> Result<ProtectiveMeasure, RepositoryError>;
-    async fn create_protective_measure_with_extensions(
-        &self,
-        measure: &CreateProtectiveMeasure,
-        extensions: &[CreateExtension],
-    ) -> Result<ProtectiveMeasure, RepositoryError>;
     async fn update_protective_measure_by_id(
         &self,
         data: UpdateProtectiveMeasure,
         id: Uuid,
-    ) -> Result<ProtectiveMeasure, RepositoryError>;
-    async fn update_protective_measure_with_extensions(
-        &self,
-        data: &UpdateProtectiveMeasure,
-        id: Uuid,
-        extensions_to_create: &[CreateExtension],
-        extensions_to_update: &[(Uuid, UpdateExtension)],
     ) -> Result<ProtectiveMeasure, RepositoryError>;
     async fn delete_protective_measure_by_id(
         &self,
