@@ -6,7 +6,9 @@ use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::helpers_common::{get_protective_measure_or_not_found, get_victim_or_not_found};
+use crate::usecases::helpers_common::{
+    get_protective_measure_or_not_found, get_victim_or_not_found,
+};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
 pub struct GetProtectiveMeasureByIdUseCase {

@@ -1,8 +1,9 @@
+use chrono::Local;
 use log::{error, info};
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::commands::protective_measures::{CreateExtension, CreateProtectiveMeasure};
+use crate::core::commands::protective_measures::CreateProtectiveMeasure;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
@@ -44,12 +45,20 @@ impl CreateProtectiveMeasureUseCase {
             &measure.violence_types,
             "Error adding protective measure",
         )?;
+        ProtectiveMeasureValidator::validate_issued_at_not_future(
+            measure.issued_at,
+            Local::now().date_naive(),
+        )?;
 
         if measure.status == ProtectiveMeasureStatus::Valid {
             let active_exists = self
                 .deps
                 .measure_read_repository
-                .check_active_measure_exists_for_victim(measure.victim_id, None)
+                .check_active_measure_exists_for_victim(
+                    measure.victim_id,
+                    measure.offender_id,
+                    None,
+                )
                 .await
                 .map_err(|e| {
                     error!(
@@ -61,51 +70,29 @@ impl CreateProtectiveMeasureUseCase {
 
             if active_exists {
                 error!(
-                    "[CreateProtectiveMeasureUseCase] Active measure already exists for victim: {}",
-                    measure.victim_id
+                    "[CreateProtectiveMeasureUseCase] Active measure already exists for victim: {} offender: {}",
+                    measure.victim_id, measure.offender_id
                 );
-                return Err(AppError::BadRequest(
-                    "Error adding protective measure: victim already has an active protective measure".to_string()
+                return Err(AppError::Conflict(
+                    "Victim and offender already have an active protective measure".to_string(),
                 ));
             }
         }
 
         info!("[CreateProtectiveMeasureUseCase] Saving protective measure to database");
 
-        if let Some(extensions) = measure.extensions.as_ref()
-            && extensions.iter().any(|ext| ext.id.is_some())
-        {
-            return Err(AppError::BadRequest(
-                "Error adding protective measure: extension id is not allowed on create"
-                    .to_string(),
-            ));
-        }
-
-        let extensions_to_create: Vec<CreateExtension> = measure
-            .extensions
-            .as_ref()
-            .map(|extensions| {
-                extensions
-                    .iter()
-                    .map(|extension| CreateExtension {
-                        extension_number: extension.extension_number,
-                        extension_date: extension.extension_date,
-                        new_valid_until: extension.new_valid_until,
-                        notes: extension.notes.clone(),
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
         let created = match self
             .deps
             .measure_write_repository
-            .create_protective_measure_with_extensions(&measure, &extensions_to_create)
+            .create_protective_measure(measure)
             .await
         {
             Ok(measure) => measure,
             Err(RepositoryError::ReferencedEntityNotFound(msg)) => {
                 return Err(map_reference_error(msg, "Error adding protective measure"));
+            }
+            Err(RepositoryError::Conflict(msg)) | Err(RepositoryError::DuplicateEntry(msg)) => {
+                return Err(AppError::Conflict(msg));
             }
             Err(e) => {
                 error!(

@@ -1,18 +1,16 @@
+use chrono::Local;
 use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
-use crate::core::commands::protective_measures::{
-    CreateExtension, ExtensionUpsert, UpdateExtension, UpdateProtectiveMeasure,
-};
+use crate::core::commands::protective_measures::UpdateProtectiveMeasure;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::helpers_common::{
-    get_extension_or_not_found, get_offender_or_not_found, get_protective_measure_or_not_found,
-    get_victim_or_not_found,
+    get_offender_or_not_found, get_protective_measure_or_not_found, get_victim_or_not_found,
 };
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 use crate::usecases::protective_measures::errors::map_reference_error;
@@ -38,8 +36,6 @@ impl UpdateProtectiveMeasureUseCase {
             id
         );
 
-        let mut data = data;
-
         let existing_measure = self.load_existing_measure(id).await?;
         self.authorize_update(claims, &data, &existing_measure)
             .await?;
@@ -52,16 +48,14 @@ impl UpdateProtectiveMeasureUseCase {
             &data.violence_types,
             "Error updating protective measure",
         )?;
+        ProtectiveMeasureValidator::validate_issued_at_not_future(
+            data.issued_at,
+            Local::now().date_naive(),
+        )?;
 
         self.ensure_unique_active_measure(&data, id).await?;
 
-        let extensions = data.extensions.take();
-        self.validate_extension_ownership(&extensions, id).await?;
-        let (extensions_to_create, extensions_to_update) =
-            Self::split_extensions_for_upsert(&extensions);
-
-        self.persist_measure_and_extensions(&data, id, &extensions_to_create, &extensions_to_update)
-            .await
+        self.persist_measure(data, id).await
     }
 
     async fn load_existing_measure(&self, id: Uuid) -> Result<ProtectiveMeasure, AppError> {
@@ -109,7 +103,11 @@ impl UpdateProtectiveMeasureUseCase {
             let active_exists = self
                 .deps
                 .measure_read_repository
-                .check_active_measure_exists_for_victim(data.victim_id, Some(exclude_id))
+                .check_active_measure_exists_for_victim(
+                    data.victim_id,
+                    data.offender_id,
+                    Some(exclude_id),
+                )
                 .await
                 .map_err(|e| {
                     error!(
@@ -121,88 +119,26 @@ impl UpdateProtectiveMeasureUseCase {
 
             if active_exists {
                 error!(
-                    "[UpdateProtectiveMeasureUseCase] Active measure already exists for victim: {}",
-                    data.victim_id
+                    "[UpdateProtectiveMeasureUseCase] Active measure already exists for victim: {} offender: {}",
+                    data.victim_id, data.offender_id
                 );
-                return Err(AppError::BadRequest(
-                    "Error updating protective measure: victim already has an active protective measure".to_string()
+                return Err(AppError::Conflict(
+                    "Victim and offender already have an active protective measure".to_string(),
                 ));
             }
         }
         Ok(())
     }
 
-    async fn validate_extension_ownership(
+    async fn persist_measure(
         &self,
-        extensions: &Option<Vec<ExtensionUpsert>>,
-        measure_id: Uuid,
-    ) -> Result<(), AppError> {
-        if let Some(extensions_list) = extensions.as_ref() {
-            for ext in extensions_list {
-                if let Some(ext_id) = ext.id {
-                    let existing_ext =
-                        get_extension_or_not_found(&*self.deps.extension_repository, ext_id)
-                            .await?;
-
-                    if existing_ext.protective_measure_id != measure_id {
-                        return Err(AppError::BadRequest(
-                            "Error updating protective measure: extension does not belong to this measure".to_string()
-                        ));
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn split_extensions_for_upsert(
-        extensions: &Option<Vec<ExtensionUpsert>>,
-    ) -> (Vec<CreateExtension>, Vec<(Uuid, UpdateExtension)>) {
-        let mut to_create = Vec::new();
-        let mut to_update = Vec::new();
-
-        if let Some(extensions_list) = extensions.as_ref() {
-            for ext in extensions_list {
-                if let Some(ext_id) = ext.id {
-                    to_update.push((
-                        ext_id,
-                        UpdateExtension {
-                            extension_number: ext.extension_number,
-                            extension_date: ext.extension_date,
-                            new_valid_until: ext.new_valid_until,
-                            notes: ext.notes.clone(),
-                        },
-                    ));
-                } else {
-                    to_create.push(CreateExtension {
-                        extension_number: ext.extension_number,
-                        extension_date: ext.extension_date,
-                        new_valid_until: ext.new_valid_until,
-                        notes: ext.notes.clone(),
-                    });
-                }
-            }
-        }
-
-        (to_create, to_update)
-    }
-
-    async fn persist_measure_and_extensions(
-        &self,
-        data: &UpdateProtectiveMeasure,
+        data: UpdateProtectiveMeasure,
         id: Uuid,
-        extensions_to_create: &[CreateExtension],
-        extensions_to_update: &[(Uuid, UpdateExtension)],
     ) -> Result<ProtectiveMeasure, AppError> {
         match self
             .deps
             .measure_write_repository
-            .update_protective_measure_with_extensions(
-                data,
-                id,
-                extensions_to_create,
-                extensions_to_update,
-            )
+            .update_protective_measure_by_id(data, id)
             .await
         {
             Ok(measure) => {
@@ -220,6 +156,9 @@ impl UpdateProtectiveMeasureUseCase {
                 msg,
                 "Error updating protective measure",
             )),
+            Err(RepositoryError::Conflict(msg)) | Err(RepositoryError::DuplicateEntry(msg)) => {
+                Err(AppError::Conflict(msg))
+            }
             Err(e) => {
                 error!(
                     "[UpdateProtectiveMeasureUseCase] Failed to update measure: {:?}",
