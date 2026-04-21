@@ -11,6 +11,8 @@ pub mod get_all_victims_usecase;
 pub mod get_victim_by_id_usecase;
 pub mod helpers;
 mod normalization;
+#[cfg(test)]
+mod normalization_test;
 pub mod search_victims_usecase;
 pub mod update_victim_address_usecase;
 pub mod update_victim_phone_usecase;
