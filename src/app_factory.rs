@@ -1,10 +1,11 @@
-use actix_web::web;
+use actix_web::{error::JsonPayloadError, web};
 use sqlx::PgPool;
 use std::sync::Arc;
 
 use crate::adapters::password_hasher::Argon2PasswordHasher;
 use crate::adapters::token_generator::JwtTokenGenerator;
 use crate::config::config_env::Config;
+use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
@@ -16,7 +17,6 @@ use crate::core::contracts::repository::attendance_victims::{
 };
 use crate::core::contracts::repository::auth::AuthRepository;
 use crate::core::contracts::repository::cities::CityRepository;
-use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::core::contracts::repository::offenders::{
     OffenderReadRepository, OffenderWriteRepository,
 };
@@ -34,7 +34,7 @@ use crate::repositories::{
     attendance_members::PgAttendanceMemberRepository,
     attendance_offenders::PgAttendanceOffenderRepository,
     attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
-    cities::PgCityRepository, extensions::PgExtensionRepository, offenders::PgOffenderRepository,
+    cities::PgCityRepository, offenders::PgOffenderRepository,
     protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
     victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
 };
@@ -58,10 +58,6 @@ use crate::usecases::auth::{AuthUseCaseDependencies, LoginUseCase};
 use crate::usecases::cities::{
     CityUseCaseDependencies, CreateCityUseCase, DeleteCityByIdUseCase, GetAllCitiesUseCase,
     GetCityByIdUseCase, UpdateCityByIdUseCase,
-};
-use crate::usecases::extensions::{
-    CreateExtensionUseCase, DeleteExtensionByIdUseCase, ExtensionUseCaseDependencies,
-    GetExtensionByIdUseCase, GetExtensionsByMeasureUseCase, UpdateExtensionByIdUseCase,
 };
 use crate::usecases::offenders::{
     CreateOffenderAddressUseCase, CreateOffenderPhoneUseCase, CreateOffenderUseCase,
@@ -112,6 +108,35 @@ impl<T: Send + Sync + 'static> AppDataRegistrar for TypedAppData<T> {
     }
 }
 
+fn extract_json_error_field(message: &str) -> Option<String> {
+    for marker in [
+        "unknown field `",
+        "unknown field \"",
+        "missing field `",
+        "missing field \"",
+    ] {
+        if let Some(start) = message.find(marker) {
+            let field_start = start + marker.len();
+            let closing = if marker.ends_with('`') { '`' } else { '"' };
+            if let Some(end) = message[field_start..].find(closing) {
+                return Some(message[field_start..field_start + end].to_string());
+            }
+        }
+    }
+    None
+}
+
+fn json_error_config() -> web::JsonConfig {
+    web::JsonConfig::default().error_handler(|err, _req| {
+        let message = match &err {
+            JsonPayloadError::Deserialize(serde_err) => serde_err.to_string(),
+            _ => err.to_string(),
+        };
+        let field = extract_json_error_field(&message);
+        AppError::UnprocessableEntity { message, field }.into()
+    })
+}
+
 impl AppDependencies {
     pub fn new(pool: PgPool, config: Config) -> Self {
         let password_hasher: Arc<dyn PasswordHasherPort> = Arc::new(Argon2PasswordHasher::new());
@@ -137,8 +162,6 @@ impl AppDependencies {
             protective_measure_repository.clone();
         let protective_measure_write_repository: Arc<dyn ProtectiveMeasureWriteRepository> =
             protective_measure_repository.clone();
-        let extension_repository: Arc<dyn ExtensionRepository> =
-            Arc::new(PgExtensionRepository::new(pool.clone()));
         let attendance_victim_repository =
             Arc::new(PgAttendanceVictimRepository::new(pool.clone()));
         let attendance_victim_read_repository: Arc<dyn AttendanceVictimReadRepository> =
@@ -199,14 +222,7 @@ impl AppDependencies {
             Arc::clone(&victim_read_repository),
             Arc::clone(&offender_read_repository),
             Arc::clone(&user_repository),
-            Arc::clone(&extension_repository),
             Arc::clone(&city_repository),
-        );
-        let extension_usecase_deps = ExtensionUseCaseDependencies::new(
-            Arc::clone(&extension_repository),
-            Arc::clone(&protective_measure_read_repository),
-            Arc::clone(&victim_read_repository),
-            Arc::clone(&user_repository),
         );
         let attendance_victim_usecase_deps = AttendanceVictimUseCaseDependencies::new(
             Arc::clone(&attendance_victim_read_repository),
@@ -344,19 +360,6 @@ impl AppDependencies {
         register!(UpdateProtectiveMeasureUseCase::new(pm_usecase_deps.clone()));
         register!(DeleteProtectiveMeasureUseCase::new(pm_usecase_deps.clone()));
 
-        // Extensions
-        register!(CreateExtensionUseCase::new(extension_usecase_deps.clone()));
-        register!(GetExtensionByIdUseCase::new(extension_usecase_deps.clone()));
-        register!(GetExtensionsByMeasureUseCase::new(
-            extension_usecase_deps.clone()
-        ));
-        register!(UpdateExtensionByIdUseCase::new(
-            extension_usecase_deps.clone()
-        ));
-        register!(DeleteExtensionByIdUseCase::new(
-            extension_usecase_deps.clone()
-        ));
-
         // Attendance victims
         register!(CreateAttendanceVictimUseCase::new(
             attendance_victim_usecase_deps.clone()
@@ -429,7 +432,6 @@ impl AppDependencies {
             &work_session_read_repository
         ),));
         register!(ProtectiveMeasurePresenter::new(
-            Arc::clone(&extension_repository),
             Arc::clone(&victim_read_repository),
             Arc::clone(&offender_read_repository),
             Arc::clone(&city_repository),
@@ -446,6 +448,7 @@ impl AppDependencies {
         for uc in &self.usecases {
             uc.register(cfg);
         }
+        cfg.app_data(json_error_config());
         cfg.app_data(web::Data::new(self.config.clone()));
         configure_routes(cfg);
     }
