@@ -6,6 +6,7 @@ use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct CreateUser {
     pub rank: Rank,
     pub registration: String,
@@ -19,6 +20,7 @@ pub struct CreateUser {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateUser {
     pub rank: Rank,
     pub registration: String,
@@ -31,6 +33,7 @@ pub struct UpdateUser {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateUserPassword {
     pub current_password: Option<String>,
     pub new_password: String,
