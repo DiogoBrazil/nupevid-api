@@ -4,7 +4,6 @@ pub mod attendance_victims;
 pub mod auth;
 pub mod cities;
 pub mod error_mapper;
-pub mod extensions;
 pub mod models;
 pub mod offenders;
 pub mod protective_measures;
