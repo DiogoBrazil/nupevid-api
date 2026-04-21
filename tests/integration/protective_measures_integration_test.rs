@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -25,10 +26,8 @@ fn build_measure_payload(
     })
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_success_for_victim_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_success_for_victim_in_own_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -62,10 +61,8 @@ async fn create_protective_measure_success_for_victim_in_own_city() {
     );
 }
 
-#[actix_rt::test]
-async fn cannot_create_second_active_measure_for_same_victim() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_create_second_active_measure_for_same_victim(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -113,10 +110,8 @@ async fn cannot_create_second_active_measure_for_same_victim() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_measure_for_victim_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -144,10 +139,8 @@ async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn list_measures_by_victim_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_measures_by_victim_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -184,10 +177,8 @@ async fn list_measures_by_victim_success() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_victim_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_victim_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -216,10 +207,8 @@ async fn create_protective_measure_with_nonexistent_victim_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_process_number_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_process_number_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -254,10 +243,8 @@ async fn create_protective_measure_with_empty_process_number_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_judicial_authority_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_judicial_authority_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -292,10 +279,8 @@ async fn create_protective_measure_with_empty_judicial_authority_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_violence_types_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_violence_types_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -330,10 +315,8 @@ async fn create_protective_measure_with_empty_violence_types_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_court_district_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_court_district_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -365,10 +348,8 @@ async fn create_protective_measure_with_nonexistent_court_district_returns_404()
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_offender_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_offender_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -401,10 +382,8 @@ async fn create_protective_measure_with_nonexistent_offender_returns_404() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_rejects_unknown_extensions_field() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_rejects_unknown_extensions_field(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -442,10 +421,8 @@ async fn create_protective_measure_rejects_unknown_extensions_field() {
     assert_eq!(body["field"].as_str().unwrap(), "extensions");
 }
 
-#[actix_rt::test]
-async fn delete_protective_measure_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_protective_measure_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

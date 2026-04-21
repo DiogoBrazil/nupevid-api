@@ -86,10 +86,8 @@ async fn insert_attendance_offender(
     id
 }
 
-#[actix_rt::test]
-async fn cities_list_pagination_clamps_page_size() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cities_list_pagination_clamps_page_size(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -117,10 +115,8 @@ async fn cities_list_pagination_clamps_page_size() {
     assert_eq!(body["data"].as_array().unwrap().len(), 3);
 }
 
-#[actix_rt::test]
-async fn users_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn users_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -162,10 +158,8 @@ async fn users_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn victims_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn victims_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -193,10 +187,8 @@ async fn victims_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn offenders_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn offenders_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -224,10 +216,8 @@ async fn offenders_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn protective_measures_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn protective_measures_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -260,10 +250,8 @@ async fn protective_measures_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn attendance_victims_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn attendance_victims_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -309,10 +297,8 @@ async fn attendance_victims_list_pagination_returns_metadata() {
     );
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn attendance_offenders_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -358,10 +344,8 @@ async fn attendance_offenders_list_pagination_returns_metadata() {
     );
 }
 
-#[actix_rt::test]
-async fn work_sessions_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn work_sessions_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

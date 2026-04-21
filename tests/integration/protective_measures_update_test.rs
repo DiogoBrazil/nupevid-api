@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -25,10 +26,8 @@ fn build_measure_payload(
     })
 }
 
-#[actix_rt::test]
-async fn update_protective_measure_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_protective_measure_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -94,10 +93,8 @@ async fn update_protective_measure_success() {
     assert_eq!(update_body["data"]["status"].as_str().unwrap(), "Revoked");
 }
 
-#[actix_rt::test]
-async fn cannot_update_to_active_when_victim_already_has_active_measure() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_to_active_when_victim_already_has_active_measure(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -172,10 +169,8 @@ async fn cannot_update_to_active_when_victim_already_has_active_measure() {
     );
 }
 
-#[actix_rt::test]
-async fn update_measure_nonexistent_id_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_nonexistent_id_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -203,10 +198,8 @@ async fn update_measure_nonexistent_id_returns_404() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn update_measure_change_victim_requires_permission_on_both() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_change_victim_requires_permission_on_both(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -254,10 +247,8 @@ async fn update_measure_change_victim_requires_permission_on_both() {
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn update_measure_with_empty_process_number_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_with_empty_process_number_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -313,10 +304,8 @@ async fn update_measure_with_empty_process_number_fails() {
     assert!(body["message"].as_str().unwrap().contains("process_number"));
 }
 
-#[actix_rt::test]
-async fn update_measure_with_empty_judicial_authority_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_with_empty_judicial_authority_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -377,10 +366,8 @@ async fn update_measure_with_empty_judicial_authority_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn update_measure_to_nonexistent_victim_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_to_nonexistent_victim_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -423,10 +410,8 @@ async fn update_measure_to_nonexistent_victim_returns_404() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn update_measure_rejects_unknown_extensions_field() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_measure_rejects_unknown_extensions_field(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

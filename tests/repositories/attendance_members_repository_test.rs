@@ -13,7 +13,7 @@ use nupevid_api::repositories::attendance_members::PgAttendanceMemberRepository;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::common::{db_fixtures, test_helpers};
+use crate::common::db_fixtures;
 
 async fn insert_attendance_victim(
     pool: &PgPool,
@@ -114,10 +114,8 @@ async fn seed_attendance_offender(pool: &PgPool, city_prefix: &str) -> (Uuid, Uu
     (attendance, city)
 }
 
-#[actix_rt::test]
-async fn get_victim_attendance_members_returns_empty_for_attendance_without_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_victim_attendance_members_returns_empty_for_attendance_without_members(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, _) = seed_attendance_victim(&pool, "AttM1").await;
@@ -133,10 +131,8 @@ async fn get_victim_attendance_members_returns_empty_for_attendance_without_memb
     );
 }
 
-#[actix_rt::test]
-async fn add_member_to_victim_attendance_succeeds_and_is_listed() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_member_to_victim_attendance_succeeds_and_is_listed(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_victim(&pool, "AttM2").await;
@@ -164,10 +160,8 @@ async fn add_member_to_victim_attendance_succeeds_and_is_listed() {
     assert_eq!(members[0].user_id, user_id);
 }
 
-#[actix_rt::test]
-async fn add_member_to_victim_attendance_twice_returns_duplicate_entry() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_member_to_victim_attendance_twice_returns_duplicate_entry(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_victim(&pool, "AttM3").await;
@@ -191,10 +185,8 @@ async fn add_member_to_victim_attendance_twice_returns_duplicate_entry() {
     );
 }
 
-#[actix_rt::test]
-async fn batch_inserts_preserve_creation_order_on_victim_attendance() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn batch_inserts_preserve_creation_order_on_victim_attendance(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_victim(&pool, "AttM4").await;
@@ -226,10 +218,8 @@ async fn batch_inserts_preserve_creation_order_on_victim_attendance() {
     );
 }
 
-#[actix_rt::test]
-async fn remove_member_from_victim_attendance_succeeds_for_existing_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_member_from_victim_attendance_succeeds_for_existing_member(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_victim(&pool, "AttM5").await;
@@ -253,10 +243,8 @@ async fn remove_member_from_victim_attendance_succeeds_for_existing_member() {
     assert!(members.is_empty(), "member should be gone after remove");
 }
 
-#[actix_rt::test]
-async fn remove_member_from_victim_attendance_returns_not_found_for_absent_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_member_from_victim_attendance_returns_not_found_for_absent_member(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_victim(&pool, "AttM6").await;
@@ -281,10 +269,8 @@ async fn remove_member_from_victim_attendance_returns_not_found_for_absent_membe
     );
 }
 
-#[actix_rt::test]
-async fn offender_attendance_members_behave_analogously() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn offender_attendance_members_behave_analogously(pool: PgPool) {
     let repo = PgAttendanceMemberRepository::new(pool.clone());
 
     let (attendance_id, city) = seed_attendance_offender(&pool, "AttM7").await;

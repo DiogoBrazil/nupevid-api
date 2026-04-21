@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 3 - Test 1: Session members from different cities should fail
-#[actix_rt::test]
-async fn session_members_from_different_cities_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn session_members_from_different_cities_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -65,11 +63,8 @@ async fn session_members_from_different_cities_fails() {
 }
 
 /// Phase 3 - Test 2: User B cannot add members to session created by user A
-#[actix_rt::test]
-async fn non_creator_cannot_add_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn non_creator_cannot_add_members(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -157,11 +152,8 @@ async fn non_creator_cannot_add_members() {
 }
 
 /// Phase 3 - Test 3: User already in active session cannot join another
-#[actix_rt::test]
-async fn user_in_active_session_cannot_join_another() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn user_in_active_session_cannot_join_another(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -271,11 +263,8 @@ async fn user_in_active_session_cannot_join_another() {
 }
 
 /// Phase 3 - Test 4: ROOT can view any session
-#[actix_rt::test]
-async fn root_can_view_any_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn root_can_view_any_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -338,11 +327,8 @@ async fn root_can_view_any_session() {
 }
 
 /// Phase 3 - Test 5: CITY_ADMIN from different city cannot view session
-#[actix_rt::test]
-async fn city_admin_cannot_view_other_city_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn city_admin_cannot_view_other_city_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

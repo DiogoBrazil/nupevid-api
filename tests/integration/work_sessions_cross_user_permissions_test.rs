@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 11 - Test 1: CITY_USER cannot view another CITY_USER's session
-#[actix_rt::test]
-async fn city_user_cannot_view_other_city_user_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn city_user_cannot_view_other_city_user_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -41,11 +39,8 @@ async fn city_user_cannot_view_other_city_user_session() {
 }
 
 /// Phase 11 - Test 2: CITY_ADMIN can view other users' sessions in same city
-#[actix_rt::test]
-async fn city_admin_can_view_other_user_session_in_same_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn city_admin_can_view_other_user_session_in_same_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -76,11 +71,8 @@ async fn city_admin_can_view_other_user_session_in_same_city() {
 }
 
 /// Phase 11 - Test 3: User can view their own session
-#[actix_rt::test]
-async fn user_can_view_own_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn user_can_view_own_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

@@ -1,5 +1,6 @@
 use actix_web::{dev::Service, http::StatusCode, test};
 use chrono::{Duration, Local, NaiveDate};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -25,8 +26,8 @@ fn base_payload(
     })
 }
 
-async fn setup_case() -> (
-    sqlx::PgPool,
+async fn setup_case(pool: PgPool) -> (
+    PgPool,
     impl Service<
         actix_http::Request,
         Response = actix_web::dev::ServiceResponse,
@@ -38,9 +39,6 @@ async fn setup_case() -> (
     Uuid,
     String,
 ) {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -98,9 +96,9 @@ async fn update_measure(
     test::call_service(app, req).await
 }
 
-#[actix_rt::test]
-async fn create_fails_when_issued_at_is_in_the_future_regardless_of_status() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn create_fails_when_issued_at_is_in_the_future_regardless_of_status(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let mut payload = base_payload(victim_id, city_id, offender_id, "Revoked");
     payload["issued_at"] = serde_json::json!(Local::now().date_naive() + Duration::days(1));
 
@@ -111,9 +109,9 @@ async fn create_fails_when_issued_at_is_in_the_future_regardless_of_status() {
     assert!(body["message"].as_str().unwrap().contains("issued_at"));
 }
 
-#[actix_rt::test]
-async fn create_succeeds_when_issued_at_is_today_with_status_valid() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn create_succeeds_when_issued_at_is_today_with_status_valid(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let mut payload = base_payload(victim_id, city_id, offender_id, "Valid");
     payload["issued_at"] = serde_json::json!(Local::now().date_naive());
 
@@ -124,9 +122,9 @@ async fn create_succeeds_when_issued_at_is_today_with_status_valid() {
     assert_eq!(body["data"]["status"].as_str().unwrap(), "Valid");
 }
 
-#[actix_rt::test]
-async fn update_fails_when_issued_at_changed_to_future() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn update_fails_when_issued_at_changed_to_future(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let create_resp = create_measure(
         &app,
         &config,
@@ -144,9 +142,9 @@ async fn update_fails_when_issued_at_changed_to_future() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
-async fn create_succeeds_with_status_valid() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn create_succeeds_with_status_valid(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
 
     let resp = create_measure(
         &app,
@@ -159,9 +157,9 @@ async fn create_succeeds_with_status_valid() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 }
 
-#[actix_rt::test]
-async fn create_succeeds_with_status_revoked() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn create_succeeds_with_status_revoked(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
 
     let resp = create_measure(
         &app,
@@ -174,9 +172,9 @@ async fn create_succeeds_with_status_revoked() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 }
 
-#[actix_rt::test]
-async fn create_rejects_status_expired_as_invalid_input() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn create_rejects_status_expired_as_invalid_input(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
 
     let resp = create_measure(
         &app,
@@ -191,9 +189,9 @@ async fn create_rejects_status_expired_as_invalid_input() {
     assert!(body["message"].as_str().unwrap().contains("Expired"));
 }
 
-#[actix_rt::test]
-async fn sequence_valid_revoked_valid_revoked_is_accepted() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn sequence_valid_revoked_valid_revoked_is_accepted(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let create_resp = create_measure(
         &app,
         &config,
@@ -218,9 +216,9 @@ async fn sequence_valid_revoked_valid_revoked_is_accepted() {
     }
 }
 
-#[actix_rt::test]
-async fn transition_revoked_to_valid_respects_unique_active_per_pair() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn transition_revoked_to_valid_respects_unique_active_per_pair(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let revoked_resp = create_measure(
         &app,
         &config,
@@ -252,9 +250,9 @@ async fn transition_revoked_to_valid_respects_unique_active_per_pair() {
     assert_eq!(resp.status(), StatusCode::CONFLICT);
 }
 
-#[actix_rt::test]
-async fn transition_valid_to_revoked_frees_slot_for_same_pair_new_measure() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn transition_valid_to_revoked_frees_slot_for_same_pair_new_measure(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let create_resp = create_measure(
         &app,
         &config,
@@ -285,9 +283,9 @@ async fn transition_valid_to_revoked_frees_slot_for_same_pair_new_measure() {
     assert_eq!(new_resp.status(), StatusCode::CREATED);
 }
 
-#[actix_rt::test]
-async fn payload_with_unknown_field_valid_until_is_rejected_with_422() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn payload_with_unknown_field_valid_until_is_rejected_with_422(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let mut payload = base_payload(victim_id, city_id, offender_id, "Revoked");
     payload["valid_until"] = serde_json::json!(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap());
 
@@ -298,9 +296,9 @@ async fn payload_with_unknown_field_valid_until_is_rejected_with_422() {
     assert_eq!(body["field"].as_str().unwrap(), "valid_until");
 }
 
-#[actix_rt::test]
-async fn payload_with_unknown_field_any_other_name_is_rejected_with_422() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn payload_with_unknown_field_any_other_name_is_rejected_with_422(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let mut payload = base_payload(victim_id, city_id, offender_id, "Revoked");
     payload["unexpected_field"] = serde_json::json!("unexpected");
 
@@ -311,9 +309,9 @@ async fn payload_with_unknown_field_any_other_name_is_rejected_with_422() {
     assert_eq!(body["field"].as_str().unwrap(), "unexpected_field");
 }
 
-#[actix_rt::test]
-async fn payload_missing_required_field_issued_at_is_rejected_with_422_and_mentions_field() {
-    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case().await;
+#[sqlx::test]
+async fn payload_missing_required_field_issued_at_is_rejected_with_422_and_mentions_field(pool: PgPool) {
+    let (_pool, app, config, city_id, victim_id, offender_id, token) = setup_case(pool).await;
     let mut payload = base_payload(victim_id, city_id, offender_id, "Revoked");
     payload.as_object_mut().unwrap().remove("issued_at");
 

@@ -9,7 +9,7 @@ use nupevid_api::repositories::protective_measures::PgProtectiveMeasureRepositor
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::common::{db_fixtures, test_helpers};
+use crate::common::db_fixtures;
 
 async fn soft_delete_measure(pool: &PgPool, id: Uuid) {
     sqlx::query("UPDATE protective_measures SET is_deleted = true WHERE id = $1")
@@ -19,10 +19,8 @@ async fn soft_delete_measure(pool: &PgPool, id: Uuid) {
         .expect("failed to soft-delete protective measure");
 }
 
-#[actix_rt::test]
-async fn check_active_returns_true_when_valid_measure_exists_for_pair() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_true_when_valid_measure_exists_for_pair(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 1").await;
@@ -38,10 +36,8 @@ async fn check_active_returns_true_when_valid_measure_exists_for_pair() {
     assert!(exists);
 }
 
-#[actix_rt::test]
-async fn check_active_returns_false_when_no_measure_for_pair() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_false_when_no_measure_for_pair(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 2").await;
@@ -56,10 +52,8 @@ async fn check_active_returns_false_when_no_measure_for_pair() {
     assert!(!exists);
 }
 
-#[actix_rt::test]
-async fn check_active_returns_false_when_measure_is_revoked() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_false_when_measure_is_revoked(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 3").await;
@@ -75,10 +69,8 @@ async fn check_active_returns_false_when_measure_is_revoked() {
     assert!(!exists, "Revoked status should not be considered active");
 }
 
-#[actix_rt::test]
-async fn check_active_returns_false_when_measure_is_soft_deleted() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_false_when_measure_is_soft_deleted(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 4").await;
@@ -96,10 +88,8 @@ async fn check_active_returns_false_when_measure_is_soft_deleted() {
     assert!(!exists, "Soft-deleted measure should not count as active");
 }
 
-#[actix_rt::test]
-async fn check_active_excludes_measure_by_id_when_provided() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_excludes_measure_by_id_when_provided(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 5").await;
@@ -126,10 +116,8 @@ async fn check_active_excludes_measure_by_id_when_provided() {
     );
 }
 
-#[actix_rt::test]
-async fn check_active_returns_false_for_different_offender_same_victim() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_false_for_different_offender_same_victim(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 6").await;
@@ -149,10 +137,8 @@ async fn check_active_returns_false_for_different_offender_same_victim() {
     );
 }
 
-#[actix_rt::test]
-async fn check_active_returns_false_for_different_victim_same_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_active_returns_false_for_different_victim_same_offender(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 7").await;
@@ -172,10 +158,8 @@ async fn check_active_returns_false_for_different_victim_same_offender() {
     );
 }
 
-#[actix_rt::test]
-async fn get_protective_measures_by_victim_omits_soft_deleted() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_protective_measures_by_victim_omits_soft_deleted(pool: PgPool) {
     let repo = PgProtectiveMeasureRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "PM Repo City 8").await;

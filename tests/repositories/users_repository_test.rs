@@ -9,14 +9,13 @@
 use nupevid_api::core::contracts::repository::users::UserRepository;
 use nupevid_api::core::value_objects::policies::{PermissionPolicies, Policy};
 use nupevid_api::repositories::users::PgUserRepository;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::common::{db_fixtures, test_helpers};
+use crate::common::db_fixtures;
 
-#[actix_rt::test]
-async fn update_user_policies_append_then_remove_round_trip() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_policies_append_then_remove_round_trip(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city_a = db_fixtures::insert_city(&pool, "Users Repo City A").await;
@@ -65,10 +64,8 @@ async fn update_user_policies_append_then_remove_round_trip() {
     assert_eq!(cities, &vec![city_a]);
 }
 
-#[actix_rt::test]
-async fn get_user_policies_by_id_returns_empty_map_for_user_without_policies() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_user_policies_by_id_returns_empty_map_for_user_without_policies(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "Users Repo City Empty").await;
@@ -93,10 +90,8 @@ async fn get_user_policies_by_id_returns_empty_map_for_user_without_policies() {
     assert!(policies.is_empty());
 }
 
-#[actix_rt::test]
-async fn get_users_paginated_filters_by_allowed_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_users_paginated_filters_by_allowed_cities(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city_a = db_fixtures::insert_city(&pool, "Users Paginated City A").await;
@@ -139,10 +134,8 @@ async fn get_users_paginated_filters_by_allowed_cities() {
     assert_eq!(count, page.len() as i64);
 }
 
-#[actix_rt::test]
-async fn count_users_exclude_root_filters_root_profile() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn count_users_exclude_root_filters_root_profile(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "Users Count City").await;
@@ -170,10 +163,8 @@ async fn count_users_exclude_root_filters_root_profile() {
     assert_eq!(count_no_root, 1, "exclude_root=true must drop ROOT profile");
 }
 
-#[actix_rt::test]
-async fn check_user_exists_by_email_is_case_sensitive_and_precise() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_user_exists_by_email_is_case_sensitive_and_precise(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "Users Email City").await;
@@ -193,10 +184,8 @@ async fn check_user_exists_by_email_is_case_sensitive_and_precise() {
     assert!(!missing);
 }
 
-#[actix_rt::test]
-async fn check_email_exists_for_other_user_excludes_the_queried_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn check_email_exists_for_other_user_excludes_the_queried_id(pool: PgPool) {
     let repo = PgUserRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "Users Email Other City").await;

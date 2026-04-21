@@ -9,13 +9,12 @@ use nupevid_api::core::contracts::repository::work_sessions::{
     WorkSessionReadRepository, WorkSessionWriteRepository,
 };
 use nupevid_api::repositories::work_sessions::PgWorkSessionRepository;
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn get_active_session_by_user_returns_not_found_when_user_has_no_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_active_session_by_user_returns_not_found_when_user_has_no_session(pool: PgPool) {
     let repo = PgWorkSessionRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "WS Repo City 1").await;
@@ -36,10 +35,8 @@ async fn get_active_session_by_user_returns_not_found_when_user_has_no_session()
     );
 }
 
-#[actix_rt::test]
-async fn get_active_session_by_user_returns_not_found_when_all_sessions_are_ended() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_active_session_by_user_returns_not_found_when_all_sessions_are_ended(pool: PgPool) {
     let repo = PgWorkSessionRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "WS Repo City 2").await;
@@ -72,10 +69,8 @@ async fn get_active_session_by_user_returns_not_found_when_all_sessions_are_ende
     assert!(!is_active);
 }
 
-#[actix_rt::test]
-async fn get_active_session_by_user_returns_the_active_one_when_history_exists() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_active_session_by_user_returns_the_active_one_when_history_exists(pool: PgPool) {
     let repo = PgWorkSessionRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "WS Repo City 3").await;
@@ -116,10 +111,8 @@ async fn get_active_session_by_user_returns_the_active_one_when_history_exists()
     assert!(is_active);
 }
 
-#[actix_rt::test]
-async fn end_session_flips_is_active_flag_and_sets_ended_at() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn end_session_flips_is_active_flag_and_sets_ended_at(pool: PgPool) {
     let repo = PgWorkSessionRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "WS Repo City 4").await;
@@ -149,10 +142,8 @@ async fn end_session_flips_is_active_flag_and_sets_ended_at() {
     );
 }
 
-#[actix_rt::test]
-async fn get_session_members_returns_members_for_session_with_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_session_members_returns_members_for_session_with_members(pool: PgPool) {
     let repo = PgWorkSessionRepository::new(pool.clone());
 
     let city = db_fixtures::insert_city(&pool, "WS Repo City 5").await;

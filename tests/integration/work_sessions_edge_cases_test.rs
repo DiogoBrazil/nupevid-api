@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 4 - Test 1: Cannot add members to inactive session
-#[actix_rt::test]
-async fn cannot_add_members_to_inactive_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_add_members_to_inactive_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -84,11 +82,8 @@ async fn cannot_add_members_to_inactive_session() {
 }
 
 /// Phase 4 - Test 2: Cannot remove members from inactive session
-#[actix_rt::test]
-async fn cannot_remove_members_from_inactive_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_remove_members_from_inactive_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -165,11 +160,8 @@ async fn cannot_remove_members_from_inactive_session() {
 }
 
 /// Phase 4 - Test 3: After ending session, user can create new session
-#[actix_rt::test]
-async fn can_create_new_session_after_ending_previous() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn can_create_new_session_after_ending_previous(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -253,11 +245,8 @@ async fn can_create_new_session_after_ending_previous() {
 }
 
 /// Phase 4 - Test 4: Verify ended session is_active=false
-#[actix_rt::test]
-async fn ended_session_has_is_active_false() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn ended_session_has_is_active_false(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -323,11 +312,8 @@ async fn ended_session_has_is_active_false() {
 }
 
 /// Phase 4 - Test 5: Can add multiple Patrollers (no limit)
-#[actix_rt::test]
-async fn can_add_multiple_patrollers() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn can_add_multiple_patrollers(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -434,11 +420,8 @@ async fn can_add_multiple_patrollers() {
 }
 
 /// Phase 4 - Test 6: Get active session returns 404 after ending
-#[actix_rt::test]
-async fn get_active_session_returns_404_after_ending() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn get_active_session_returns_404_after_ending(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -515,11 +498,8 @@ async fn get_active_session_returns_404_after_ending() {
 /// Ensures that once a session is ended, a PUT /work-sessions/{id} cannot be
 /// used to revive/modify it. Backend rejects with 400 BadRequest and a message
 /// containing "inactive".
-#[actix_rt::test]
-async fn cannot_reopen_ended_session_via_update_payload() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_reopen_ended_session_via_update_payload(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

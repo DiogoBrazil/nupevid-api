@@ -1,15 +1,13 @@
 use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 // ==================== B02: ROOT can operate on work sessions without city_id ====================
 
-#[actix_rt::test]
-async fn b02_root_can_view_work_session_from_any_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b02_root_can_view_work_session_from_any_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -67,11 +65,8 @@ async fn b02_root_can_view_work_session_from_any_city() {
     assert_eq!(body["data"]["id"].as_str().unwrap(), session_id);
 }
 
-#[actix_rt::test]
-async fn b02_root_can_add_member_to_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b02_root_can_add_member_to_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -157,11 +152,8 @@ async fn b02_root_can_add_member_to_session() {
     );
 }
 
-#[actix_rt::test]
-async fn b02_root_can_update_work_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b02_root_can_update_work_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -230,11 +222,8 @@ async fn b02_root_can_update_work_session() {
 
 // ==================== B06: Update protective measure returns updated measure ====================
 
-#[actix_rt::test]
-async fn b06_update_protective_measure_returns_updated_measure() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b06_update_protective_measure_returns_updated_measure(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -310,11 +299,8 @@ async fn b06_update_protective_measure_returns_updated_measure() {
 
 // ==================== B10: City validation when adding member ====================
 
-#[actix_rt::test]
-async fn b10_add_member_from_different_city_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b10_add_member_from_different_city_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -387,11 +373,8 @@ async fn b10_add_member_from_different_city_fails() {
 
 // ==================== B11: Cannot remove Commander ====================
 
-#[actix_rt::test]
-async fn b11_cannot_remove_commander_from_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b11_cannot_remove_commander_from_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -463,11 +446,8 @@ async fn b11_cannot_remove_commander_from_session() {
     );
 }
 
-#[actix_rt::test]
-async fn b11_can_remove_non_commander_from_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn b11_can_remove_non_commander_from_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

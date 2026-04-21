@@ -1,13 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// User should NOT be able to change another user's password
 /// even if they know the current password
-#[actix_rt::test]
-async fn city_admin_cannot_change_other_city_admin_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_change_other_city_admin_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -124,10 +123,8 @@ async fn city_admin_cannot_change_other_city_admin_password() {
     assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_change_other_city_user_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_change_other_city_user_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -241,10 +238,8 @@ async fn city_user_cannot_change_other_city_user_password() {
     assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn user_can_change_own_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn user_can_change_own_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -331,10 +326,8 @@ async fn user_can_change_own_password() {
     assert_eq!(login2_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn root_can_change_any_user_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_can_change_any_user_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -390,10 +383,8 @@ async fn root_can_change_any_user_password() {
     );
 }
 
-#[actix_rt::test]
-async fn root_reset_password_allows_login_with_temporary_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_reset_password_allows_login_with_temporary_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -457,10 +448,8 @@ async fn root_reset_password_allows_login_with_temporary_password() {
     assert_eq!(login_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn city_admin_can_reset_password_for_user_in_same_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_can_reset_password_for_user_in_same_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -565,10 +554,8 @@ async fn city_admin_can_reset_password_for_user_in_same_city() {
     assert_ne!(admin_id, user_id);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_reset_password_for_user_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_reset_password_for_user_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -652,10 +639,8 @@ async fn city_admin_cannot_reset_password_for_user_in_other_city() {
     );
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_reset_passwords() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_reset_passwords(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

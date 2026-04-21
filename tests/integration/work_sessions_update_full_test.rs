@@ -1,12 +1,10 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn update_work_session_replaces_members_and_description() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_work_session_replaces_members_and_description(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -86,11 +84,8 @@ async fn update_work_session_replaces_members_and_description() {
     assert!(members.iter().all(|m| m.get("user").is_some()));
 }
 
-#[actix_rt::test]
-async fn update_work_session_without_description_keeps_existing() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_work_session_without_description_keeps_existing(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

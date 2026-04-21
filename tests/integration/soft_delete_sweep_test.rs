@@ -13,6 +13,7 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
+use sqlx::PgPool;
 
 fn build_victim_update_payload(city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
@@ -44,10 +45,8 @@ fn build_offender_update_payload(city_id: Uuid) -> serde_json::Value {
     })
 }
 
-#[actix_rt::test]
-async fn cannot_update_victim_after_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_victim_after_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -80,10 +79,8 @@ async fn cannot_update_victim_after_soft_delete() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn cannot_update_offender_after_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_offender_after_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -118,10 +115,8 @@ async fn cannot_update_offender_after_soft_delete() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn cannot_update_protective_measure_after_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_protective_measure_after_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -177,10 +172,8 @@ async fn cannot_update_protective_measure_after_soft_delete() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn cannot_update_user_after_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_user_after_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -231,10 +224,8 @@ async fn cannot_update_user_after_soft_delete() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn cannot_update_city_after_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_update_city_after_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -277,10 +268,8 @@ async fn cannot_update_city_after_soft_delete() {
     assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn victim_soft_deleted_not_returned_by_search_by_name() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn victim_soft_deleted_not_returned_by_search_by_name(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -321,10 +310,8 @@ async fn victim_soft_deleted_not_returned_by_search_by_name() {
     );
 }
 
-#[actix_rt::test]
-async fn offender_soft_deleted_not_returned_by_search_by_name() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn offender_soft_deleted_not_returned_by_search_by_name(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -365,10 +352,8 @@ async fn offender_soft_deleted_not_returned_by_search_by_name() {
     );
 }
 
-#[actix_rt::test]
-async fn protective_measure_soft_deleted_not_returned_by_list() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn protective_measure_soft_deleted_not_returned_by_list(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

@@ -1,12 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn create_user_with_registration_exceeding_max_length() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_user_with_registration_exceeding_max_length(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -41,10 +40,8 @@ async fn create_user_with_registration_exceeding_max_length() {
     assert!(body["message"].as_str().unwrap().contains("registration"));
 }
 
-#[actix_rt::test]
-async fn create_user_with_registration_containing_letters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_user_with_registration_containing_letters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -78,10 +75,8 @@ async fn create_user_with_registration_containing_letters() {
     assert!(body["message"].as_str().unwrap().contains("registration"));
 }
 
-#[actix_rt::test]
-async fn create_city_admin_without_city_id_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_admin_without_city_id_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -120,10 +115,8 @@ async fn create_city_admin_without_city_id_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_city_user_without_city_id_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_user_without_city_id_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -162,10 +155,8 @@ async fn create_city_user_without_city_id_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_user_with_invalid_policy_name_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_user_with_invalid_policy_name_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -201,10 +192,8 @@ async fn create_user_with_invalid_policy_name_fails() {
     assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[actix_rt::test]
-async fn update_user_with_invalid_rank_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_with_invalid_rank_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -262,10 +251,8 @@ async fn update_user_with_invalid_rank_fails() {
     assert_eq!(update_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[actix_rt::test]
-async fn update_user_with_invalid_email_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_with_invalid_email_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -329,10 +316,8 @@ async fn update_user_with_invalid_email_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn update_city_admin_removing_city_id_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_admin_removing_city_id_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -398,10 +383,8 @@ async fn update_city_admin_removing_city_id_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn update_password_with_empty_current_password_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_password_with_empty_current_password_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -478,10 +461,8 @@ async fn update_password_with_empty_current_password_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn update_password_with_empty_new_password_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_password_with_empty_new_password_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -555,10 +536,8 @@ async fn update_password_with_empty_new_password_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn append_invalid_policy_name_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn append_invalid_policy_name_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -621,10 +600,8 @@ async fn append_invalid_policy_name_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn append_policy_to_nonexistent_user_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn append_policy_to_nonexistent_user_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -656,10 +633,8 @@ async fn append_policy_to_nonexistent_user_returns_404() {
     assert_eq!(append_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn append_policy_with_empty_city_ids_array() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn append_policy_with_empty_city_ids_array(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

@@ -1,7 +1,7 @@
 //! Phase 5 — Repository tests.
 //!
-//! Testes que executam contra o banco real (via `test_helpers::setup_test_db`),
-//! mas chamam os repositórios PostgreSQL **diretamente** (não via HTTP).
+//! Testes que executam contra banco isolado por teste (via `#[sqlx::test]`),
+//! e chamam os repositórios PostgreSQL **diretamente** (não via HTTP).
 //! Objetivo: proteger a camada de persistência contra regressões em SQL,
 //! joins, filtros dinâmicos e soft-delete. Cada arquivo cobre um repositório
 //! crítico identificado no plano (§7).

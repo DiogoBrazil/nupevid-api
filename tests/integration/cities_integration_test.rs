@@ -6,6 +6,7 @@ use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+use sqlx::PgPool;
 
 fn new_city_payload(name: &str) -> serde_json::Value {
     serde_json::json!({
@@ -15,10 +16,8 @@ fn new_city_payload(name: &str) -> serde_json::Value {
     })
 }
 
-#[actix_rt::test]
-async fn non_root_cannot_create_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn non_root_cannot_create_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -86,10 +85,8 @@ async fn non_root_cannot_create_city() {
     assert_eq!(user_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_update_or_delete_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_update_or_delete_cities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -143,10 +140,8 @@ async fn city_admin_cannot_update_or_delete_cities() {
     assert_eq!(delete_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_update_or_delete_any_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_update_or_delete_any_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -210,10 +205,8 @@ async fn city_admin_cannot_update_or_delete_any_city() {
     assert_eq!(delete_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn create_city_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -240,10 +233,8 @@ async fn create_city_success() {
     assert_eq!(body["data"]["name"].as_str().unwrap(), "PORTO VELHO");
 }
 
-#[actix_rt::test]
-async fn create_city_invalid_state_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_invalid_state_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -274,10 +265,8 @@ async fn create_city_invalid_state_returns_bad_request() {
     assert!(body["message"].as_str().unwrap().contains("invalid state"));
 }
 
-#[actix_rt::test]
-async fn create_city_invalid_name_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_invalid_name_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -313,10 +302,8 @@ async fn create_city_invalid_name_returns_bad_request() {
     );
 }
 
-#[actix_rt::test]
-async fn create_city_invalid_battalion_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_invalid_battalion_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -352,10 +339,8 @@ async fn create_city_invalid_battalion_returns_bad_request() {
     );
 }
 
-#[actix_rt::test]
-async fn create_city_missing_fields_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_missing_fields_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -391,10 +376,8 @@ async fn create_city_missing_fields_returns_bad_request() {
     );
 }
 
-#[actix_rt::test]
-async fn get_all_cities_empty_returns_empty_list() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_all_cities_empty_returns_empty_list(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -417,10 +400,8 @@ async fn get_all_cities_empty_returns_empty_list() {
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
 }
 
-#[actix_rt::test]
-async fn get_all_cities_with_data_returns_list() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_all_cities_with_data_returns_list(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -458,10 +439,8 @@ async fn get_all_cities_with_data_returns_list() {
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
-#[actix_rt::test]
-async fn get_city_by_id_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_city_by_id_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -499,10 +478,8 @@ async fn get_city_by_id_success() {
     assert_eq!(get_body["data"]["id"].as_str().unwrap(), city_id);
 }
 
-#[actix_rt::test]
-async fn get_city_by_id_not_found_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_city_by_id_not_found_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -526,10 +503,8 @@ async fn get_city_by_id_not_found_returns_404() {
     assert!(body["message"].as_str().unwrap().contains("not found"));
 }
 
-#[actix_rt::test]
-async fn update_city_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -575,10 +550,8 @@ async fn update_city_success() {
     assert_eq!(update_body["data"]["name"].as_str().unwrap(), "JI-PARANÁ");
 }
 
-#[actix_rt::test]
-async fn update_city_invalid_state_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_invalid_state_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -629,10 +602,8 @@ async fn update_city_invalid_state_returns_bad_request() {
     );
 }
 
-#[actix_rt::test]
-async fn update_city_not_found_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_not_found_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -665,10 +636,8 @@ async fn update_city_not_found_returns_404() {
     );
 }
 
-#[actix_rt::test]
-async fn delete_city_success_performs_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_city_success_performs_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -716,10 +685,8 @@ async fn delete_city_success_performs_soft_delete() {
     assert!(cities.iter().all(|c| c["id"].as_str().unwrap() != city_id));
 }
 
-#[actix_rt::test]
-async fn delete_city_not_found_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_city_not_found_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -748,10 +715,8 @@ async fn delete_city_not_found_returns_404() {
     );
 }
 
-#[actix_rt::test]
-async fn create_duplicate_city_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_duplicate_city_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -793,10 +758,8 @@ async fn create_duplicate_city_returns_bad_request() {
     assert!(body["message"].as_str().unwrap().contains("1ºBPM"));
 }
 
-#[actix_rt::test]
-async fn update_city_to_duplicate_name_and_battalion_returns_bad_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_to_duplicate_name_and_battalion_returns_bad_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -869,10 +832,8 @@ async fn update_city_to_duplicate_name_and_battalion_returns_bad_request() {
     assert!(update_body["message"].as_str().unwrap().contains("1ºBPM"));
 }
 
-#[actix_rt::test]
-async fn update_city_to_same_name_and_battalion_succeeds() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_city_to_same_name_and_battalion_succeeds(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

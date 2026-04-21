@@ -1,5 +1,6 @@
 use actix_web::{dev::Service, http::StatusCode, test};
 use futures::future::join_all;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -46,11 +47,8 @@ async fn post_measure(
     test::call_service(app, req).await.status()
 }
 
-#[actix_rt::test]
-async fn concurrent_valid_measure_create_same_pair_allows_one_success_and_conflicts_rest() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn concurrent_valid_measure_create_same_pair_allows_one_success_and_conflicts_rest(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -83,11 +81,8 @@ async fn concurrent_valid_measure_create_same_pair_allows_one_success_and_confli
     assert_eq!(conflicts, 5);
 }
 
-#[actix_rt::test]
-async fn concurrent_valid_measure_create_same_victim_different_offenders_allows_all_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn concurrent_valid_measure_create_same_victim_different_offenders_allows_all_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -118,11 +113,8 @@ async fn concurrent_valid_measure_create_same_victim_different_offenders_allows_
     assert!(statuses.iter().all(|status| *status == StatusCode::CREATED));
 }
 
-#[actix_rt::test]
-async fn concurrent_work_session_create_same_user_allows_one_success_and_conflicts_rest() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn concurrent_work_session_create_same_user_allows_one_success_and_conflicts_rest(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

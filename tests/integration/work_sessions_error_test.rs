@@ -1,14 +1,12 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 1 - Test 1: Create victim attendance without active session should fail
-#[actix_rt::test]
-async fn create_victim_attendance_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_victim_attendance_without_active_session_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -59,11 +57,8 @@ async fn create_victim_attendance_without_active_session_fails() {
 }
 
 /// Phase 1 - Test 2: Create offender attendance without active session should fail
-#[actix_rt::test]
-async fn create_offender_attendance_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_offender_attendance_without_active_session_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -108,11 +103,8 @@ async fn create_offender_attendance_without_active_session_fails() {
 }
 
 /// Phase 1 - Test 3: Verify attendance members are tracked correctly
-#[actix_rt::test]
-async fn attendance_tracks_all_session_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn attendance_tracks_all_session_members(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

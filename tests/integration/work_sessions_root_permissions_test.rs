@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 8 - Test 1: current endpoint only ends the caller's active session
-#[actix_rt::test]
-async fn root_cannot_end_other_user_session_without_own_active_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn root_cannot_end_other_user_session_without_own_active_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -48,11 +46,8 @@ async fn root_cannot_end_other_user_session_without_own_active_session() {
 }
 
 /// Phase 8 - Test 2: ROOT can create work session
-#[actix_rt::test]
-async fn root_can_create_work_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn root_can_create_work_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -86,11 +81,8 @@ async fn root_can_create_work_session() {
 }
 
 /// Phase 8 - Test 3: ROOT viewing session from any city
-#[actix_rt::test]
-async fn root_can_view_session_from_any_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn root_can_view_session_from_any_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

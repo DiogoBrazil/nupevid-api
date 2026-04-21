@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -31,8 +32,8 @@ fn build_offender_attendance_payload(protective_measure_id: Uuid) -> serde_json:
     })
 }
 
-async fn setup_test_data() -> (
-    sqlx::PgPool,
+async fn setup_test_data(pool: PgPool) -> (
+    PgPool,
     nupevid_api::config::config_env::Config,
     impl actix_web::dev::Service<
         actix_http::Request,
@@ -46,9 +47,6 @@ async fn setup_test_data() -> (
     Uuid,
     Uuid,
 ) {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -110,10 +108,10 @@ async fn set_offender_attendance_created_at(pool: &sqlx::PgPool, id: Uuid, times
     .expect("failed to update offender attendance created_at");
 }
 
-#[actix_rt::test]
-async fn attendance_victims_by_measure_returns_matching_in_created_order() {
+#[sqlx::test]
+async fn attendance_victims_by_measure_returns_matching_in_created_order(pool: PgPool) {
     let (pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     let payload = build_victim_attendance_payload(measure_a);
     let req = test_helpers::with_auth_headers(
@@ -182,10 +180,10 @@ async fn attendance_victims_by_measure_returns_matching_in_created_order() {
     }));
 }
 
-#[actix_rt::test]
-async fn attendance_victims_by_measure_without_attendances_returns_empty() {
+#[sqlx::test]
+async fn attendance_victims_by_measure_without_attendances_returns_empty(pool: PgPool) {
     let (_pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, _measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
@@ -204,8 +202,8 @@ async fn attendance_victims_by_measure_without_attendances_returns_empty() {
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
 }
 
-#[actix_rt::test]
-async fn attendance_victims_by_measure_nonexistent_measure_returns_not_found() {
+#[sqlx::test]
+async fn attendance_victims_by_measure_nonexistent_measure_returns_not_found(pool: PgPool) {
     let (
         _pool,
         config,
@@ -216,7 +214,7 @@ async fn attendance_victims_by_measure_nonexistent_measure_returns_not_found() {
         _offender_id,
         _measure_a,
         _measure_b,
-    ) = setup_test_data().await;
+    ) = setup_test_data(pool).await;
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
@@ -232,10 +230,10 @@ async fn attendance_victims_by_measure_nonexistent_measure_returns_not_found() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn attendance_victims_by_victim_returns_all_without_measure_filter() {
+#[sqlx::test]
+async fn attendance_victims_by_victim_returns_all_without_measure_filter(pool: PgPool) {
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     for measure in [measure_a, measure_b] {
         let payload = build_victim_attendance_payload(measure);
@@ -279,10 +277,10 @@ async fn attendance_victims_by_victim_returns_all_without_measure_filter() {
     );
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_by_measure_returns_matching_in_created_order() {
+#[sqlx::test]
+async fn attendance_offenders_by_measure_returns_matching_in_created_order(pool: PgPool) {
     let (pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     let payload = build_offender_attendance_payload(measure_a);
     let req = test_helpers::with_auth_headers(
@@ -351,10 +349,10 @@ async fn attendance_offenders_by_measure_returns_matching_in_created_order() {
     }));
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_by_measure_without_attendances_returns_empty() {
+#[sqlx::test]
+async fn attendance_offenders_by_measure_without_attendances_returns_empty(pool: PgPool) {
     let (_pool, config, app, root_token, _city_id, _victim_id, _offender_id, measure_a, _measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
@@ -373,8 +371,8 @@ async fn attendance_offenders_by_measure_without_attendances_returns_empty() {
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_by_measure_nonexistent_measure_returns_not_found() {
+#[sqlx::test]
+async fn attendance_offenders_by_measure_nonexistent_measure_returns_not_found(pool: PgPool) {
     let (
         _pool,
         config,
@@ -385,7 +383,7 @@ async fn attendance_offenders_by_measure_nonexistent_measure_returns_not_found()
         _offender_id,
         _measure_a,
         _measure_b,
-    ) = setup_test_data().await;
+    ) = setup_test_data(pool).await;
 
     let req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!(
@@ -401,10 +399,10 @@ async fn attendance_offenders_by_measure_nonexistent_measure_returns_not_found()
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_by_offender_returns_all_without_measure_filter() {
+#[sqlx::test]
+async fn attendance_offenders_by_offender_returns_all_without_measure_filter(pool: PgPool) {
     let (_pool, config, app, root_token, _city_id, _victim_id, offender_id, measure_a, measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     for measure in [measure_a, measure_b] {
         let payload = build_offender_attendance_payload(measure);
@@ -448,10 +446,10 @@ async fn attendance_offenders_by_offender_returns_all_without_measure_filter() {
     );
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_by_victim_returns_all_without_measure_filter() {
+#[sqlx::test]
+async fn attendance_offenders_by_victim_returns_all_without_measure_filter(pool: PgPool) {
     let (_pool, config, app, root_token, _city_id, victim_id, _offender_id, measure_a, measure_b) =
-        setup_test_data().await;
+        setup_test_data(pool).await;
 
     for measure in [measure_a, measure_b] {
         let payload = build_offender_attendance_payload(measure);

@@ -1,10 +1,9 @@
 use crate::common::{fixtures, test_helpers};
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
-#[actix_rt::test]
-async fn test_update_password_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -60,10 +59,8 @@ async fn test_update_password_success() {
     assert_eq!(update_body["data"]["id"].as_str().unwrap(), user_id);
 }
 
-#[actix_rt::test]
-async fn test_update_password_incorrect_current() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_incorrect_current(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -136,10 +133,8 @@ async fn test_update_password_incorrect_current() {
     );
 }
 
-#[actix_rt::test]
-async fn test_update_password_does_not_affect_other_users() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_does_not_affect_other_users(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -213,10 +208,8 @@ async fn test_update_password_does_not_affect_other_users() {
     assert_eq!(other_login_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn test_update_password_empty_fields() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_empty_fields(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -279,10 +272,8 @@ async fn test_update_password_empty_fields() {
     );
 }
 
-#[actix_rt::test]
-async fn test_non_root_must_provide_current_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_non_root_must_provide_current_password(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

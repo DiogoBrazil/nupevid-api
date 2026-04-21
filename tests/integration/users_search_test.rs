@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::test_helpers;
@@ -18,10 +19,8 @@ fn build_user_payload(full_name: &str, registration: &str, email: &str) -> serde
     })
 }
 
-#[actix_rt::test]
-async fn search_users_by_name_returns_matches() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_by_name_returns_matches(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -62,10 +61,8 @@ async fn search_users_by_name_returns_matches() {
     assert_eq!(results[0]["full_name"].as_str().unwrap(), "Maria Silva");
 }
 
-#[actix_rt::test]
-async fn search_users_by_registration_returns_match() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_by_registration_returns_match(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -101,10 +98,8 @@ async fn search_users_by_registration_returns_match() {
     assert_eq!(results[0]["registration"].as_str().unwrap(), "100099999");
 }
 
-#[actix_rt::test]
-async fn search_users_city_admin_filters_by_city_and_excludes_root() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_city_admin_filters_by_city_and_excludes_root(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -271,10 +266,8 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root() {
     );
 }
 
-#[actix_rt::test]
-async fn search_users_rejects_invalid_registration() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_rejects_invalid_registration(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -293,10 +286,8 @@ async fn search_users_rejects_invalid_registration() {
     assert_eq!(search_resp.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
-async fn search_users_rejects_missing_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_rejects_missing_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -322,10 +313,8 @@ async fn search_users_rejects_missing_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_users_rejects_conflicting_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_rejects_conflicting_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -351,10 +340,8 @@ async fn search_users_rejects_conflicting_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_users_rejects_empty_name_filter() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_users_rejects_empty_name_filter(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
