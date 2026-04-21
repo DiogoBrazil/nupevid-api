@@ -16,6 +16,9 @@ impl ResponseError for ApplicationError {
             ApplicationError::Forbidden(_) => (StatusCode::FORBIDDEN, "Forbidden"),
             ApplicationError::NotFound(_) => (StatusCode::NOT_FOUND, "Not Found"),
             ApplicationError::Conflict(_) => (StatusCode::CONFLICT, "Conflict"),
+            ApplicationError::UnprocessableEntity { .. } => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "UnprocessableEntity")
+            }
             ApplicationError::DatabaseError(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database Error")
             }
@@ -24,11 +27,25 @@ impl ResponseError for ApplicationError {
             }
         };
 
-        HttpResponse::build(status_code).json(json!({
+        let message = match self {
+            ApplicationError::UnprocessableEntity { message, .. } => message.clone(),
+            _ => self.to_string(),
+        };
+
+        let mut body = json!({
             "error": error_type,
-            "message": self.to_string(),
+            "message": message,
             "status_code": status_code.as_u16()
-        }))
+        });
+
+        if let ApplicationError::UnprocessableEntity {
+            field: Some(field), ..
+        } = self
+        {
+            body["field"] = json!(field);
+        }
+
+        HttpResponse::build(status_code).json(body)
     }
 
     fn status_code(&self) -> StatusCode {
@@ -39,6 +56,7 @@ impl ResponseError for ApplicationError {
             ApplicationError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApplicationError::NotFound(_) => StatusCode::NOT_FOUND,
             ApplicationError::Conflict(_) => StatusCode::CONFLICT,
+            ApplicationError::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             ApplicationError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApplicationError::InvalidMethodError(_) => StatusCode::METHOD_NOT_ALLOWED,
         }
