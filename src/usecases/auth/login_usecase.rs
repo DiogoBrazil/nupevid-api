@@ -176,12 +176,21 @@ impl LoginUseCase {
                             );
                             Ok(None)
                         }),
+                    Err(RepositoryError::Conflict(_)) => {
+                        error!(
+                            "[LoginUseCase] User already has an active work session: {}",
+                            user_id
+                        );
+                        Err(AppError::Conflict(
+                            "User already has an active work session".to_string(),
+                        ))
+                    }
                     Err(error) => {
                         error!(
                             "[LoginUseCase] Failed to create work session for {}: {:?}",
                             user_id, error
                         );
-                        Ok(None)
+                        Err(AppError::InternalServerError)
                     }
                 }
             }
