@@ -20,6 +20,12 @@ pub enum ApplicationError {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    #[error("UnprocessableEntity: {message}")]
+    UnprocessableEntity {
+        message: String,
+        field: Option<String>,
+    },
+
     #[error("Database Error: {0}")]
     DatabaseError(String),
 
