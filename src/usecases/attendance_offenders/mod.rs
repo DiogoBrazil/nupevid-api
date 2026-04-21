@@ -11,6 +11,23 @@ pub mod get_attendance_offenders_by_victim_usecase;
 pub mod remove_attendance_member_usecase;
 pub mod update_attendance_offender_usecase;
 
+#[cfg(test)]
+mod add_attendance_member_usecase_test;
+#[cfg(test)]
+mod create_attendance_offender_usecase_test;
+#[cfg(test)]
+mod remove_attendance_member_usecase_test;
+#[cfg(test)]
+#[allow(
+    dead_code,
+    clippy::type_complexity,
+    clippy::collapsible_if,
+    clippy::too_many_arguments
+)]
+mod test_support;
+#[cfg(test)]
+mod update_attendance_offender_usecase_test;
+
 pub use add_attendance_member_usecase::AddAttendanceOffenderMemberUseCase;
 pub use create_attendance_offender_usecase::CreateAttendanceOffenderUseCase;
 pub use delete_attendance_offender_usecase::DeleteAttendanceOffenderUseCase;

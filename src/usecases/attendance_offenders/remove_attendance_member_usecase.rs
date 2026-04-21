@@ -6,7 +6,9 @@ use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
-use crate::usecases::helpers_common::{get_attendance_offender_or_not_found, get_offender_or_not_found};
+use crate::usecases::helpers_common::{
+    get_attendance_offender_or_not_found, get_offender_or_not_found,
+};
 
 pub struct RemoveAttendanceOffenderMemberUseCase {
     deps: AttendanceOffenderUseCaseDependencies,
