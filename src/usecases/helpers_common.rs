@@ -4,12 +4,11 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::attendance_offenders::AttendanceOffenderReadRepository;
 use crate::core::contracts::repository::attendance_victims::AttendanceVictimReadRepository;
 use crate::core::contracts::repository::error::RepositoryError;
-use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
 use crate::core::contracts::repository::protective_measures::ProtectiveMeasureReadRepository;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::victims::VictimReadRepository;
-use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureExtension};
+use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::entities::users::User;
 use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddress;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
@@ -21,7 +20,9 @@ pub async fn get_victim_or_not_found(
     id: Uuid,
 ) -> Result<VictimWithDetails, AppError> {
     repo.get_victim_by_id(id).await.map_err(|e| match e {
-        RepositoryError::NotFound => AppError::NotFound(format!("Victim with id '{}' not found", id)),
+        RepositoryError::NotFound => {
+            AppError::NotFound(format!("Victim with id '{}' not found", id))
+        }
         _ => AppError::InternalServerError,
     })
 }
@@ -80,22 +81,9 @@ pub async fn get_protective_measure_or_not_found(
         })
 }
 
-pub async fn get_user_or_not_found(
-    repo: &dyn UserRepository,
-    id: Uuid,
-) -> Result<User, AppError> {
+pub async fn get_user_or_not_found(repo: &dyn UserRepository, id: Uuid) -> Result<User, AppError> {
     repo.get_user_by_id(id).await.map_err(|e| match e {
         RepositoryError::NotFound => AppError::NotFound(format!("User with id '{}' not found", id)),
-        _ => AppError::InternalServerError,
-    })
-}
-
-pub async fn get_extension_or_not_found(
-    repo: &dyn ExtensionRepository,
-    id: Uuid,
-) -> Result<ProtectiveMeasureExtension, AppError> {
-    repo.get_extension_by_id(id).await.map_err(|e| match e {
-        RepositoryError::NotFound => AppError::NotFound("Extension not found".to_string()),
         _ => AppError::InternalServerError,
     })
 }

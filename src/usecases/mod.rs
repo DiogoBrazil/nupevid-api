@@ -3,7 +3,6 @@ pub mod attendance_victims;
 pub mod auth;
 pub mod cities;
 pub mod helpers_common;
-pub mod extensions;
 pub mod offenders;
 pub mod protective_measures;
 pub mod users;
