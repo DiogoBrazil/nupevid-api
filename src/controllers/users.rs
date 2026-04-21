@@ -17,6 +17,7 @@ use crate::utils::controller_helpers::{
 use crate::utils::pagination::PaginationParams;
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PolicyCityAssignment {
     pub city_ids: Vec<Uuid>,
 }

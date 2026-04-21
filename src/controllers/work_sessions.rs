@@ -112,6 +112,7 @@ pub async fn end_session(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AddMemberRequest {
     pub user_id: Uuid,
     pub function: Option<TeamMemberFunction>,
