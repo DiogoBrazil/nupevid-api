@@ -13,7 +13,6 @@ fn build_measure_payload(
     serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        "valid_until": NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
         "judicial_authority": "Juiz A",
         "court_district_id": court_district_id,
         "status": status,
@@ -60,7 +59,6 @@ async fn update_protective_measure_success() {
     let update_payload = serde_json::json!({
         "process_number": "99999-99.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
-        "valid_until": NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
         "judicial_authority": "Juiz B Atualizado",
         "court_district_id": city,
         "status": "Revoked",
@@ -143,7 +141,6 @@ async fn cannot_update_to_active_when_victim_already_has_active_measure() {
     let update_payload = serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        "valid_until": NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
         "judicial_authority": "Juiz A",
         "court_district_id": city,
         "status": "Valid",
@@ -165,13 +162,13 @@ async fn cannot_update_to_active_when_victim_already_has_active_measure() {
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(update_resp.status(), StatusCode::CONFLICT);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
     assert!(
         body["message"]
             .as_str()
             .unwrap()
-            .contains("already has an active protective measure")
+            .contains("active protective measure")
     );
 }
 
@@ -290,7 +287,6 @@ async fn update_measure_with_empty_process_number_fails() {
     let update_payload = serde_json::json!({
         "process_number": "",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        "valid_until": null,
         "judicial_authority": "Juiz A",
         "court_district_id": city,
         "status": "Revoked",
@@ -350,7 +346,6 @@ async fn update_measure_with_empty_judicial_authority_fails() {
     let update_payload = serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        "valid_until": null,
         "judicial_authority": "",
         "court_district_id": city,
         "status": "Revoked",
@@ -429,7 +424,7 @@ async fn update_measure_to_nonexistent_victim_returns_404() {
 }
 
 #[actix_rt::test]
-async fn update_measure_rejects_extension_from_another_measure() {
+async fn update_measure_rejects_unknown_extensions_field() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -457,42 +452,9 @@ async fn update_measure_rejects_extension_from_another_measure() {
     let create_body_a: serde_json::Value = test::read_body_json(create_resp_a).await;
     let measure_a_id = create_body_a["data"]["id"].as_str().unwrap();
 
-    let payload_b = build_measure_payload(victim_id, city, offender_id, "Revoked");
-    let create_req_b = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/protective-measures")
-            .set_json(&payload_b),
-        &config,
-        &admin_token,
-    )
-    .to_request();
-    let create_resp_b = test::call_service(&app, create_req_b).await;
-    assert_eq!(create_resp_b.status(), StatusCode::CREATED);
-    let create_body_b: serde_json::Value = test::read_body_json(create_resp_b).await;
-    let measure_b_id: Uuid = create_body_b["data"]["id"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
-
-    let foreign_extension_id = Uuid::new_v4();
-    sqlx::query(
-        "INSERT INTO protective_measure_extensions (id, protective_measure_id, extension_number, extension_date, new_valid_until, notes) VALUES ($1, $2, $3, $4, $5, $6)",
-    )
-    .bind(foreign_extension_id)
-    .bind(measure_b_id)
-    .bind(1_i32)
-    .bind(NaiveDate::from_ymd_opt(2025, 3, 1).unwrap())
-    .bind(NaiveDate::from_ymd_opt(2026, 3, 1).unwrap())
-    .bind("Extensao da outra medida")
-    .execute(&pool)
-    .await
-    .expect("failed to insert extension for test");
-
     let update_payload = serde_json::json!({
         "process_number": "12345-67.2025.8.26.0000",
         "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        "valid_until": NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
         "judicial_authority": "Juiz A",
         "court_district_id": city,
         "status": "Revoked",
@@ -504,11 +466,9 @@ async fn update_measure_rejects_extension_from_another_measure() {
         "offender_id": offender_id,
         "extensions": [
             {
-                "id": foreign_extension_id,
                 "extension_number": 1,
                 "extension_date": NaiveDate::from_ymd_opt(2025, 3, 1).unwrap(),
-                "new_valid_until": NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
-                "notes": "Nao pertence a esta medida"
+                "notes": "campo removido do contrato"
             }
         ]
     });
@@ -523,10 +483,7 @@ async fn update_measure_rejects_extension_from_another_measure() {
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(update_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(
-        body["message"].as_str().unwrap(),
-        "Bad Request: Error updating protective measure: extension does not belong to this measure"
-    );
+    assert_eq!(body["field"].as_str().unwrap(), "extensions");
 }

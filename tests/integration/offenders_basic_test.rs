@@ -41,7 +41,7 @@ async fn test_create_offender_success() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["full_name"], "Test Offender");
+    assert_eq!(body["data"]["full_name"], "TEST OFFENDER");
     assert_eq!(body["data"]["is_public_security_agent"], true);
 }
 
@@ -135,7 +135,7 @@ async fn search_offenders_by_name_returns_matches() {
     let body: Value = test::read_body_json(search_resp).await;
     let results = body["data"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["full_name"].as_str().unwrap(), "Carlos Silva");
+    assert_eq!(results[0]["full_name"].as_str().unwrap(), "CARLOS SILVA");
 }
 
 #[actix_rt::test]
@@ -463,7 +463,7 @@ async fn test_update_offender() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["full_name"], "Updated Name");
+    assert_eq!(body["data"]["full_name"], "UPDATED NAME");
     assert_eq!(body["data"]["imprisoned"], true);
     assert_eq!(body["data"]["is_public_security_agent"], true);
 }

@@ -89,7 +89,7 @@ async fn search_victims_by_name_returns_matches() {
     let body: serde_json::Value = test::read_body_json(search_resp).await;
     let results = body["data"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["full_name"].as_str().unwrap(), "Maria Silva");
+    assert_eq!(results[0]["full_name"].as_str().unwrap(), "MARIA SILVA");
 }
 
 #[actix_rt::test]
@@ -471,7 +471,7 @@ async fn create_victim_with_address_in_single_request() {
     // Verify victim data
     assert_eq!(
         body["data"]["full_name"].as_str().unwrap(),
-        "Vitima Com Endereco"
+        "VITIMA COM ENDERECO"
     );
     assert_eq!(body["data"]["cpf"].as_str().unwrap(), "529.982.247-25");
 
@@ -606,7 +606,7 @@ async fn update_victim_can_add_or_update_address() {
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(
         update_body["data"]["full_name"].as_str().unwrap(),
-        "Vitima Update Renamed"
+        "VITIMA UPDATE RENAMED"
     );
     assert!(update_body["data"]["addresses"].is_array());
     assert_eq!(

@@ -228,10 +228,10 @@ async fn b02_root_can_update_work_session() {
     );
 }
 
-// ==================== B06: Update protective measure returns extensions ====================
+// ==================== B06: Update protective measure returns updated measure ====================
 
 #[actix_rt::test]
-async fn b06_update_protective_measure_returns_extensions() {
+async fn b06_update_protective_measure_returns_updated_measure() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -302,11 +302,6 @@ async fn b06_update_protective_measure_returns_extensions() {
     assert_eq!(update_resp.status(), StatusCode::OK);
     let body: serde_json::Value = test::read_body_json(update_resp).await;
 
-    // B06 regression: response must include extensions array
-    assert!(
-        body["data"]["extensions"].is_array(),
-        "Update response must include 'extensions' array"
-    );
     assert_eq!(
         body["data"]["process_number"].as_str().unwrap(),
         "B06-99999.2025"

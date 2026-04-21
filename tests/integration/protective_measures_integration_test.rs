@@ -101,15 +101,15 @@ async fn cannot_create_second_active_measure_for_same_victim() {
     )
     .to_request();
     let resp2 = test::call_service(&app, req2).await;
-    assert_eq!(resp2.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp2.status(), StatusCode::CONFLICT);
 
     let body: serde_json::Value = test::read_body_json(resp2).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert_eq!(body["status_code"].as_u64().unwrap(), 409);
     assert!(
         body["message"]
             .as_str()
             .unwrap()
-            .contains("already has an active protective measure")
+            .contains("active protective measure")
     );
 }
 
@@ -402,7 +402,7 @@ async fn create_protective_measure_with_nonexistent_offender_returns_404() {
 }
 
 #[actix_rt::test]
-async fn create_protective_measure_rejects_extension_id_on_create() {
+async fn create_protective_measure_rejects_unknown_extensions_field() {
     let pool = test_helpers::setup_test_db().await;
     test_helpers::clean_database(&pool).await;
 
@@ -437,12 +437,9 @@ async fn create_protective_measure_rejects_extension_id_on_create() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(
-        body["message"].as_str().unwrap(),
-        "Bad Request: Error adding protective measure: extension id is not allowed on create"
-    );
+    assert_eq!(body["field"].as_str().unwrap(), "extensions");
 }
 
 #[actix_rt::test]

@@ -198,7 +198,7 @@ async fn create_user_with_invalid_policy_name_fails() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[actix_rt::test]
@@ -259,7 +259,7 @@ async fn update_user_with_invalid_rank_fails() {
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(update_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[actix_rt::test]

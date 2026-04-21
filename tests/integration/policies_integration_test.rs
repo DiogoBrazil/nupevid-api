@@ -827,7 +827,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     )
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
-    assert_eq!(create_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(create_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     // Cria usuário válido
     let valid_user = json!({
@@ -877,7 +877,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     )
     .to_request();
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(update_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[actix_rt::test]

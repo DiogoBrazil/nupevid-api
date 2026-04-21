@@ -510,3 +510,111 @@ async fn get_active_session_returns_404_after_ending() {
     let get_after_resp = test::call_service(&app, get_after_req).await;
     assert_eq!(get_after_resp.status(), StatusCode::NOT_FOUND);
 }
+
+/// Phase 4 - cannot_reopen_ended_session_via_update_payload
+/// Ensures that once a session is ended, a PUT /work-sessions/{id} cannot be
+/// used to revive/modify it. Backend rejects with 400 BadRequest and a message
+/// containing "inactive".
+#[actix_rt::test]
+async fn cannot_reopen_ended_session_via_update_payload() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Test City").await;
+    let creator_id = db_fixtures::insert_user(
+        &pool,
+        "100012",
+        "creator-reopen@test.com",
+        "CITY_ADMIN",
+        Some(city),
+    )
+    .await;
+
+    let mut creator_claims = test_helpers::build_city_admin_claims(city);
+    creator_claims.id = creator_id.to_string();
+    let creator_token = test_helpers::generate_jwt(&creator_claims, &config.jwt_secret);
+
+    // Create session
+    let create_payload = serde_json::json!({
+        "description": "Initial session",
+        "members": [
+            { "user_id": creator_id, "function": "Commander" }
+        ]
+    });
+
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/work-sessions")
+            .set_json(&create_payload),
+        &config,
+        &creator_token,
+    )
+    .to_request();
+
+    let create_resp = test::call_service(&app, create_req).await;
+    assert!(
+        create_resp.status().is_success(),
+        "create should succeed, got {}",
+        create_resp.status()
+    );
+    let create_body: serde_json::Value = test::read_body_json(create_resp).await;
+    let session_id = create_body["data"]["id"].as_str().unwrap().to_string();
+
+    // End the session
+    let end_req = test_helpers::with_auth_headers(
+        test::TestRequest::post().uri("/api/v1/work-sessions/end"),
+        &config,
+        &creator_token,
+    )
+    .to_request();
+    let end_resp = test::call_service(&app, end_req).await;
+    assert!(
+        end_resp.status().is_success(),
+        "end should succeed, got {}",
+        end_resp.status()
+    );
+
+    // Attempt to "reopen"/modify via PUT with a fresh payload
+    let update_payload = serde_json::json!({
+        "description": "Reopened session",
+        "members": [
+            { "user_id": creator_id, "function": "Commander" }
+        ]
+    });
+
+    let update_req = test_helpers::with_auth_headers(
+        test::TestRequest::put()
+            .uri(&format!("/api/v1/work-sessions/{}", session_id))
+            .set_json(&update_payload),
+        &config,
+        &creator_token,
+    )
+    .to_request();
+
+    let update_resp = test::call_service(&app, update_req).await;
+    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .to_lowercase()
+            .contains("inactive"),
+        "expected message to mention 'inactive', got: {:?}",
+        body["message"]
+    );
+
+    // Verify through /active that there still is no active session for this user
+    let get_active_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/work-sessions/active"),
+        &config,
+        &creator_token,
+    )
+    .to_request();
+    let get_active_resp = test::call_service(&app, get_active_req).await;
+    assert_eq!(get_active_resp.status(), StatusCode::NOT_FOUND);
+}
