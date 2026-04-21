@@ -108,14 +108,14 @@ pub async fn insert_protective_measure(
     let id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO protective_measures (
-            id, process_number, sei_process_number, occurrence_report_number, issued_at, valid_until,
+            id, process_number, sei_process_number, occurrence_report_number, issued_at,
             judicial_authority, court_district_id, distance_meters, status, violence_types,
             relationship_to_victim, assaults_children, was_drunk_during_assault, victim_id, offender_id,
             is_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6,
-            $7, $8, $9, $10::protective_measure_status_enum, $11::violence_type_enum[],
-            $12::relationship_to_victim_enum, $13, $14, $15, $16,
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9::protective_measure_status_enum, $10::violence_type_enum[],
+            $11::relationship_to_victim_enum, $12, $13, $14, $15,
             false
         )",
     )
@@ -124,7 +124,6 @@ pub async fn insert_protective_measure(
     .bind(Option::<String>::None)
     .bind(Option::<String>::None)
     .bind(NaiveDate::from_ymd_opt(2025, 1, 1).expect("valid date"))
-    .bind(Option::<NaiveDate>::None)
     .bind("1st Criminal Court")
     .bind(court_district_id)
     .bind(Option::<i32>::None)

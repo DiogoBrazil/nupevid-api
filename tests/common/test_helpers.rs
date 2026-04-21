@@ -67,7 +67,6 @@ pub async fn clean_database(pool: &PgPool) {
         "DELETE FROM attendance_victims",
         "DELETE FROM work_session_members",
         "DELETE FROM work_sessions",
-        "DELETE FROM protective_measure_extensions",
         "DELETE FROM protective_measures",
         "DELETE FROM offender_phones",
         "DELETE FROM offender_addresses",
