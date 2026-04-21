@@ -12,6 +12,20 @@ pub mod search_users_usecase;
 pub mod update_user_password_usecase;
 pub mod update_user_usecase;
 
+#[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
+mod create_user_usecase_test;
+#[cfg(test)]
+mod delete_user_by_id_usecase_test;
+#[cfg(test)]
+mod get_all_users_usecase_test;
+#[cfg(test)]
+mod get_user_by_id_usecase_test;
+#[cfg(test)]
+mod update_user_usecase_test;
+
 pub use append_user_policy_cities_usecase::AppendUserPolicyCitiesUseCase;
 pub use create_user_usecase::CreateUserUseCase;
 pub use delete_user_by_id_usecase::DeleteUserByIdUseCase;
