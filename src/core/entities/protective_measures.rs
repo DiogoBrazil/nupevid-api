@@ -124,7 +124,6 @@ impl TryFrom<&str> for RelationshipToVictim {
 pub enum ProtectiveMeasureStatus {
     Valid,
     Revoked,
-    Expired,
 }
 
 impl ProtectiveMeasureStatus {
@@ -132,7 +131,6 @@ impl ProtectiveMeasureStatus {
         match self {
             Self::Valid => "Valid",
             Self::Revoked => "Revoked",
-            Self::Expired => "Expired",
         }
     }
 }
@@ -144,7 +142,6 @@ impl TryFrom<&str> for ProtectiveMeasureStatus {
         match value {
             "Valid" => Ok(Self::Valid),
             "Revoked" => Ok(Self::Revoked),
-            "Expired" => Ok(Self::Expired),
             other => Err(format!("Invalid protective measure status: '{}'", other)),
         }
     }
@@ -157,7 +154,6 @@ pub struct ProtectiveMeasure {
     pub sei_process_number: Option<String>,
     pub occurrence_report_number: Option<String>,
     pub issued_at: NaiveDate,
-    pub valid_until: Option<NaiveDate>,
     pub judicial_authority: String,
     pub court_district_id: Uuid,
     pub distance_meters: Option<i32>,
@@ -168,19 +164,6 @@ pub struct ProtectiveMeasure {
     pub was_drunk_during_assault: bool,
     pub victim_id: Uuid,
     pub offender_id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub is_deleted: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProtectiveMeasureExtension {
-    pub id: Uuid,
-    pub protective_measure_id: Uuid,
-    pub extension_number: i32,
-    pub extension_date: NaiveDate,
-    pub new_valid_until: Option<NaiveDate>,
-    pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
