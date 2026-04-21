@@ -51,6 +51,10 @@ components:
     # --- Error Responses ---
     Error:
       type: object
+      required:
+        - error
+        - message
+        - status_code
       properties:
         error:
           type: string
@@ -65,21 +69,33 @@ components:
           format: int32
           description: "Código de status HTTP"
           example: 400
+        field:
+          type: string
+          nullable: true
+          description: "Nome do campo que falhou na validação. Presente apenas em respostas 422 UnprocessableEntity quando identificável."
+          example: "cpf"
 
     ApiResponse:
       type: object
+      required:
+        - message
+        - status
+        - data
       properties:
         message:
           type: string
-          description: "Mensagem da resposta"
+          description: |
+            Mensagem fixa por código de status. Respostas 200 devolvem `"Operation successful"`;
+            respostas 201 devolvem `"Resource created successfully"`. Respostas paginadas usam
+            o mesmo texto de 200.
           example: "Operation successful"
         status:
           type: integer
           format: int32
-          description: "Código de status da resposta"
+          description: "Código de status HTTP espelhado no body."
+          example: 200
         data:
-          type: object
-          description: "Dados da resposta"
+          description: "Payload de dados. Shape varia por endpoint."
 
     # --- Auth Schemas ---
     LoginRequest:
@@ -104,7 +120,14 @@ components:
 
     LoginResponse:
       type: object
+      required:
+        - message
+        - status
+        - data
       properties:
+        message:
+          type: string
+          example: "Operation successful"
         status:
           type: integer
           example: 200
@@ -126,9 +149,9 @@ components:
               format: email
               description: "Email do usuário"
             rank:
-              type: string
+              allOf:
+                - $ref: "#/components/schemas/Rank"
               description: "Posto/Graduação do usuário"
-              example: "CAP PM"
             registration:
               type: string
               description: "Matrícula do usuário"
@@ -139,9 +162,8 @@ components:
               enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
               example: "CITY_ADMIN"
             work_session:
-              oneOf:
+              allOf:
                 - $ref: "#/components/schemas/WorkSessionWithMembers"
-                - type: "null"
               description: "Sessão de trabalho ativa do usuário (se auto_create_session foi true e criou/retornou sessão)"
               nullable: true
 
@@ -369,8 +391,7 @@ components:
           type: string
           format: uuid
         rank:
-          type: string
-          example: "CAP PM"
+          $ref: "#/components/schemas/Rank"
         registration:
           type: string
           example: "100000001"
@@ -388,8 +409,7 @@ components:
           format: uuid
           nullable: true
         permission_policies:
-          type: object
-          description: "Políticas de permissão do usuário"
+          $ref: "#/components/schemas/PermissionPolicies"
         created_at:
           type: string
           format: date-time
@@ -406,8 +426,7 @@ components:
           type: string
           format: uuid
         rank:
-          type: string
-          example: "CAP PM"
+          $ref: "#/components/schemas/Rank"
         registration:
           type: string
           example: "100000001"
@@ -425,8 +444,7 @@ components:
           format: uuid
           nullable: true
         permission_policies:
-          type: object
-          description: "Políticas de permissão do usuário"
+          $ref: "#/components/schemas/PermissionPolicies"
         is_deleted:
           type: boolean
 
@@ -441,8 +459,7 @@ components:
         - password
       properties:
         rank:
-          type: string
-          example: "CB PM"
+          $ref: "#/components/schemas/Rank"
         registration:
           type: string
           pattern: "^1000[0-9]{5}$"
@@ -465,8 +482,10 @@ components:
           format: uuid
           nullable: true
         permission_policies:
-          type: object
-          description: "Políticas de permissão opcionais"
+          allOf:
+            - $ref: "#/components/schemas/PermissionPolicies"
+          nullable: true
+          description: "Políticas de permissão opcionais (apenas policies atribuíveis)."
 
     UpdateUserRequest:
       type: object
@@ -478,7 +497,7 @@ components:
         - email
       properties:
         rank:
-          type: string
+          $ref: "#/components/schemas/Rank"
         registration:
           type: string
         full_name:
@@ -494,7 +513,9 @@ components:
           format: uuid
           nullable: true
         permission_policies:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/PermissionPolicies"
+          nullable: true
 
     UpdatePasswordRequest:
       type: object
@@ -538,14 +559,11 @@ components:
           type: string
           format: uuid
         name:
-          type: string
-          example: "PORTO VELHO"
+          $ref: "#/components/schemas/CityName"
         state:
-          type: string
-          example: "RO"
+          $ref: "#/components/schemas/State"
         battalion:
-          type: string
-          example: "1ºBPM"
+          $ref: "#/components/schemas/Battalion"
         created_at:
           type: string
           format: date-time
@@ -562,14 +580,11 @@ components:
           type: string
           format: uuid
         name:
-          type: string
-          example: "PORTO VELHO"
+          $ref: "#/components/schemas/CityName"
         state:
-          type: string
-          example: "RO"
+          $ref: "#/components/schemas/State"
         battalion:
-          type: string
-          example: "1ºBPM"
+          $ref: "#/components/schemas/Battalion"
         is_deleted:
           type: boolean
 
@@ -581,14 +596,11 @@ components:
         - battalion
       properties:
         name:
-          type: string
-          example: "ARIQUEMES"
+          $ref: "#/components/schemas/CityName"
         state:
-          type: string
-          enum: ["RO"]
+          $ref: "#/components/schemas/State"
         battalion:
-          type: string
-          example: "2ºBPM"
+          $ref: "#/components/schemas/Battalion"
 
     UpdateCityRequest:
       type: object
@@ -598,12 +610,200 @@ components:
         - battalion
       properties:
         name:
-          type: string
+          $ref: "#/components/schemas/CityName"
         state:
-          type: string
-          enum: ["RO"]
+          $ref: "#/components/schemas/State"
         battalion:
+          $ref: "#/components/schemas/Battalion"
+
+    # --- Domain Enums (ranks, policies, cities, battalions, state) ---
+    Rank:
+      type: string
+      description: "Posto/graduação da PM-RO."
+      enum:
+        - "CEL PM"
+        - "TC PM"
+        - "MAJ PM"
+        - "CAP PM"
+        - "1º TEN PM"
+        - "2º TEN PM"
+        - "ASP OF PM"
+        - "CAD PM"
+        - "ST PM"
+        - "1º SGT PM"
+        - "2º SGT PM"
+        - "3º SGT PM"
+        - "CB PM"
+        - "SD PM"
+
+    Policy:
+      type: string
+      description: |
+        Políticas de permissão do sistema. Todas são aceitas como chave em `permission_policies`,
+        mas somente as **atribuíveis** podem ser usadas como path param em
+        `POST/DELETE /users/{id}/policies/{policy}/cities`.
+        Não atribuíveis (reservadas ao perfil ROOT): `create_cities`, `update_cities`, `delete_cities`.
+      enum:
+        - "create_cities"
+        - "read_cities"
+        - "update_cities"
+        - "delete_cities"
+        - "create_users"
+        - "read_users"
+        - "update_users"
+        - "delete_users"
+        - "create_victims"
+        - "read_victims"
+        - "update_victims"
+        - "delete_victims"
+        - "create_offenders"
+        - "read_offenders"
+        - "update_offenders"
+        - "delete_offenders"
+        - "create_attendances"
+        - "read_attendances"
+        - "update_attendances"
+        - "delete_attendances"
+        - "create_protective_measures"
+        - "read_protective_measures"
+        - "update_protective_measures"
+        - "delete_protective_measures"
+        - "create_work_sessions"
+        - "update_work_sessions"
+        - "end_work_sessions"
+        - "view_other_work_sessions"
+        - "manage_attendance_members"
+
+    AssignablePolicy:
+      type: string
+      description: "Políticas atribuíveis via `POST/DELETE /users/{id}/policies/{policy}/cities`."
+      enum:
+        - "read_cities"
+        - "create_users"
+        - "read_users"
+        - "update_users"
+        - "delete_users"
+        - "create_victims"
+        - "read_victims"
+        - "update_victims"
+        - "delete_victims"
+        - "create_offenders"
+        - "read_offenders"
+        - "update_offenders"
+        - "delete_offenders"
+        - "create_attendances"
+        - "read_attendances"
+        - "update_attendances"
+        - "delete_attendances"
+        - "create_protective_measures"
+        - "read_protective_measures"
+        - "update_protective_measures"
+        - "delete_protective_measures"
+        - "create_work_sessions"
+        - "update_work_sessions"
+        - "end_work_sessions"
+        - "view_other_work_sessions"
+        - "manage_attendance_members"
+
+    PermissionPolicies:
+      type: object
+      description: |
+        Mapa de políticas para listas de UUIDs de cidades onde a política se aplica.
+        Chaves são valores válidos do enum `Policy`; valores são arrays de UUIDs de cidades
+        (vazio significa que a política está registrada mas não habilita nenhuma cidade).
+      additionalProperties:
+        type: array
+        items:
           type: string
+          format: uuid
+      example:
+        read_victims:
+          - "660e8400-e29b-41d4-a716-446655440000"
+        update_victims: []
+
+    CityName:
+      type: string
+      description: "Municípios válidos de Rondônia. A validação no servidor normaliza para caixa alta."
+      enum:
+        - "ALTA FLORESTA D'OESTE"
+        - "ALTO ALEGRE DOS PARECIS"
+        - "ALTO PARAÍSO"
+        - "ALVORADA D'OESTE"
+        - "ARIQUEMES"
+        - "BURITIS"
+        - "CABIXI"
+        - "CACAULÂNDIA"
+        - "CACOAL"
+        - "CAMPO NOVO DE RONDÔNIA"
+        - "CANDEIAS DO JAMARI"
+        - "CASTANHEIRAS"
+        - "CEREJEIRAS"
+        - "CHUPINGUAIA"
+        - "COLORADO DO OESTE"
+        - "CORUMBIARA"
+        - "COSTA MARQUES"
+        - "CUJUBIM"
+        - "ESPIGÃO D'OESTE"
+        - "GOVERNADOR JORGE TEIXEIRA"
+        - "GUAJARÁ-MIRIM"
+        - "ITAPUÃ DO OESTE"
+        - "JARU"
+        - "JI-PARANÁ"
+        - "MACHADINHO D'OESTE"
+        - "MINISTRO ANDREAZZA"
+        - "MIRANTE DA SERRA"
+        - "MONTE NEGRO"
+        - "NOVA BRASILÂNDIA D'OESTE"
+        - "NOVA MAMORÉ"
+        - "NOVA UNIÃO"
+        - "NOVO HORIZONTE DO OESTE"
+        - "OURO PRETO DO OESTE"
+        - "PARECIS"
+        - "PIMENTA BUENO"
+        - "PIMENTEIRAS DO OESTE"
+        - "PORTO VELHO"
+        - "PRESIDENTE MÉDICI"
+        - "PRIMAVERA DE RONDÔNIA"
+        - "RIO CRESPO"
+        - "ROLIM DE MOURA"
+        - "SANTA LUZIA D'OESTE"
+        - "SÃO FELIPE D'OESTE"
+        - "SÃO FRANCISCO DO GUAPORÉ"
+        - "SÃO MIGUEL DO GUAPORÉ"
+        - "SERINGUEIRAS"
+        - "TEIXEIRÓPOLIS"
+        - "THEOBROMA"
+        - "URUPÁ"
+        - "VALE DO ANARI"
+        - "VALE DO PARAÍSO"
+        - "VILHENA"
+
+    Battalion:
+      type: string
+      description: "Batalhões válidos da PM-RO."
+      enum:
+        - "1ºBPM"
+        - "2ºBPM"
+        - "3ºBPM"
+        - "4ºBPM"
+        - "5ºBPM"
+        - "6ºBPM"
+        - "7ºBPM"
+        - "8ºBPM"
+        - "9ºBPM"
+        - "10ºBPM"
+        - "11ºBPM"
+        - "BPTRAN"
+        - "BOPE"
+        - "BPCHOQUE"
+        - "BPTAR"
+        - "CIPO/BURITIS"
+
+    State:
+      type: string
+      description: "UF. Atualmente o sistema opera apenas em Rondônia."
+      enum:
+        - "RO"
 
     # --- Enums ---
     PhoneType:
@@ -2071,6 +2271,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/LoginResponse"
               example:
+                message: "Operation successful"
                 status: 200
                 data:
                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -2099,7 +2300,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Unauthorized"
-                message: "Unauthorized: invalid credentials"
+                message: "Unauthorized: Invalid credentials"
                 status_code: 401
         "403":
           description: "Usuário precisa estar associado a uma cidade para auto-criar sessão"
@@ -2109,7 +2310,7 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Forbidden"
-                message: "Forbidden: user must have a city_id to auto-create session"
+                message: "Forbidden: User must be associated with a city"
                 status_code: 403
 
   # === USER ENDPOINTS ===
@@ -2146,6 +2347,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2228,13 +2432,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/User"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "550e8400-e29b-41d4-a716-446655440000"
@@ -2310,6 +2517,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2380,6 +2590,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2454,6 +2667,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2532,6 +2748,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2617,6 +2836,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2690,6 +2912,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2744,8 +2969,10 @@ paths:
         in: "path"
         required: true
         schema:
-          type: string
-        description: "Nome da política (ex: read_victims, create_victims, etc)"
+          $ref: "#/components/schemas/AssignablePolicy"
+        description: |
+          Nome da política atribuível. As políticas `create_cities`, `update_cities` e
+          `delete_cities` são reservadas ao perfil ROOT e não são aceitas neste endpoint.
 
     post:
       tags:
@@ -2770,6 +2997,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2788,7 +3018,7 @@ paths:
                   city_id: "660e8400-e29b-41d4-a716-446655440000"
                   permission_policies:
                     read_victims:
-                      city_ids: ["660e8400-e29b-41d4-a716-446655440000"]
+                      - "660e8400-e29b-41d4-a716-446655440000"
                   created_at: "2025-01-15T10:30:00Z"
                   updated_at: "2025-02-01T14:00:00Z"
                   is_deleted: false
@@ -2856,6 +3086,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -2941,6 +3174,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3019,13 +3255,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/City"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "660e8400-e29b-41d4-a716-446655440001"
@@ -3093,6 +3332,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3153,6 +3395,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3227,6 +3472,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3309,6 +3557,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3412,13 +3663,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/Victim"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "770e8400-e29b-41d4-a716-446655440000"
@@ -3504,6 +3758,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3563,6 +3820,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3647,6 +3907,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3710,6 +3973,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3779,13 +4045,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/VictimPhone"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "880e8400-e29b-41d4-a716-446655440000"
@@ -3862,6 +4131,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -3981,13 +4253,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/VictimAddress"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "990e8400-e29b-41d4-a716-446655440000"
@@ -4069,6 +4344,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4182,6 +4460,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4245,11 +4526,38 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/Offender"
+              example:
+                message: "Resource created successfully"
+                status: 201
+                data:
+                  id: "aa0e8400-e29b-41d4-a716-446655440000"
+                  full_name: "João da Silva Santos"
+                  cpf: "123.456.789-00"
+                  birth_date: "1980-05-20"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  imprisoned: false
+                  occupation: "Mecânico"
+                  is_public_security_agent: false
+                  security_force: null
+                  uses_alcohol: true
+                  uses_drugs: false
+                  has_psychiatric_issues: false
+                  psychiatric_issues_type: null
+                  education_level: "High School"
+                  observation: null
+                  phones: []
+                  addresses: []
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
@@ -4312,6 +4620,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4371,6 +4682,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4430,6 +4744,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4489,6 +4806,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4552,6 +4872,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4627,13 +4950,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/OffenderPhone"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "880e8400-e29b-41d4-a716-446655440001"
@@ -4710,6 +5036,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -4822,11 +5151,26 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
                   data:
                     $ref: "#/components/schemas/OffenderAddress"
+              example:
+                message: "Resource created successfully"
+                status: 201
+                data:
+                  id: "990e8400-e29b-41d4-a716-446655440001"
+                  street: "Rua das Flores"
+                  number: "123"
+                  district: "Centro"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  zip_code: "76801-000"
+                  complement: null
+                  address_type: "Residential"
         "401":
           description: "Token JWT ausente, inválido ou expirado"
           content:
@@ -4898,6 +5242,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5018,6 +5365,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5091,6 +5441,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
@@ -5098,6 +5451,28 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/ProtectiveMeasure"
                       - $ref: "#/components/schemas/ProtectiveMeasureWithRelations"
+              example:
+                message: "Resource created successfully"
+                status: 201
+                data:
+                  id: "880e8400-e29b-41d4-a716-446655440000"
+                  process_number: "12345-67.2025.8.26.0000"
+                  sei_process_number: "SEI-2025/001234"
+                  occurrence_report_number: "BO-2025/001234"
+                  issued_at: "2025-01-15"
+                  judicial_authority: "1ª Vara de Violência Doméstica"
+                  court_district_id: "990e8400-e29b-41d4-a716-446655440000"
+                  distance_meters: 500
+                  status: "Valid"
+                  violence_types: ["Physical", "Psychological"]
+                  relationship_to_victim: "Spouse"
+                  assaults_children: false
+                  was_drunk_during_assault: true
+                  victim_id: "770e8400-e29b-41d4-a716-446655440000"
+                  offender_id: "aa0e8400-e29b-41d4-a716-446655440000"
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
@@ -5174,6 +5549,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5235,6 +5613,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5304,6 +5685,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5375,6 +5759,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5449,6 +5836,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5572,6 +5962,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
@@ -5678,6 +6071,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5793,6 +6189,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5889,6 +6288,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -5985,6 +6387,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6047,6 +6452,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6210,6 +6618,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6308,6 +6719,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6413,6 +6827,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6524,6 +6941,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
@@ -6624,6 +7044,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6727,6 +7150,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6817,6 +7243,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6907,6 +7336,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -6969,6 +7401,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7132,6 +7567,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7224,6 +7662,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7316,6 +7757,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7421,6 +7865,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Resource created successfully"
                   status:
                     type: integer
                     example: 201
@@ -7429,7 +7876,7 @@ paths:
                       - $ref: "#/components/schemas/WorkSessionWithMembers"
                       - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
               example:
-                message: "Operation successful"
+                message: "Resource created successfully"
                 status: 201
                 data:
                   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -7550,6 +7997,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7639,6 +8089,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7702,6 +8155,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7778,6 +8234,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7864,6 +8323,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -7970,6 +8432,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -8054,6 +8519,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -8146,6 +8614,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
@@ -8239,6 +8710,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
                   status:
                     type: integer
                     example: 200
