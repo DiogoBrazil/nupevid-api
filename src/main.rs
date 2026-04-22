@@ -2,28 +2,11 @@ use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use env_logger::{Builder, Env};
 use log::info;
-use nupevid_api::adapters::{
-    password_hasher::Argon2PasswordHasher, token_generator::JwtTokenGenerator,
-};
+use nupevid_api::app_factory::AppDependencies;
 use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::middleware::auth::AuthMiddleware;
-use nupevid_api::repositories::{
-    attendance_members::PgAttendanceMemberRepository,
-    attendance_offenders::PgAttendanceOffenderRepository,
-    attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
-    cities::PgCityRepository, extensions::PgExtensionRepository, offenders::PgOffenderRepository,
-    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
-    victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
-};
-use nupevid_api::routes::config::base_routes::configure_routes;
-use nupevid_api::services::{
-    attendance_offenders::AttendanceOffenderService, attendance_victims::AttendanceVictimService,
-    auth::AuthService, cities::CityService, extensions::ExtensionService,
-    offenders::OffenderService, protective_measures::ProtectiveMeasureService, users::UserService,
-    victims::VictimService, work_sessions::WorkSessionService,
-};
-
 use nupevid_api::utils::seeder::seed_admin_user;
+use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -44,97 +27,18 @@ async fn main() -> std::io::Result<()> {
     let pool = init_database(&config.database_url, config.db_max_connections).await;
     info!("Database connection established");
 
-    // Create adapters
-    let password_hasher = Box::new(Argon2PasswordHasher::new());
-    let token_generator = Box::new(JwtTokenGenerator::new());
-    info!("Adapters created");
+    let deps = Arc::new(AppDependencies::new(pool.clone(), config.clone()));
+    info!("Dependencies created");
 
-    // Seed admin user
-    seed_admin_user(&pool, password_hasher.as_ref()).await;
+    if config.enable_bootstrap_root {
+        seed_admin_user(&pool, deps.password_hasher.as_ref()).await;
+    }
 
-    // Create repositories
-    let user_repository = web::Data::new(PgUserRepository::new(pool.clone()));
-    let auth_repository = web::Data::new(PgAuthRepository::new(pool.clone()));
-    let city_repository = web::Data::new(PgCityRepository::new(pool.clone()));
-    let victim_repository = web::Data::new(PgVictimRepository::new(pool.clone()));
-    let offender_repository = web::Data::new(PgOffenderRepository::new(pool.clone()));
-    let protective_measure_repository =
-        web::Data::new(PgProtectiveMeasureRepository::new(pool.clone()));
-    let extension_repository = web::Data::new(PgExtensionRepository::new(pool.clone()));
-    let attendance_victim_repository =
-        web::Data::new(PgAttendanceVictimRepository::new(pool.clone()));
-    let attendance_offender_repository =
-        web::Data::new(PgAttendanceOffenderRepository::new(pool.clone()));
-    let work_session_repository = web::Data::new(PgWorkSessionRepository::new(pool.clone()));
-    let attendance_member_repository =
-        web::Data::new(PgAttendanceMemberRepository::new(pool.clone()));
-    info!("Repositories created");
-
-    // Create services
-    let user_service = web::Data::new(UserService::new(
-        user_repository.clone(),
-        password_hasher.clone(),
-    ));
-    let auth_service = web::Data::new(AuthService::new(
-        auth_repository.clone(),
-        work_session_repository.clone(),
-        web::Data::new(config.clone()),
-        password_hasher.clone(),
-        token_generator.clone(),
-    ));
-    let city_service = web::Data::new(CityService::new(
-        city_repository.clone(),
-        user_repository.clone(),
-    ));
-    let victim_service = web::Data::new(VictimService::new(
-        victim_repository.clone(),
-        user_repository.clone(),
-    ));
-    let offender_service = web::Data::new(OffenderService::new(
-        offender_repository.clone(),
-        user_repository.clone(),
-    ));
-    let protective_measure_service = web::Data::new(ProtectiveMeasureService::new(
-        protective_measure_repository.clone(),
-        victim_repository.clone(),
-        offender_repository.clone(),
-        user_repository.clone(),
-        extension_repository.clone(),
-        city_repository.clone(),
-    ));
-    let extension_service = web::Data::new(ExtensionService::new(
-        extension_repository.clone(),
-        protective_measure_repository.clone(),
-        victim_repository.clone(),
-        user_repository.clone(),
-    ));
-    let attendance_victim_service = web::Data::new(AttendanceVictimService::new(
-        attendance_victim_repository.clone(),
-        victim_repository.clone(),
-        user_repository.clone(),
-        work_session_repository.clone(),
-        attendance_member_repository.clone(),
-    ));
-    let attendance_offender_service = web::Data::new(AttendanceOffenderService::new(
-        attendance_offender_repository.clone(),
-        offender_repository.clone(),
-        victim_repository.clone(),
-        protective_measure_repository.clone(),
-        user_repository.clone(),
-        work_session_repository.clone(),
-        attendance_member_repository.clone(),
-    ));
-    let work_session_service = web::Data::new(WorkSessionService::new(
-        work_session_repository.clone(),
-        user_repository.clone(),
-    ));
-    info!("Services created");
-
-    // Start the server
     let server_addr = config.server_addr.clone();
     info!("Server will be started at: http://{}", server_addr);
 
     HttpServer::new(move || {
+        let deps = Arc::clone(&deps);
         let cors = Cors::default()
             .allow_any_origin()
             .allowed_origin_fn(|origin, _req_head| {
@@ -150,29 +54,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(Logger::default())
             .wrap(AuthMiddleware)
-            .app_data(user_repository.clone())
-            .app_data(auth_repository.clone())
-            .app_data(city_repository.clone())
-            .app_data(victim_repository.clone())
-            .app_data(offender_repository.clone())
-            .app_data(protective_measure_repository.clone())
-            .app_data(extension_repository.clone())
-            .app_data(attendance_victim_repository.clone())
-            .app_data(attendance_offender_repository.clone())
-            .app_data(work_session_repository.clone())
-            .app_data(attendance_member_repository.clone())
-            .app_data(user_service.clone())
-            .app_data(auth_service.clone())
-            .app_data(city_service.clone())
-            .app_data(victim_service.clone())
-            .app_data(offender_service.clone())
-            .app_data(protective_measure_service.clone())
-            .app_data(extension_service.clone())
-            .app_data(attendance_victim_service.clone())
-            .app_data(attendance_offender_service.clone())
-            .app_data(work_session_service.clone())
-            .app_data(web::Data::new(config.clone()))
-            .configure(configure_routes)
+            .configure(|cfg: &mut web::ServiceConfig| deps.configure(cfg))
     })
     .bind(server_addr)?
     .run()

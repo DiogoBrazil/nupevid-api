@@ -2,7 +2,9 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[actix_rt::test]
@@ -136,17 +138,19 @@ async fn non_root_list_users_should_not_include_root() {
     let _ = test::call_service(&app, req).await;
 
     // Non-root token (CITY_USER)
-    let claims_user = ClaimsToUserToken {
+    let claims_user = UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CB PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::CbPm,
         registration: "100009991".to_string(),
         full_name: "Any User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "any.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };
@@ -356,17 +360,19 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
     test::call_service(&app, create_user2_req).await;
 
     // Create token for CITY_ADMIN with read_users permission only for city1
-    let admin_claims = ClaimsToUserToken {
+    let admin_claims = UserClaims {
         id: admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };

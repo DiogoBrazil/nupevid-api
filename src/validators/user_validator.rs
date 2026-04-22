@@ -1,24 +1,24 @@
-use crate::utils::errors::AppError;
-use crate::validators::common::*;
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::registrations::{
+    REGISTRATION_MAX_LENGTH, REGISTRATION_PREFIX, is_valid_registration,
+};
+use crate::validators::common::{is_valid_email, validate_required_fields};
 use uuid::Uuid;
 
 pub struct UserValidator;
 
 impl UserValidator {
     pub fn validate_fields(
-        rank: &str,
         registration: &str,
         full_name: &str,
-        profile: &str,
         email: &str,
         password: Option<&str>,
         error_context: &str,
     ) -> Result<(), AppError> {
         let mut fields_to_validate = vec![
-            ("rank", rank.is_empty()),
             ("registration", registration.is_empty()),
             ("full_name", full_name.is_empty()),
-            ("profile", profile.is_empty()),
             ("email", email.is_empty()),
         ];
 
@@ -28,24 +28,10 @@ impl UserValidator {
 
         validate_required_fields(&fields_to_validate, error_context)?;
 
-        if !is_valid_rank(rank) {
-            return Err(AppError::BadRequest(format!(
-                "{}invalid rank '{}'. Valid ranks are: {:?}",
-                error_context, rank, VALID_RANKS
-            )));
-        }
-
         if !is_valid_registration(registration) {
             return Err(AppError::BadRequest(format!(
                 "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
                 error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
-            )));
-        }
-
-        if !is_valid_profile(profile) {
-            return Err(AppError::BadRequest(format!(
-                "{}invalid profile '{}'. Valid profiles are: {:?}",
-                error_context, profile, VALID_PROFILES
             )));
         }
 
@@ -60,11 +46,11 @@ impl UserValidator {
     }
 
     pub fn validate_city_requirement(
-        profile: &str,
+        profile: &Profile,
         city_id: &Option<Uuid>,
         error_context: &str,
     ) -> Result<(), AppError> {
-        if profile != PROFILE_ROOT && city_id.is_none() {
+        if *profile != Profile::Root && city_id.is_none() {
             return Err(AppError::BadRequest(format!(
                 "{}: city_id is required for profile '{}'",
                 error_context, profile
@@ -82,10 +68,8 @@ mod tests {
     #[test]
     fn test_validate_fields_success() {
         let result = UserValidator::validate_fields(
-            "CEL PM",
             "100012345",
             "João Silva",
-            "ROOT",
             "joao@example.com",
             Some("senha123"),
             "test",
@@ -94,47 +78,10 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_fields_empty_rank() {
-        let result = UserValidator::validate_fields(
-            "",
-            "100012345",
-            "João Silva",
-            "ROOT",
-            "joao@example.com",
-            Some("senha123"),
-            "test",
-        );
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("rank cannot be empty")
-        );
-    }
-
-    #[test]
-    fn test_validate_fields_invalid_rank() {
-        let result = UserValidator::validate_fields(
-            "INVALID_RANK",
-            "100012345",
-            "João Silva",
-            "ROOT",
-            "joao@example.com",
-            Some("senha123"),
-            "test",
-        );
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid rank"));
-    }
-
-    #[test]
     fn test_validate_fields_invalid_registration() {
         let result = UserValidator::validate_fields(
-            "CEL PM",
-            "999912345", // Should start with 1000
+            "999912345",
             "João Silva",
-            "ROOT",
             "joao@example.com",
             Some("senha123"),
             "test",
@@ -149,27 +96,10 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_fields_invalid_profile() {
-        let result = UserValidator::validate_fields(
-            "CEL PM",
-            "100012345",
-            "João Silva",
-            "INVALID_PROFILE",
-            "joao@example.com",
-            Some("senha123"),
-            "test",
-        );
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid profile"));
-    }
-
-    #[test]
     fn test_validate_fields_invalid_email() {
         let result = UserValidator::validate_fields(
-            "CEL PM",
             "100012345",
             "João Silva",
-            "ROOT",
             "invalid-email",
             Some("senha123"),
             "test",
@@ -185,13 +115,13 @@ mod tests {
 
     #[test]
     fn test_validate_city_requirement_root_without_city() {
-        let result = UserValidator::validate_city_requirement(PROFILE_ROOT, &None, "test");
+        let result = UserValidator::validate_city_requirement(&Profile::Root, &None, "test");
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_city_requirement_city_admin_without_city() {
-        let result = UserValidator::validate_city_requirement(PROFILE_CITY_ADMIN, &None, "test");
+        let result = UserValidator::validate_city_requirement(&Profile::CityAdmin, &None, "test");
         assert!(result.is_err());
         assert!(
             result
@@ -205,7 +135,7 @@ mod tests {
     fn test_validate_city_requirement_city_admin_with_city() {
         let city_id = Uuid::new_v4();
         let result =
-            UserValidator::validate_city_requirement(PROFILE_CITY_ADMIN, &Some(city_id), "test");
+            UserValidator::validate_city_requirement(&Profile::CityAdmin, &Some(city_id), "test");
         assert!(result.is_ok());
     }
 }

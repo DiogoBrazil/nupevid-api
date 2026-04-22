@@ -1,22 +1,40 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "phone_type_enum")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PhoneType {
     #[serde(rename = "Mobile")]
-    #[sqlx(rename = "Mobile")]
     Mobile,
     #[serde(rename = "Residential")]
-    #[sqlx(rename = "Residential")]
     Residential,
     #[serde(rename = "Work")]
-    #[sqlx(rename = "Work")]
     Work,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "address_type_enum", rename_all = "PascalCase")]
+impl PhoneType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Mobile => "Mobile",
+            Self::Residential => "Residential",
+            Self::Work => "Work",
+        }
+    }
+}
+
+impl TryFrom<&str> for PhoneType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Mobile" => Ok(Self::Mobile),
+            "Residential" => Ok(Self::Residential),
+            "Work" => Ok(Self::Work),
+            other => Err(format!("Invalid phone type: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum AddressType {
     Residential,
     Work,
@@ -27,33 +45,88 @@ pub enum AddressType {
     Other,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "education_level_enum")]
+impl AddressType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Residential => "Residential",
+            Self::Work => "Work",
+            Self::Correspondence => "Correspondence",
+            Self::Commercial => "Commercial",
+            Self::Institutional => "Institutional",
+            Self::Temporary => "Temporary",
+            Self::Other => "Other",
+        }
+    }
+}
+
+impl TryFrom<&str> for AddressType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Residential" => Ok(Self::Residential),
+            "Work" => Ok(Self::Work),
+            "Correspondence" => Ok(Self::Correspondence),
+            "Commercial" => Ok(Self::Commercial),
+            "Institutional" => Ok(Self::Institutional),
+            "Temporary" => Ok(Self::Temporary),
+            "Other" => Ok(Self::Other),
+            other => Err(format!("Invalid address type: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum EducationLevel {
     #[serde(rename = "Elementary")]
-    #[sqlx(rename = "Elementary")]
     Elementary,
     #[serde(rename = "High School")]
-    #[sqlx(rename = "High School")]
     HighSchool,
     #[serde(rename = "College")]
-    #[sqlx(rename = "College")]
     College,
     #[serde(rename = "Postgraduate")]
-    #[sqlx(rename = "Postgraduate")]
     Postgraduate,
     #[serde(rename = "Illiterate")]
-    #[sqlx(rename = "Illiterate")]
     Illiterate,
     #[serde(rename = "Semi-illiterate")]
-    #[sqlx(rename = "Semi-illiterate")]
     SemiIlliterate,
     #[serde(rename = "Master")]
-    #[sqlx(rename = "Master")]
     Master,
     #[serde(rename = "Doctorate")]
-    #[sqlx(rename = "Doctorate")]
     Doctorate,
+}
+
+impl EducationLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Elementary => "Elementary",
+            Self::HighSchool => "High School",
+            Self::College => "College",
+            Self::Postgraduate => "Postgraduate",
+            Self::Illiterate => "Illiterate",
+            Self::SemiIlliterate => "Semi-illiterate",
+            Self::Master => "Master",
+            Self::Doctorate => "Doctorate",
+        }
+    }
+}
+
+impl TryFrom<&str> for EducationLevel {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Elementary" => Ok(Self::Elementary),
+            "High School" => Ok(Self::HighSchool),
+            "College" => Ok(Self::College),
+            "Postgraduate" => Ok(Self::Postgraduate),
+            "Illiterate" => Ok(Self::Illiterate),
+            "Semi-illiterate" => Ok(Self::SemiIlliterate),
+            "Master" => Ok(Self::Master),
+            "Doctorate" => Ok(Self::Doctorate),
+            other => Err(format!("Invalid education level: '{}'", other)),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -71,4 +144,17 @@ pub struct AddressData {
     pub zip_code: Option<String>,
     pub complement: Option<String>,
     pub address_type: AddressType,
+}
+
+/// Normalize boolean flag from optional list presence
+pub fn derive_flag_from_list(values: &Option<Vec<String>>) -> (bool, Option<Vec<String>>) {
+    match values {
+        Some(list) if !list.is_empty() => (true, Some(list.clone())),
+        _ => (false, None),
+    }
+}
+
+/// Derive security agent flag from the presence of a security force value
+pub fn is_security_agent<T>(security_force: &Option<T>) -> bool {
+    security_force.is_some()
 }

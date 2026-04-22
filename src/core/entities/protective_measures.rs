@@ -1,14 +1,8 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use crate::core::entities::cities::CityComplement;
-use crate::core::entities::offenders::OffenderComplement;
-use crate::core::entities::victims::VictimComplement;
-
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "violence_type_enum", rename_all = "PascalCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ViolenceType {
     Physical,
     Sexual,
@@ -16,111 +10,147 @@ pub enum ViolenceType {
     Moral,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "relationship_to_victim_enum")]
+impl ViolenceType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Physical => "Physical",
+            Self::Sexual => "Sexual",
+            Self::Psychological => "Psychological",
+            Self::Moral => "Moral",
+        }
+    }
+}
+
+impl TryFrom<&str> for ViolenceType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Physical" => Ok(Self::Physical),
+            "Sexual" => Ok(Self::Sexual),
+            "Psychological" => Ok(Self::Psychological),
+            "Moral" => Ok(Self::Moral),
+            other => Err(format!("Invalid violence type: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum RelationshipToVictim {
     #[serde(rename = "Spouse")]
-    #[sqlx(rename = "Spouse")]
     Spouse,
     #[serde(rename = "Ex-Spouse")]
-    #[sqlx(rename = "Ex-Spouse")]
     ExSpouse,
     #[serde(rename = "Mother")]
-    #[sqlx(rename = "Mother")]
     Mother,
     #[serde(rename = "Father")]
-    #[sqlx(rename = "Father")]
     Father,
     #[serde(rename = "Stepfather")]
-    #[sqlx(rename = "Stepfather")]
     Stepfather,
     #[serde(rename = "Stepmother")]
-    #[sqlx(rename = "Stepmother")]
     Stepmother,
     #[serde(rename = "Son/Daughter")]
-    #[sqlx(rename = "Son/Daughter")]
     SonDaughter,
     #[serde(rename = "Sibling")]
-    #[sqlx(rename = "Sibling")]
     Sibling,
     #[serde(rename = "Cousin")]
-    #[sqlx(rename = "Cousin")]
     Cousin,
     #[serde(rename = "Grandfather")]
-    #[sqlx(rename = "Grandfather")]
     Grandfather,
     #[serde(rename = "Grandmother")]
-    #[sqlx(rename = "Grandmother")]
     Grandmother,
     #[serde(rename = "Brother/Sister-in-law")]
-    #[sqlx(rename = "Brother/Sister-in-law")]
     BrotherSisterInLaw,
     #[serde(rename = "Father/Mother-in-law")]
-    #[sqlx(rename = "Father/Mother-in-law")]
     FatherMotherInLaw,
     #[serde(rename = "Son-in-law")]
-    #[sqlx(rename = "Son-in-law")]
     SonInLaw,
     #[serde(rename = "Daughter-in-law")]
-    #[sqlx(rename = "Daughter-in-law")]
     DaughterInLaw,
     #[serde(rename = "Uncle/Aunt")]
-    #[sqlx(rename = "Uncle/Aunt")]
     UncleAunt,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(
-    type_name = "protective_measure_status_enum",
-    rename_all = "PascalCase"
-)]
+impl RelationshipToVictim {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Spouse => "Spouse",
+            Self::ExSpouse => "Ex-Spouse",
+            Self::Mother => "Mother",
+            Self::Father => "Father",
+            Self::Stepfather => "Stepfather",
+            Self::Stepmother => "Stepmother",
+            Self::SonDaughter => "Son/Daughter",
+            Self::Sibling => "Sibling",
+            Self::Cousin => "Cousin",
+            Self::Grandfather => "Grandfather",
+            Self::Grandmother => "Grandmother",
+            Self::BrotherSisterInLaw => "Brother/Sister-in-law",
+            Self::FatherMotherInLaw => "Father/Mother-in-law",
+            Self::SonInLaw => "Son-in-law",
+            Self::DaughterInLaw => "Daughter-in-law",
+            Self::UncleAunt => "Uncle/Aunt",
+        }
+    }
+}
+
+impl TryFrom<&str> for RelationshipToVictim {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Spouse" => Ok(Self::Spouse),
+            "Ex-Spouse" => Ok(Self::ExSpouse),
+            "Mother" => Ok(Self::Mother),
+            "Father" => Ok(Self::Father),
+            "Stepfather" => Ok(Self::Stepfather),
+            "Stepmother" => Ok(Self::Stepmother),
+            "Son/Daughter" => Ok(Self::SonDaughter),
+            "Sibling" => Ok(Self::Sibling),
+            "Cousin" => Ok(Self::Cousin),
+            "Grandfather" => Ok(Self::Grandfather),
+            "Grandmother" => Ok(Self::Grandmother),
+            "Brother/Sister-in-law" => Ok(Self::BrotherSisterInLaw),
+            "Father/Mother-in-law" => Ok(Self::FatherMotherInLaw),
+            "Son-in-law" => Ok(Self::SonInLaw),
+            "Daughter-in-law" => Ok(Self::DaughterInLaw),
+            "Uncle/Aunt" => Ok(Self::UncleAunt),
+            other => Err(format!("Invalid relationship to victim: '{}'", other)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ProtectiveMeasureStatus {
     Valid,
     Revoked,
     Expired,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateProtectiveMeasure {
-    pub process_number: String,
-    pub sei_process_number: Option<String>,
-    pub occurrence_report_number: Option<String>,
-    pub issued_at: NaiveDate,
-    pub valid_until: Option<NaiveDate>,
-    pub judicial_authority: String,
-    pub court_district_id: Uuid,
-    pub distance_meters: Option<i32>,
-    pub status: ProtectiveMeasureStatus,
-    pub violence_types: Vec<ViolenceType>,
-    pub relationship_to_victim: RelationshipToVictim,
-    pub assaults_children: bool,
-    pub was_drunk_during_assault: bool,
-    pub victim_id: Uuid,
-    pub offender_id: Uuid,
-    pub extensions: Option<Vec<ExtensionUpsert>>,
+impl ProtectiveMeasureStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Valid => "Valid",
+            Self::Revoked => "Revoked",
+            Self::Expired => "Expired",
+        }
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateProtectiveMeasure {
-    pub process_number: String,
-    pub sei_process_number: Option<String>,
-    pub occurrence_report_number: Option<String>,
-    pub issued_at: NaiveDate,
-    pub valid_until: Option<NaiveDate>,
-    pub judicial_authority: String,
-    pub court_district_id: Uuid,
-    pub distance_meters: Option<i32>,
-    pub status: ProtectiveMeasureStatus,
-    pub violence_types: Vec<ViolenceType>,
-    pub relationship_to_victim: RelationshipToVictim,
-    pub assaults_children: bool,
-    pub was_drunk_during_assault: bool,
-    pub victim_id: Uuid,
-    pub offender_id: Uuid,
-    pub extensions: Option<Vec<ExtensionUpsert>>,
+impl TryFrom<&str> for ProtectiveMeasureStatus {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Valid" => Ok(Self::Valid),
+            "Revoked" => Ok(Self::Revoked),
+            "Expired" => Ok(Self::Expired),
+            other => Err(format!("Invalid protective measure status: '{}'", other)),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtectiveMeasure {
     pub id: Uuid,
     pub process_number: String,
@@ -143,32 +173,7 @@ pub struct ProtectiveMeasure {
     pub is_deleted: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateExtension {
-    pub extension_number: i32,
-    pub extension_date: NaiveDate,
-    pub new_valid_until: Option<NaiveDate>,
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateExtension {
-    pub extension_number: i32,
-    pub extension_date: NaiveDate,
-    pub new_valid_until: Option<NaiveDate>,
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ExtensionUpsert {
-    pub id: Option<Uuid>,
-    pub extension_number: i32,
-    pub extension_date: NaiveDate,
-    pub new_valid_until: Option<NaiveDate>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtectiveMeasureExtension {
     pub id: Uuid,
     pub protective_measure_id: Uuid,
@@ -179,21 +184,4 @@ pub struct ProtectiveMeasureExtension {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProtectiveMeasureWithExtensions {
-    #[serde(flatten)]
-    pub measure: ProtectiveMeasure,
-    pub extensions: Vec<ProtectiveMeasureExtension>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProtectiveMeasureWithExtensionsAndEntities {
-    #[serde(flatten)]
-    pub measure: ProtectiveMeasure,
-    pub extensions: Vec<ProtectiveMeasureExtension>,
-    pub victim: VictimComplement,
-    pub offender: OffenderComplement,
-    pub court_district: CityComplement,
 }

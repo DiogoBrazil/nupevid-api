@@ -1,49 +1,25 @@
 use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 use log::error;
 use serde_json::json;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum AppError {
-    #[error("Internal Server Error")]
-    InternalServerError,
+use crate::core::application_error::ApplicationError;
 
-    #[error("Bad Request: {0}")]
-    BadRequest(String),
-
-    #[error("Unauthorized: {0}")]
-    Unauthorized(String),
-
-    #[error("Forbidden: {0}")]
-    Forbidden(String),
-
-    #[error("Not Found: {0}")]
-    NotFound(String),
-
-    #[error("Conflict: {0}")]
-    Conflict(String),
-
-    #[error("Database Error: {0}")]
-    DatabaseError(String),
-
-    #[error("Invalid Method Error: {0}")]
-    InvalidMethodError(String),
-}
-
-impl ResponseError for AppError {
+impl ResponseError for ApplicationError {
     fn error_response(&self) -> HttpResponse {
         error!("Error occurred: {}", self);
         let (status_code, error_type) = match self {
-            AppError::InternalServerError => {
+            ApplicationError::InternalServerError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             }
-            AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "Bad Request"),
-            AppError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, "Unauthorized"),
-            AppError::Forbidden(_) => (StatusCode::FORBIDDEN, "Forbidden"),
-            AppError::NotFound(_) => (StatusCode::NOT_FOUND, "Not Found"),
-            AppError::Conflict(_) => (StatusCode::CONFLICT, "Conflict"),
-            AppError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-            AppError::InvalidMethodError(_) => {
+            ApplicationError::BadRequest(_) => (StatusCode::BAD_REQUEST, "Bad Request"),
+            ApplicationError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, "Unauthorized"),
+            ApplicationError::Forbidden(_) => (StatusCode::FORBIDDEN, "Forbidden"),
+            ApplicationError::NotFound(_) => (StatusCode::NOT_FOUND, "Not Found"),
+            ApplicationError::Conflict(_) => (StatusCode::CONFLICT, "Conflict"),
+            ApplicationError::DatabaseError(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error")
+            }
+            ApplicationError::InvalidMethodError(_) => {
                 (StatusCode::METHOD_NOT_ALLOWED, "Invalid Method Error")
             }
         };
@@ -57,23 +33,14 @@ impl ResponseError for AppError {
 
     fn status_code(&self) -> StatusCode {
         match self {
-            AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
-            AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
-            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
-            AppError::NotFound(_) => StatusCode::NOT_FOUND,
-            AppError::Conflict(_) => StatusCode::CONFLICT,
-            AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::InvalidMethodError(_) => StatusCode::METHOD_NOT_ALLOWED,
-        }
-    }
-}
-
-impl From<sqlx::Error> for AppError {
-    fn from(err: sqlx::Error) -> Self {
-        match err {
-            sqlx::Error::RowNotFound => AppError::NotFound("Resource not found".to_string()),
-            _ => AppError::DatabaseError(err.to_string()),
+            ApplicationError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApplicationError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApplicationError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            ApplicationError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApplicationError::NotFound(_) => StatusCode::NOT_FOUND,
+            ApplicationError::Conflict(_) => StatusCode::CONFLICT,
+            ApplicationError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApplicationError::InvalidMethodError(_) => StatusCode::METHOD_NOT_ALLOWED,
         }
     }
 }

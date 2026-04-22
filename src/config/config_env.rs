@@ -6,8 +6,11 @@ pub struct Config {
     pub database_url: String,
     pub server_addr: String,
     pub jwt_secret: String,
+    pub jwt_issuer: String,
+    pub jwt_audience: String,
     pub api_key: String,
     pub db_max_connections: u32,
+    pub enable_bootstrap_root: bool,
 }
 
 #[derive(Debug)]
@@ -41,6 +44,14 @@ impl Config {
             missing.push("JWT_SECRET".to_string());
             String::new()
         });
+        let jwt_issuer = env::var("JWT_ISSUER").unwrap_or_else(|_| {
+            missing.push("JWT_ISSUER".to_string());
+            String::new()
+        });
+        let jwt_audience = env::var("JWT_AUDIENCE").unwrap_or_else(|_| {
+            missing.push("JWT_AUDIENCE".to_string());
+            String::new()
+        });
         let api_key = env::var("API_KEY").unwrap_or_else(|_| {
             missing.push("API_KEY".to_string());
             String::new()
@@ -56,13 +67,19 @@ impl Config {
             .unwrap_or_else(|_| "20".to_string())
             .parse::<u32>()
             .unwrap_or(20);
+        let enable_bootstrap_root = env::var("ENABLE_BOOTSTRAP_ROOT")
+            .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
 
         Ok(Self {
             database_url,
             server_addr,
             jwt_secret,
+            jwt_issuer,
+            jwt_audience,
             api_key,
             db_max_connections,
+            enable_bootstrap_root,
         })
     }
 }

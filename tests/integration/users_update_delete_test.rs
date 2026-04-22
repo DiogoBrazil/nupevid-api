@@ -2,7 +2,9 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[actix_rt::test]
@@ -86,17 +88,19 @@ async fn non_root_cannot_access_or_modify_root_user() {
     let root_id: Uuid = root_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Non-root token
-    let claims_user = ClaimsToUserToken {
+    let claims_user = UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CAP PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::CapPm,
         registration: "100009990".to_string(),
         full_name: "City Admin".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "city.admin@test.com".to_string(),
         city_id: None,
     };

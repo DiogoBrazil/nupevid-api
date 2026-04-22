@@ -1,88 +1,22 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use sqlx::prelude::FromRow;
-use std::collections::HashMap;
 use uuid::Uuid;
 
-pub type PermissionPolicies = HashMap<String, Vec<Uuid>>;
+use crate::core::value_objects::policies::PermissionPolicies;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateUser {
-    pub rank: String,
-    pub registration: String,
-    pub full_name: String,
-    pub profile: String,
-    pub email: String,
-    pub password: String,
-    pub city_id: Option<Uuid>,
-    #[serde(default)]
-    pub permission_policies: Option<PermissionPolicies>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateUser {
-    pub rank: String,
-    pub registration: String,
-    pub full_name: String,
-    pub profile: String,
-    pub email: String,
-    pub city_id: Option<Uuid>,
-    #[serde(default)]
-    pub permission_policies: Option<PermissionPolicies>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateUserPassword {
-    pub current_password: Option<String>,
-    pub new_password: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ResetUserPasswordResponse {
-    pub temporary_password: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct UserDataCreatedWithoutPassword {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
     pub id: Uuid,
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub city_id: Option<Uuid>,
-    pub permission_policies: JsonValue,
+    pub permission_policies: PermissionPolicies,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct UserComplement {
-    pub id: Uuid,
-    pub rank: String,
-    pub registration: String,
-    pub full_name: String,
-    pub profile: String,
-    pub email: String,
-    pub city_id: Option<Uuid>,
-    pub permission_policies: JsonValue,
-    pub is_deleted: bool,
-}
-
-impl From<UserDataCreatedWithoutPassword> for UserComplement {
-    fn from(user: UserDataCreatedWithoutPassword) -> Self {
-        Self {
-            id: user.id,
-            rank: user.rank,
-            registration: user.registration,
-            full_name: user.full_name,
-            profile: user.profile,
-            email: user.email,
-            city_id: user.city_id,
-            permission_policies: user.permission_policies,
-            is_deleted: user.is_deleted,
-        }
-    }
 }

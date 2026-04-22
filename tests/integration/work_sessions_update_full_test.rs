@@ -64,7 +64,7 @@ async fn update_work_session_replaces_members_and_description() {
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
             .uri(&format!(
-                "/api/v1/work-sessions/{}?include_complement_for_entities=true",
+                "/api/v1/work-sessions/{}?include_related_entities=true",
                 session_id
             ))
             .set_json(&update_payload),

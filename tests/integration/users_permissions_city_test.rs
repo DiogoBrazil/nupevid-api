@@ -3,7 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 use crate::common::test_helpers;
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 
 #[actix_rt::test]
 async fn city_admin_cannot_get_user_from_other_city() {
@@ -89,17 +91,19 @@ async fn city_admin_cannot_get_user_from_other_city() {
     let user2_id: Uuid = user2_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create token for CITY_ADMIN with read_users permission only for city1
-    let admin_claims = ClaimsToUserToken {
+    let admin_claims = UserClaims {
         id: admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };
@@ -119,6 +123,9 @@ async fn city_admin_cannot_get_user_from_other_city() {
         StatusCode::FORBIDDEN,
         "CITY_ADMIN should not access users from other cities"
     );
+    let body: serde_json::Value = test::read_body_json(get_user_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
 #[actix_rt::test]
@@ -205,17 +212,19 @@ async fn city_admin_cannot_update_user_from_other_city() {
     let user2_id: Uuid = user2_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create token for CITY_ADMIN
-    let admin_claims = ClaimsToUserToken {
+    let admin_claims = UserClaims {
         id: admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };
@@ -245,6 +254,9 @@ async fn city_admin_cannot_update_user_from_other_city() {
         StatusCode::FORBIDDEN,
         "CITY_ADMIN should not update users from other cities"
     );
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
 #[actix_rt::test]
@@ -331,17 +343,19 @@ async fn city_admin_cannot_delete_user_from_other_city() {
     let user2_id: Uuid = user2_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create token for CITY_ADMIN
-    let admin_claims = ClaimsToUserToken {
+    let admin_claims = UserClaims {
         id: admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };
@@ -361,4 +375,7 @@ async fn city_admin_cannot_delete_user_from_other_city() {
         StatusCode::FORBIDDEN,
         "CITY_ADMIN should not delete users from other cities"
     );
+    let body: serde_json::Value = test::read_body_json(delete_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }

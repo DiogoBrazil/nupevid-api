@@ -55,17 +55,24 @@ components:
         error:
           type: string
           description: "Tipo de erro"
+          example: "Bad Request"
         message:
           type: string
           description: "Mensagem de erro descritiva"
+          example: "Validation error: field X is required"
         status_code:
           type: integer
           format: int32
           description: "Código de status HTTP"
+          example: 400
 
     ApiResponse:
       type: object
       properties:
+        message:
+          type: string
+          description: "Mensagem da resposta"
+          example: "Operation successful"
         status:
           type: integer
           format: int32
@@ -229,7 +236,9 @@ components:
           description: "Nome completo do usuário"
           example: "João Silva"
         function:
-          $ref: "#/components/schemas/TeamMemberFunction"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/TeamMemberFunction"
         created_at:
           type: string
           format: date-time
@@ -242,7 +251,9 @@ components:
           format: uuid
           description: "ID do registro de membro"
         function:
-          $ref: "#/components/schemas/TeamMemberFunction"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/TeamMemberFunction"
         user:
           $ref: "#/components/schemas/UserComplement"
     WorkSessionMember:
@@ -258,7 +269,9 @@ components:
           type: string
           format: uuid
         function:
-          $ref: "#/components/schemas/TeamMemberFunction"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/TeamMemberFunction"
         created_at:
           type: string
           format: date-time
@@ -703,7 +716,9 @@ components:
           type: string
           example: "(69) 99999-8888"
         phone_type:
-          $ref: "#/components/schemas/PhoneType"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PhoneType"
 
     PhoneData:
       type: object
@@ -714,7 +729,9 @@ components:
           type: string
           example: "(69) 99999-8888"
         phone_type:
-          $ref: "#/components/schemas/PhoneType"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PhoneType"
 
     AddressType:
       type: string
@@ -865,7 +882,6 @@ components:
     VictimAddress:
       type: object
       required:
-        - city_id
         - address_type
       properties:
         id:
@@ -883,6 +899,7 @@ components:
         city_id:
           type: string
           format: uuid
+          nullable: true
         zip_code:
           type: string
           nullable: true
@@ -956,11 +973,10 @@ components:
         occupation:
           type: string
           nullable: true
-        has_children:
-          $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
+          description: "Número de filhos. Se informado, has_children será automaticamente definido como true"
         is_pregnant:
           type: boolean
           nullable: true
@@ -969,6 +985,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de necessidades especiais. Se informado com itens, has_special_needs será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -978,6 +995,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
 
     UpdateVictimRequest:
       type: object
@@ -1016,11 +1034,10 @@ components:
         occupation:
           type: string
           nullable: true
-        has_children:
-          $ref: "#/components/schemas/HasChildren"
         children_count:
           type: integer
           nullable: true
+          description: "Número de filhos. Se informado, has_children será automaticamente definido como true"
         is_pregnant:
           type: boolean
           nullable: true
@@ -1029,6 +1046,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de necessidades especiais. Se informado com itens, has_special_needs será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
@@ -1038,6 +1056,7 @@ components:
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
 
     # --- Offender Schemas ---
     OffenderPhone:
@@ -1050,12 +1069,13 @@ components:
           type: string
           example: "(69) 99999-8888"
         phone_type:
-          $ref: "#/components/schemas/PhoneType"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PhoneType"
 
     OffenderAddress:
       type: object
       required:
-        - city_id
         - address_type
       properties:
         id:
@@ -1073,6 +1093,7 @@ components:
         city_id:
           type: string
           format: uuid
+          nullable: true
         zip_code:
           type: string
           nullable: true
@@ -1234,17 +1255,17 @@ components:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
+          description: "Força de segurança do agressor. Se informado, is_public_security_agent será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
-          type: boolean
-        has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
           type: array
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
         education_level:
           $ref: "#/components/schemas/EducationLevel"
           example: "High School"
@@ -1293,17 +1314,17 @@ components:
           allOf:
             - $ref: "#/components/schemas/SecurityForce"
           nullable: true
+          description: "Força de segurança do agressor. Se informado, is_public_security_agent será automaticamente definido como true"
         uses_alcohol:
           type: boolean
         uses_drugs:
-          type: boolean
-        has_psychiatric_issues:
           type: boolean
         psychiatric_issues_type:
           type: array
           items:
             type: string
           nullable: true
+          description: "Tipos de problemas psiquiátricos. Se informado com itens, has_psychiatric_issues será automaticamente definido como true"
         education_level:
           $ref: "#/components/schemas/EducationLevel"
         observation:
@@ -1641,6 +1662,7 @@ components:
     # --- Attendance Victim Schemas ---
     AttendanceVictim:
       type: object
+      description: "Resposta de atendimento à vítima. O vínculo com vítima, agressor e medida protetiva vem da medida protetiva informada na criação/atualização."
       properties:
         id:
           type: string
@@ -1772,8 +1794,9 @@ components:
 
     CreateAttendanceVictimRequest:
       type: object
+      description: "Payload para criar atendimento à vítima. Informe apenas a medida protetiva; victim_id e offender_id são derivados dela pela API."
       required:
-        - victim_id
+        - protective_measure_id
         - was_victim_present
         - attendance_date
         - attendance_time
@@ -1783,9 +1806,10 @@ components:
         - was_instructed_about_protective_measure_procedures
         - offender_violated_protective_measure
       properties:
-        victim_id:
+        protective_measure_id:
           type: string
           format: uuid
+          description: "ID da medida protetiva associada ao atendimento (vítima e agressor são derivados dela)"
         was_victim_present:
           type: boolean
         attendance_date:
@@ -1808,16 +1832,6 @@ components:
         address:
           $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
-        offender_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID do agressor associado ao atendimento"
-        protective_measure_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID da medida protetiva associada ao atendimento"
         is_remote:
           type: boolean
           description: "Indica se o atendimento foi realizado remotamente"
@@ -1856,8 +1870,9 @@ components:
 
     UpdateAttendanceVictimRequest:
       type: object
+      description: "Payload para atualizar atendimento à vítima. Informe a medida protetiva; victim_id e offender_id são derivados dela pela API."
       required:
-        - victim_id
+        - protective_measure_id
         - was_victim_present
         - attendance_date
         - attendance_time
@@ -1867,9 +1882,10 @@ components:
         - was_instructed_about_protective_measure_procedures
         - offender_violated_protective_measure
       properties:
-        victim_id:
+        protective_measure_id:
           type: string
           format: uuid
+          description: "ID da medida protetiva associada ao atendimento (vítima e agressor são derivados dela)"
         was_victim_present:
           type: boolean
         attendance_date:
@@ -1892,16 +1908,6 @@ components:
         address:
           $ref: "#/components/schemas/AttendanceVictimAddressData"
           nullable: true
-        offender_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID do agressor associado ao atendimento"
-        protective_measure_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: "ID da medida protetiva associada ao atendimento"
         is_remote:
           type: boolean
           description: "Indica se o atendimento foi realizado remotamente"
@@ -1945,9 +1951,9 @@ components:
 
     CreateAttendanceOffender:
       type: object
+      description: "Payload para criar atendimento ao agressor. Informe apenas a medida protetiva; offender_id e victim_id são derivados dela pela API."
       required:
-        - offender_id
-        - victim_id
+        - protective_measure_id
         - was_offender_present
         - attendance_date
         - attendance_time
@@ -1955,19 +1961,10 @@ components:
         - assaults_children
         - violence_aggravator
       properties:
-        offender_id:
-          type: string
-          format: uuid
-          description: "ID do agressor atendido"
-        victim_id:
-          type: string
-          format: uuid
-          description: "ID da vítima relacionada"
         protective_measure_id:
           type: string
           format: uuid
-          nullable: true
-          description: "ID da medida protetiva relacionada"
+          description: "ID da medida protetiva relacionada (agressor e vítima são derivados dela)"
         was_offender_present:
           type: boolean
           description: "Indica se o agressor estava presente no atendimento"
@@ -2005,9 +2002,9 @@ components:
 
     UpdateAttendanceOffender:
       type: object
+      description: "Payload para atualizar atendimento ao agressor. Informe a medida protetiva; offender_id e victim_id são derivados dela pela API."
       required:
-        - offender_id
-        - victim_id
+        - protective_measure_id
         - was_offender_present
         - attendance_date
         - attendance_time
@@ -2015,19 +2012,10 @@ components:
         - assaults_children
         - violence_aggravator
       properties:
-        offender_id:
-          type: string
-          format: uuid
-          description: "ID do agressor atendido"
-        victim_id:
-          type: string
-          format: uuid
-          description: "ID da vítima relacionada"
         protective_measure_id:
           type: string
           format: uuid
-          nullable: true
-          description: "ID da medida protetiva relacionada"
+          description: "ID da medida protetiva relacionada (agressor e vítima são derivados dela)"
         was_offender_present:
           type: boolean
           description: "Indica se o agressor estava presente no atendimento"
@@ -2063,6 +2051,7 @@ components:
 
     AttendanceOffenderWithAddress:
       type: object
+      description: "Resposta de atendimento ao agressor. O vínculo com agressor, vítima e medida protetiva vem da medida protetiva informada na criação/atualização."
       properties:
         id:
           type: string
@@ -2177,10 +2166,6 @@ components:
           type: string
           format: uuid
           description: "ID do registro de membro"
-        attendance_id:
-          type: string
-          format: uuid
-          description: "ID do atendimento"
         user_id:
           type: string
           format: uuid
@@ -2228,22 +2213,41 @@ paths:
                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   id: "550e8400-e29b-41d4-a716-446655440000"
                   full_name: "João Silva"
-                  email: "joao.silva@pm.pr.gov.br"
+                  email: "joao.silva@pm.ro.gov.br"
                   rank: "CAP PM"
                   registration: "100000001"
                   profile: "CITY_ADMIN"
+                  work_session: null
+        "400":
+          description: "Dados de requisição inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: missing field `email`"
+                status_code: 400
         "401":
           description: "Credenciais inválidas"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized: invalid credentials"
+                status_code: 401
         "403":
-          description: "Usuario precisa estar associado a uma cidade para auto-criar sessao"
+          description: "Usuário precisa estar associado a uma cidade para auto-criar sessão"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: user must have a city_id to auto-create session"
+                status_code: 403
 
   # === USER ENDPOINTS ===
   /users:
@@ -2271,13 +2275,6 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
-        - name: "include_complement_for_entities"
-          in: "query"
-          required: false
-          schema:
-            type: boolean
-            example: false
-          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       responses:
         "200":
           description: "Lista de usuários retornada com sucesso"
@@ -2305,6 +2302,45 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    rank: "CAP PM"
+                    registration: "100000001"
+                    full_name: "João Silva"
+                    profile: "CITY_ADMIN"
+                    email: "joao.silva@pm.ro.gov.br"
+                    city_id: "660e8400-e29b-41d4-a716-446655440000"
+                    permission_policies: {}
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:00Z"
+                    is_deleted: false
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar usuários"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
@@ -2334,18 +2370,51 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "SD PM"
+                  registration: "100000002"
+                  full_name: "Maria Souza"
+                  profile: "CITY_USER"
+                  email: "maria.souza@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: city_id is required for CITY_ADMIN and CITY_USER profiles"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para criar usuários"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /users/search:
     get:
@@ -2385,12 +2454,41 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    rank: "CAP PM"
+                    registration: "100000001"
+                    full_name: "João Silva"
+                    profile: "CITY_ADMIN"
+                    email: "joao.silva@pm.ro.gov.br"
+                    city_id: "660e8400-e29b-41d4-a716-446655440000"
+                    permission_policies: {}
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:00Z"
+                    is_deleted: false
         "400":
           description: "Parâmetros inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: provide either 'name' or 'registration', not both or neither"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
 
   /users/{id}:
     parameters:
@@ -2424,12 +2522,51 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para visualizar este usuário"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Usuário não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
     put:
       tags:
@@ -2459,18 +2596,61 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "MAJ PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: CITY_ADMIN already exists for this city"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar este usuário"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Usuário não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
     delete:
       tags:
@@ -2494,12 +2674,51 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: true
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar este usuário"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Usuário não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
   /users/password:
     patch:
@@ -2540,12 +2759,41 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: false
         "400":
           description: "Senha atual incorreta ou dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: current password is incorrect"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
 
   /users/{id}/password/reset:
     parameters:
@@ -2584,18 +2832,41 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ResetUserPasswordResponse"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  temporary_password: "TmpPass@2025!"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para resetar senha"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Usuário não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
   /users/{id}/policies/{policy}/cities:
     parameters:
@@ -2641,18 +2912,63 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies:
+                    read_victims:
+                      city_ids: ["660e8400-e29b-41d4-a716-446655440000"]
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: false
         "400":
           description: "Política inválida"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: invalid policy name"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para modificar políticas"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
     delete:
       tags:
@@ -2682,6 +2998,51 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/User"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  full_name: "João Silva"
+                  profile: "CITY_ADMIN"
+                  email: "joao.silva@pm.ro.gov.br"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  permission_policies: {}
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar políticas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: user not found"
+                status_code: 404
 
   # === CITY ENDPOINTS ===
   /cities:
@@ -2736,6 +3097,41 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "660e8400-e29b-41d4-a716-446655440000"
+                    name: "PORTO VELHO"
+                    state: "RO"
+                    battalion: "1ºBPM"
+                    created_at: "2025-01-10T08:00:00Z"
+                    updated_at: "2025-01-10T08:00:00Z"
+                    is_deleted: false
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
@@ -2765,18 +3161,47 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/City"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "660e8400-e29b-41d4-a716-446655440001"
+                  name: "JI-PARANÁ"
+                  state: "RO"
+                  battalion: "2ºBPM"
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos ou cidade duplicada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: city with this name already exists"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas ROOT pode criar cidades"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /cities/{id}:
     parameters:
@@ -2810,12 +3235,37 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/City"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "660e8400-e29b-41d4-a716-446655440000"
+                  name: "PORTO VELHO"
+                  state: "RO"
+                  battalion: "1ºBPM"
+                  created_at: "2025-01-10T08:00:00Z"
+                  updated_at: "2025-01-10T08:00:00Z"
+                  is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "404":
           description: "Cidade não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: city not found"
+                status_code: 404
 
     put:
       tags:
@@ -2845,18 +3295,57 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/City"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "660e8400-e29b-41d4-a716-446655440000"
+                  name: "PORTO VELHO"
+                  state: "RO"
+                  battalion: "1ºBPM"
+                  created_at: "2025-01-10T08:00:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: missing field `name`"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas ROOT pode atualizar cidades"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Cidade não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: city not found"
+                status_code: 404
 
     delete:
       tags:
@@ -2880,12 +3369,48 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/City"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "660e8400-e29b-41d4-a716-446655440000"
+                  name: "PORTO VELHO"
+                  state: "RO"
+                  battalion: "1ºBPM"
+                  created_at: "2025-01-10T08:00:00Z"
+                  updated_at: "2025-02-01T14:00:00Z"
+                  is_deleted: true
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas ROOT pode deletar cidades"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Cidade não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: city not found"
+                status_code: 404
+
 
   # === VICTIM ENDPOINTS ===
   /victims:
@@ -2940,6 +3465,66 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "770e8400-e29b-41d4-a716-446655440000"
+                    full_name: "Ana Paula dos Santos"
+                    cpf: "529.982.247-25"
+                    birth_date: "1990-05-15"
+                    city_id: "660e8400-e29b-41d4-a716-446655440000"
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:00Z"
+                    is_deleted: false
+                    education_level: "High School"
+                    occupation: "Professora"
+                    has_children: true
+                    children_count: 2
+                    is_pregnant: false
+                    has_special_needs: false
+                    special_needs_type: null
+                    uses_alcohol: false
+                    uses_drugs: false
+                    has_psychiatric_issues: false
+                    psychiatric_issues_type: null
+                    phones:
+                      - id: "880e8400-e29b-41d4-a716-446655440000"
+                        phone: "(69) 99999-8888"
+                        phone_type: "Mobile"
+                    addresses:
+                      - id: "990e8400-e29b-41d4-a716-446655440000"
+                        street: "Rua das Flores"
+                        number: "123"
+                        district: "Centro"
+                        city_id: "660e8400-e29b-41d4-a716-446655440000"
+                        zip_code: "76801-000"
+                        complement: null
+                        address_type: "Residential"
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar vítimas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
@@ -2969,18 +3554,61 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/Victim"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "770e8400-e29b-41d4-a716-446655440000"
+                  full_name: "Ana Paula dos Santos"
+                  cpf: "529.982.247-25"
+                  birth_date: "1990-05-15"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
+                  education_level: "High School"
+                  occupation: "Professora"
+                  has_children: true
+                  children_count: 2
+                  is_pregnant: false
+                  has_special_needs: false
+                  special_needs_type: null
+                  uses_alcohol: false
+                  uses_drugs: false
+                  has_psychiatric_issues: false
+                  psychiatric_issues_type: null
+                  phones: []
+                  addresses: []
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: missing field `full_name`"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para criar vítima nesta cidade"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /victims/search:
     get:
@@ -3020,12 +3648,30 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Victim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: []
         "400":
           description: "Parâmetros inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: provide either 'name' or 'cpf', not both or neither"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
 
   /victims/{id}:
     parameters:
@@ -3059,12 +3705,61 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/Victim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "770e8400-e29b-41d4-a716-446655440000"
+                  full_name: "Ana Paula dos Santos"
+                  cpf: "529.982.247-25"
+                  birth_date: "1990-05-15"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  created_at: "2025-01-15T10:30:00Z"
+                  updated_at: "2025-01-15T10:30:00Z"
+                  is_deleted: false
+                  education_level: "High School"
+                  occupation: "Professora"
+                  has_children: true
+                  children_count: 2
+                  is_pregnant: false
+                  has_special_needs: false
+                  special_needs_type: null
+                  uses_alcohol: false
+                  uses_drugs: false
+                  has_psychiatric_issues: false
+                  psychiatric_issues_type: null
+                  phones: []
+                  addresses: []
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para visualizar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Vítima não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
     put:
       tags:
@@ -3100,6 +3795,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: validation error"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3123,6 +3852,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/Victim"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   /victims/{id}/phones:
     parameters:
@@ -3162,6 +3921,43 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/VictimPhone"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "880e8400-e29b-41d4-a716-446655440000"
+                  phone: "(69) 99999-8888"
+                  phone_type: "Mobile"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   /victims/{id}/phones/{phone_id}:
     parameters:
@@ -3208,6 +4004,43 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/VictimPhone"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "880e8400-e29b-41d4-a716-446655440000"
+                  phone: "(69) 98888-7777"
+                  phone_type: "Residential"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima ou telefone não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: phone not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3221,6 +4054,36 @@ paths:
       responses:
         "200":
           description: "Telefone deletado com sucesso"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima ou telefone não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: phone not found"
+                status_code: 404
 
   /victims/{id}/addresses:
     parameters:
@@ -3260,6 +4123,48 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/VictimAddress"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "990e8400-e29b-41d4-a716-446655440000"
+                  street: "Rua das Flores"
+                  number: "123"
+                  district: "Centro"
+                  city_id: "660e8400-e29b-41d4-a716-446655440000"
+                  zip_code: "76801-000"
+                  complement: null
+                  address_type: "Residential"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   /victims/{id}/addresses/{address_id}:
     parameters:
@@ -3306,6 +4211,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/VictimAddress"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima ou endereço não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: address not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3319,6 +4254,36 @@ paths:
       responses:
         "200":
           description: "Endereço deletado com sucesso"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar esta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima ou endereço não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: address not found"
+                status_code: 404
 
   # === OFFENDER ENDPOINTS ===
   /offenders:
@@ -3373,6 +4338,26 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar agressores"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
@@ -3408,12 +4393,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: validation error"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para criar agressor nesta cidade"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /offenders/search:
     get:
@@ -3453,12 +4456,30 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Offender"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: []
         "400":
           description: "Parâmetros inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: provide either 'name' or 'cpf', not both or neither"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
 
   /offenders/{id}:
     parameters:
@@ -3492,12 +4513,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/Offender"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para visualizar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Agressor não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
     put:
       tags:
@@ -3533,6 +4578,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3556,6 +4631,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/Offender"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
   /offenders/victim/{victim_id}:
     parameters:
@@ -3591,6 +4696,40 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Offender"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: []
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar agressores desta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   /offenders/{id}/phones:
     parameters:
@@ -3630,6 +4769,43 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/OffenderPhone"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "880e8400-e29b-41d4-a716-446655440001"
+                  phone: "(69) 99999-7777"
+                  phone_type: "Mobile"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
   /offenders/{id}/phones/{phone_id}:
     parameters:
@@ -3676,6 +4852,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/OffenderPhone"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor ou telefone não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: phone not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3689,6 +4895,36 @@ paths:
       responses:
         "200":
           description: "Telefone deletado com sucesso"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor ou telefone não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: phone not found"
+                status_code: 404
 
   /offenders/{id}/addresses:
     parameters:
@@ -3728,6 +4964,36 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/OffenderAddress"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
   /offenders/{id}/addresses/{address_id}:
     parameters:
@@ -3774,6 +5040,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/OffenderAddress"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor ou endereço não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: address not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3787,6 +5083,36 @@ paths:
       responses:
         "200":
           description: "Endereço deletado com sucesso"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para modificar este agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Agressor ou endereço não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: address not found"
+                status_code: 404
 
   # === PROTECTIVE MEASURE ENDPOINTS ===
   /protective-measures:
@@ -3814,6 +5140,13 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, retorna ProtectiveMeasureWithExtensionsAndEntities (com victim, offender, court_district). Quando false/omitido, retorna ProtectiveMeasureWithExtensions."
       responses:
         "200":
           description: "Lista de medidas protetivas retornada com sucesso"
@@ -3843,6 +5176,26 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar medidas protetivas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
@@ -3888,6 +5241,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: victim already has an active protective measure"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para criar medidas protetivas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /protective-measures/{id}:
     parameters:
@@ -3931,6 +5308,36 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
                       - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para visualizar esta medida protetiva"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: protective measure not found"
+                status_code: 404
 
     put:
       tags:
@@ -3960,6 +5367,42 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasure"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar medida protetiva"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: protective measure not found"
+                status_code: 404
 
     delete:
       tags:
@@ -3983,6 +5426,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasure"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar medida protetiva"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: protective measure not found"
+                status_code: 404
 
   /protective-measures/victim/{victim_id}:
     parameters:
@@ -4028,6 +5501,36 @@ paths:
                       oneOf:
                         - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
                         - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar medidas protetivas desta vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   # === EXTENSION ENDPOINTS ===
   /protective-measures/{id}/extensions:
@@ -4068,8 +5571,42 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para criar prorrogação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: protective measure not found"
+                status_code: 404
 
     get:
       tags:
@@ -4095,6 +5632,36 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar esta medida protetiva"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: protective measure not found"
+                status_code: 404
 
   /protective-measures/{id}/extensions/{ext_id}:
     parameters:
@@ -4135,8 +5702,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar esta prorrogação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Prorrogação não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: extension not found"
+                status_code: 404
 
     put:
       tags:
@@ -4166,8 +5761,42 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar esta prorrogação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Prorrogação não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: extension not found"
+                status_code: 404
 
     delete:
       tags:
@@ -4191,8 +5820,36 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar esta prorrogação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Prorrogação não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: extension not found"
+                status_code: 404
 
   # === ATTENDANCE VICTIM ENDPOINTS ===
   /attendance-victims:
@@ -4247,12 +5904,69 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    was_victim_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar atendimentos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
         - "Attendance Victims"
       summary: "Criar novo atendimento à vítima"
-      description: "Cria um novo registro de atendimento a uma vítima"
+      description: "Cria um novo atendimento à vítima a partir da medida protetiva informada. A API deriva victim_id e offender_id da medida protetiva."
       operationId: "createAttendanceVictim"
       security:
         - bearerAuth: []
@@ -4263,6 +5977,29 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateAttendanceVictimRequest"
+            example:
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+              was_victim_present: true
+              attendance_date: "2025-03-15"
+              attendance_time: "14:30:00"
+              description: "Atendimento inicial à vítima"
+              latitude: -8.7612
+              longitude: -63.9004
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
+                complement: null
+              is_remote: false
+              risk_level: "Medium"
+              offender_freedom_status: "Free"
+              offender_has_firearm_access: "Unknown"
+              needs_legal_assistance: false
+              needs_psychological_support: true
+              was_instructed_about_protective_measure_procedures: true
+              offender_violated_protective_measure: false
       responses:
         "201":
           description: "Atendimento criado com sucesso"
@@ -4276,18 +6013,79 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Resource created successfully"
+                status: 201
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  was_victim_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "14:30:00"
+                  description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T14:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "404":
-          description: "Vítima não encontrada"
+              example:
+                error: "Bad Request"
+                message: "Validation error: protective_measure_id is required"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para criar atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva ou vítima derivada não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
+                status_code: 404
 
   /attendance-victims/{id}:
     parameters:
@@ -4321,12 +6119,75 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  was_victim_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "14:30:00"
+                  description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T14:30:00Z"
+                  is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance victim not found"
+                status_code: 404
 
     put:
       tags:
         - "Attendance Victims"
       summary: "Atualizar atendimento à vítima"
-      description: "Atualiza informações de um atendimento existente"
+      description: "Atualiza um atendimento à vítima. A medida protetiva informada define a vítima e o agressor relacionados ao atendimento."
       operationId: "updateAttendanceVictim"
       security:
         - bearerAuth: []
@@ -4337,6 +6198,29 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateAttendanceVictimRequest"
+            example:
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+              was_victim_present: true
+              attendance_date: "2025-03-15"
+              attendance_time: "15:00:00"
+              description: "Atendimento atualizado"
+              latitude: -8.7612
+              longitude: -63.9004
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
+                complement: null
+              is_remote: false
+              risk_level: "Medium"
+              offender_freedom_status: "Free"
+              offender_has_firearm_access: "Unknown"
+              needs_legal_assistance: false
+              needs_psychological_support: true
+              was_instructed_about_protective_measure_procedures: true
+              offender_violated_protective_measure: false
       responses:
         "200":
           description: "Atendimento atualizado com sucesso"
@@ -4350,6 +6234,79 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  was_victim_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "15:00:00"
+                  description: "Atendimento atualizado"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T15:00:00Z"
+                  is_deleted: false
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Validation error: invalid data"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento, medida protetiva ou vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance victim not found"
+                status_code: 404
 
     delete:
       tags:
@@ -4373,6 +6330,69 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  was_victim_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "14:30:00"
+                  description: "Atendimento inicial à vítima"
+                  latitude: -8.7612
+                  longitude: -63.9004
+                  address:
+                    id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  is_remote: false
+                  risk_level: "Medium"
+                  offender_freedom_status: "Free"
+                  offender_has_firearm_access: "Unknown"
+                  needs_legal_assistance: false
+                  needs_psychological_support: true
+                  was_instructed_about_protective_measure_procedures: true
+                  offender_violated_protective_measure: false
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T16:00:00Z"
+                  is_deleted: true
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance victim not found"
+                status_code: 404
 
   /attendance-victims/{id}/members:
     parameters:
@@ -4408,6 +6428,35 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceMember"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                    user_id: "d4e5f6a7-b8c9-0123-defa-234567890123"
+                    user_name: "João Carlos Oliveira"
+                    work_session_id: "e5f6a7b8-c9d0-1234-efab-345678901234"
+                    created_at: "2025-03-15T14:30:00Z"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance victim not found"
+                status_code: 404
 
     post:
       tags:
@@ -4427,7 +6476,7 @@ paths:
             example:
               user_id: "550e8400-e29b-41d4-a716-446655440003"
       responses:
-        "201":
+        "200":
           description: "Membro adicionado com sucesso"
           content:
             application/json:
@@ -4436,21 +6485,64 @@ paths:
                 properties:
                   status:
                     type: integer
-                    example: 201
+                    example: 200
                   data:
-                    $ref: "#/components/schemas/AttendanceMember"
+                    type: string
+                    example: "Member added successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member added successfully"
         "400":
-          description: "Membro de cidade diferente ou já existe"
+          description: "Usuário de cidade diferente"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: User must be from the same city as the victim"
+                status_code: 400
+        "409":
+          description: "Membro já adicionado ao atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Conflict"
+                message: "Conflict: Member already added to attendance"
+                status_code: 409
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para gerenciar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento, vítima ou usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: User '550e8400-e29b-41d4-a716-446655440003' not found"
+                status_code: 404
 
   /attendance-victims/{id}/members/{user_id}:
     parameters:
@@ -4492,18 +6584,40 @@ paths:
                   message:
                     type: string
                     example: "Member removed successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member removed successfully"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para gerenciar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Membro não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: member not found"
+                status_code: 404
 
   /attendance-victims/by-victim/{victim_id}:
     parameters:
@@ -4519,7 +6633,7 @@ paths:
       tags:
         - "Attendance Victims"
       summary: "Listar atendimentos por vítima"
-      description: "Retorna todos os atendimentos relacionados a uma vítima específica"
+      description: "Retorna todos os atendimentos relacionados a uma vítima específica. Este endpoint não filtra por medida protetiva; para isso use /attendance-victims/by-measure/{protective_measure_id}."
       operationId: "getAttendanceVictimsByVictim"
       security:
         - bearerAuth: []
@@ -4539,18 +6653,167 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    was_victim_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para acessar vítima de outra cidade"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Vítima não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
+
+  /attendance-victims/by-measure/{protective_measure_id}:
+    parameters:
+      - name: "protective_measure_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar atendimentos de vítimas por medida protetiva"
+      description: "Retorna todos os atendimentos de vítimas relacionados a uma medida protetiva, ordenados por data de criação crescente."
+      operationId: "getAttendanceVictimsByMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceVictim"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    victim_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    was_victim_present: true
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    description: "Atendimento inicial à vítima"
+                    latitude: -8.7612
+                    longitude: -63.9004
+                    address:
+                      id: "d6e7f8a9-b0c1-2345-fabc-456789012345"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    is_remote: false
+                    risk_level: "Medium"
+                    offender_freedom_status: "Free"
+                    offender_has_firearm_access: "Unknown"
+                    needs_legal_assistance: false
+                    needs_psychological_support: true
+                    was_instructed_about_protective_measure_procedures: true
+                    offender_violated_protective_measure: false
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar atendimentos da cidade da vítima"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
+                status_code: 404
 
   # --- Attendance Offenders Endpoints ---
   /attendance-offenders:
@@ -4605,12 +6868,63 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    was_offender_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    is_remote: false
+                    assaults_children: false
+                    violence_aggravator: "AlcoholUse"
+                    violence_aggravator_other: null
+                    description: "Atendimento ao agressor"
+                    address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para listar atendimentos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     post:
       tags:
         - "Attendance Offenders"
       summary: "Criar novo atendimento ao agressor"
-      description: "Cria um novo registro de atendimento a um agressor"
+      description: "Cria um novo atendimento ao agressor a partir da medida protetiva informada. A API deriva offender_id e victim_id da medida protetiva."
       operationId: "createAttendanceOffender"
       security:
         - bearerAuth: []
@@ -4622,9 +6936,7 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateAttendanceOffender"
             example:
-              offender_id: "123e4567-e89b-12d3-a456-426614174000"
-              victim_id: "123e4567-e89b-12d3-a456-426614174001"
-              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
               was_offender_present: true
               attendance_date: "2025-01-15"
               attendance_time: "14:30:00"
@@ -4632,8 +6944,8 @@ paths:
                 street: "Rua das Flores"
                 number: "123"
                 district: "Centro"
-                city_id: "123e4567-e89b-12d3-a456-426614174003"
-                zip_code: "12345-678"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
                 complement: "Sala 10"
               is_remote: false
               assaults_children: true
@@ -4653,18 +6965,73 @@ paths:
                     example: 201
                   data:
                     $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Resource created successfully"
+                status: 201
+                data:
+                  id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  was_offender_present: true
+                  attendance_date: "2025-01-15"
+                  attendance_time: "14:30:00"
+                  is_remote: false
+                  assaults_children: true
+                  violence_aggravator: "AlcoholUse"
+                  violence_aggravator_other: null
+                  description: "Atendimento inicial ao agressor"
+                  address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: "Sala 10"
+                  created_at: "2025-01-15T14:30:00Z"
+                  updated_at: "2025-01-15T14:30:00Z"
+                  is_deleted: false
         "400":
           description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "404":
-          description: "Agressor ou vítima não encontrada"
+              example:
+                error: "Bad Request"
+                message: "Validation error: protective_measure_id is required"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para criar atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva, agressor ou vítima derivada não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
+                status_code: 404
 
   /attendance-offenders/{id}:
     parameters:
@@ -4698,18 +7065,69 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  was_offender_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "14:30:00"
+                  is_remote: false
+                  assaults_children: false
+                  violence_aggravator: "AlcoholUse"
+                  violence_aggravator_other: null
+                  description: "Atendimento ao agressor"
+                  address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T14:30:00Z"
+                  is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Atendimento não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance offender not found"
+                status_code: 404
 
     put:
       tags:
         - "Attendance Offenders"
       summary: "Atualizar atendimento ao agressor"
-      description: "Atualiza informações de um atendimento existente"
+      description: "Atualiza um atendimento ao agressor. A medida protetiva informada define o agressor e a vítima relacionados ao atendimento."
       operationId: "updateAttendanceOffender"
       security:
         - bearerAuth: []
@@ -4721,9 +7139,7 @@ paths:
             schema:
               $ref: "#/components/schemas/UpdateAttendanceOffender"
             example:
-              offender_id: "123e4567-e89b-12d3-a456-426614174000"
-              victim_id: "123e4567-e89b-12d3-a456-426614174001"
-              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
               was_offender_present: true
               attendance_date: "2025-01-15"
               attendance_time: "14:30:00"
@@ -4731,8 +7147,8 @@ paths:
                 street: "Rua das Flores"
                 number: "123"
                 district: "Centro"
-                city_id: "123e4567-e89b-12d3-a456-426614174003"
-                zip_code: "12345-678"
+                city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                zip_code: "76801-000"
                 complement: "Sala 10"
               is_remote: false
               assaults_children: false
@@ -4752,12 +7168,73 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceOffenderWithAddress"
-        "404":
-          description: "Atendimento não encontrado"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  was_offender_present: true
+                  attendance_date: "2025-01-15"
+                  attendance_time: "14:30:00"
+                  is_remote: false
+                  assaults_children: false
+                  violence_aggravator: "DrugUse"
+                  violence_aggravator_other: null
+                  description: "Atendimento de acompanhamento"
+                  address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: "Sala 10"
+                  created_at: "2025-01-15T14:30:00Z"
+                  updated_at: "2025-01-16T10:00:00Z"
+                  is_deleted: false
+        "400":
+          description: "Dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Validation error: invalid data"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para atualizar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento, medida protetiva, agressor ou vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance offender not found"
+                status_code: 404
 
     delete:
       tags:
@@ -4781,12 +7258,63 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                  offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                  victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                  protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                  was_offender_present: true
+                  attendance_date: "2025-03-15"
+                  attendance_time: "14:30:00"
+                  is_remote: false
+                  assaults_children: false
+                  violence_aggravator: "AlcoholUse"
+                  violence_aggravator_other: null
+                  description: "Atendimento ao agressor"
+                  address:
+                    id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                    street: "Rua das Flores"
+                    number: "123"
+                    district: "Centro"
+                    city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                    zip_code: "76801-000"
+                    complement: null
+                  created_at: "2025-03-15T14:30:00Z"
+                  updated_at: "2025-03-15T16:00:00Z"
+                  is_deleted: true
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para deletar este atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Atendimento não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance offender not found"
+                status_code: 404
 
   /attendance-offenders/{id}/members:
     parameters:
@@ -4822,6 +7350,35 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceMember"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                    user_id: "d4e5f6a7-b8c9-0123-defa-234567890123"
+                    user_name: "João Carlos Oliveira"
+                    work_session_id: "e5f6a7b8-c9d0-1234-efab-345678901234"
+                    created_at: "2025-03-15T14:30:00Z"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: attendance offender not found"
+                status_code: 404
 
     post:
       tags:
@@ -4841,7 +7398,7 @@ paths:
             example:
               user_id: "550e8400-e29b-41d4-a716-446655440003"
       responses:
-        "201":
+        "200":
           description: "Membro adicionado com sucesso"
           content:
             application/json:
@@ -4850,21 +7407,64 @@ paths:
                 properties:
                   status:
                     type: integer
-                    example: 201
+                    example: 200
                   data:
-                    $ref: "#/components/schemas/AttendanceMember"
+                    type: string
+                    example: "Member added successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member added successfully"
         "400":
-          description: "Membro de cidade diferente ou já existe"
+          description: "Usuário de cidade diferente"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Bad Request: User must be from the same city as the offender"
+                status_code: 400
+        "409":
+          description: "Membro já adicionado ao atendimento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Conflict"
+                message: "Conflict: Member already added to attendance"
+                status_code: 409
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para gerenciar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Atendimento, agressor ou usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: User '550e8400-e29b-41d4-a716-446655440003' not found"
+                status_code: 404
 
   /attendance-offenders/{id}/members/{user_id}:
     parameters:
@@ -4906,18 +7506,132 @@ paths:
                   message:
                     type: string
                     example: "Member removed successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member removed successfully"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para gerenciar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Membro não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: member not found"
+                status_code: 404
+
+  /attendance-offenders/by-measure/{protective_measure_id}:
+    parameters:
+      - name: "protective_measure_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos aos agressores por medida protetiva"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma medida protetiva, ordenados por data de criação crescente."
+      operationId: "getAttendanceOffendersByMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    was_offender_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    is_remote: false
+                    assaults_children: false
+                    violence_aggravator: "AlcoholUse"
+                    violence_aggravator_other: null
+                    description: "Atendimento ao agressor"
+                    address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar atendimentos da cidade do agressor"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Medida protetiva não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: Protective measure 'c4d5e6f7-a8b9-0123-defa-234567890123' not found"
+                status_code: 404
 
   /attendance-offenders/by-offender/{offender_id}:
     parameters:
@@ -4933,7 +7647,7 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Listar atendimentos por agressor"
-      description: "Retorna todos os atendimentos relacionados a um agressor específico"
+      description: "Retorna todos os atendimentos relacionados a um agressor específico. Este endpoint não filtra por medida protetiva; para isso use /attendance-offenders/by-measure/{protective_measure_id}."
       operationId: "getAttendanceOffendersByOffender"
       security:
         - bearerAuth: []
@@ -4953,12 +7667,63 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    was_offender_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    is_remote: false
+                    assaults_children: false
+                    violence_aggravator: "AlcoholUse"
+                    violence_aggravator_other: null
+                    description: "Atendimento ao agressor"
+                    address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar agressor de outra cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Agressor não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: offender not found"
+                status_code: 404
 
   /attendance-offenders/by-victim/{victim_id}:
     parameters:
@@ -4974,7 +7739,7 @@ paths:
       tags:
         - "Attendance Offenders"
       summary: "Listar atendimentos aos agressores por vítima"
-      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica. Este endpoint não filtra por medida protetiva; para isso use /attendance-offenders/by-measure/{protective_measure_id}."
       operationId: "getAttendanceOffendersByVictim"
       security:
         - bearerAuth: []
@@ -4994,12 +7759,63 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "f1a2b3c4-d5e6-7890-abcd-ef1234567890"
+                    offender_id: "a2b3c4d5-e6f7-8901-bcde-f12345678901"
+                    victim_id: "b3c4d5e6-f7a8-9012-cdef-123456789012"
+                    protective_measure_id: "c4d5e6f7-a8b9-0123-defa-234567890123"
+                    was_offender_present: true
+                    attendance_date: "2025-03-15"
+                    attendance_time: "14:30:00"
+                    is_remote: false
+                    assaults_children: false
+                    violence_aggravator: "AlcoholUse"
+                    violence_aggravator_other: null
+                    description: "Atendimento ao agressor"
+                    address:
+                      id: "e6f7a8b9-c0d1-2345-fabc-567890123456"
+                      street: "Rua das Flores"
+                      number: "123"
+                      district: "Centro"
+                      city_id: "d5e6f7a8-b9c0-1234-efab-345678901234"
+                      zip_code: "76801-000"
+                      complement: null
+                    created_at: "2025-03-15T14:30:00Z"
+                    updated_at: "2025-03-15T14:30:00Z"
+                    is_deleted: false
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
+        "403":
+          description: "Sem permissão para acessar vítima de outra cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Vítima não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: victim not found"
+                status_code: 404
 
   # === WORK SESSIONS ENDPOINTS ===
   /work-sessions:
@@ -5048,18 +7864,58 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/WorkSessionWithMembers"
                       - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+              example:
+                message: "Operation successful"
+                status: 201
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  description: "Patrulhamento preventivo zona leste"
+                  start_date: "2025-03-15T14:00:00Z"
+                  end_date: null
+                  created_by: "550e8400-e29b-41d4-a716-446655440001"
+                  created_at: "2025-03-15T14:00:00Z"
+                  updated_at: "2025-03-15T14:00:00Z"
+                  members:
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      user_id: "550e8400-e29b-41d4-a716-446655440001"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Commander"
+                      created_at: "2025-03-15T14:00:00Z"
+                    - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                      user_id: "550e8400-e29b-41d4-a716-446655440002"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Patroller"
+                      created_at: "2025-03-15T14:00:00Z"
         "400":
           description: "Dados inválidos (ex: usuário já possui sessão ativa, validação de funções falhou)"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "User already has an active work session"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para criar sessão de trabalho"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
     get:
       tags:
@@ -5151,12 +8007,47 @@ paths:
                   total_pages:
                     type: integer
                     example: 10
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    description: "Patrulhamento preventivo zona leste"
+                    start_date: "2025-03-15T14:00:00Z"
+                    end_date: null
+                    created_by: "550e8400-e29b-41d4-a716-446655440001"
+                    created_at: "2025-03-15T14:00:00Z"
+                    updated_at: "2025-03-15T14:00:00Z"
+                    members:
+                      - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                        user_id: "550e8400-e29b-41d4-a716-446655440001"
+                        work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        function: "Commander"
+                        created_at: "2025-03-15T14:00:00Z"
+                page: 1
+                page_size: 10
+                total_items: 1
+                total_pages: 1
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para visualizar sessões"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /work-sessions/active:
     get:
@@ -5191,12 +8082,43 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/WorkSessionWithMembers"
                       - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  description: "Patrulhamento preventivo zona leste"
+                  start_date: "2025-03-15T14:00:00Z"
+                  end_date: null
+                  created_by: "550e8400-e29b-41d4-a716-446655440001"
+                  created_at: "2025-03-15T14:00:00Z"
+                  updated_at: "2025-03-15T14:00:00Z"
+                  members:
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      user_id: "550e8400-e29b-41d4-a716-446655440001"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Commander"
+                      created_at: "2025-03-15T14:00:00Z"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "404":
           description: "Nenhuma sessão ativa encontrada para o usuário"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: no active work session"
+                status_code: 404
 
   /work-sessions/end:
     post:
@@ -5222,18 +8144,40 @@ paths:
                   data:
                     type: string
                     example: "Work session ended successfully"
-        "404":
-          description: "Usuário não possui sessão ativa"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Work session ended successfully"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para encerrar sessão de trabalho"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
+        "404":
+          description: "Usuário não possui sessão ativa"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: no active work session"
+                status_code: 404
 
   /work-sessions/{id}:
     parameters:
@@ -5277,18 +8221,53 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/WorkSessionWithMembers"
                       - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  description: "Patrulhamento preventivo zona leste"
+                  start_date: "2025-03-15T14:00:00Z"
+                  end_date: null
+                  created_by: "550e8400-e29b-41d4-a716-446655440001"
+                  created_at: "2025-03-15T14:00:00Z"
+                  updated_at: "2025-03-15T14:00:00Z"
+                  members:
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      user_id: "550e8400-e29b-41d4-a716-446655440001"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Commander"
+                      created_at: "2025-03-15T14:00:00Z"
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para visualizar esta sessão"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Sessão não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: work session not found"
+                status_code: 404
 
     put:
       tags:
@@ -5328,24 +8307,68 @@ paths:
                     oneOf:
                       - $ref: "#/components/schemas/WorkSessionWithMembers"
                       - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  description: "Patrulhamento atualizado - zona norte"
+                  start_date: "2025-03-15T14:00:00Z"
+                  end_date: null
+                  created_by: "550e8400-e29b-41d4-a716-446655440001"
+                  created_at: "2025-03-15T14:00:00Z"
+                  updated_at: "2025-03-15T16:00:00Z"
+                  members:
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      user_id: "550e8400-e29b-41d4-a716-446655440001"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Commander"
+                      created_at: "2025-03-15T14:00:00Z"
+                    - id: "d4e5f6a7-b8c9-0123-defa-234567890123"
+                      user_id: "550e8400-e29b-41d4-a716-446655440003"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Driver"
+                      created_at: "2025-03-15T16:00:00Z"
         "400":
           description: "Sessão inativa ou dados inválidos"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Cannot update inactive work session"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Sem permissão para atualizar sessão"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Sessão não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: work session not found"
+                status_code: 404
 
   /work-sessions/{id}/members:
     parameters:
@@ -5388,24 +8411,55 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/WorkSessionMember"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "d4e5f6a7-b8c9-0123-defa-234567890123"
+                  user_id: "550e8400-e29b-41d4-a716-446655440003"
+                  work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  function: "Patroller"
+                  created_at: "2025-03-15T15:00:00Z"
         "400":
           description: "Erro de validação (ex: dois Commanders, cidade diferente)"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Team already has a Commander"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas o criador ou Commander podem adicionar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Sessão não encontrada"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: work session not found"
+                status_code: 404
 
     put:
       tags:
@@ -5441,18 +8495,58 @@ paths:
                     example: 200
                   data:
                     $ref: "#/components/schemas/WorkSessionWithMembers"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  description: "Patrulhamento preventivo zona leste"
+                  start_date: "2025-03-15T14:00:00Z"
+                  end_date: null
+                  created_by: "550e8400-e29b-41d4-a716-446655440001"
+                  created_at: "2025-03-15T14:00:00Z"
+                  updated_at: "2025-03-15T16:00:00Z"
+                  members:
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      user_id: "550e8400-e29b-41d4-a716-446655440001"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Driver"
+                      created_at: "2025-03-15T14:00:00Z"
+                    - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                      user_id: "550e8400-e29b-41d4-a716-446655440002"
+                      work_session_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      function: "Patroller"
+                      created_at: "2025-03-15T14:00:00Z"
         "400":
           description: "Erro de validação"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Validation error: team must have exactly one Commander"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas o criador ou Commander podem atualizar membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
 
   /work-sessions/{id}/members/{member_id}:
     parameters:
@@ -5494,24 +8588,50 @@ paths:
                   data:
                     type: string
                     example: "Member removed successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member removed successfully"
         "400":
           description: "Não pode remover criador ou deixar sessão vazia"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Cannot remove session creator"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas o criador ou Commander podem remover membros"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Sessão ou membro não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: member not found"
+                status_code: 404
 
   /work-sessions/{id}/members/{user_id}/function:
     parameters:
@@ -5561,21 +8681,47 @@ paths:
                   data:
                     type: string
                     example: "Member function updated successfully"
+              example:
+                message: "Operation successful"
+                status: 200
+                data: "Member function updated successfully"
         "400":
           description: "Erro de validação (ex: dois Commanders, dois Drivers)"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Bad Request"
+                message: "Team already has a Commander"
+                status_code: 400
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
         "403":
           description: "Apenas o criador ou Commander podem atualizar funções"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: insufficient permissions"
+                status_code: 403
         "404":
           description: "Sessão ou membro não encontrado"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "Not Found"
+                message: "Not Found: member not found"
+                status_code: 404

@@ -76,12 +76,22 @@ async fn b02_root_can_add_member_to_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "City B02 Add").await;
-    let user_a =
-        db_fixtures::insert_user(&pool, "300003", "a_b02_add@test.com", "CITY_USER", Some(city))
-            .await;
-    let user_b =
-        db_fixtures::insert_user(&pool, "300004", "b_b02_add@test.com", "CITY_USER", Some(city))
-            .await;
+    let user_a = db_fixtures::insert_user(
+        &pool,
+        "300003",
+        "a_b02_add@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
+    let user_b = db_fixtures::insert_user(
+        &pool,
+        "300004",
+        "b_b02_add@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
     let root_id =
         db_fixtures::insert_user(&pool, "300005", "root_b02_add@test.com", "ROOT", None).await;
 
@@ -129,6 +139,22 @@ async fn b02_root_can_add_member_to_session() {
 
     let add_resp = test::call_service(&app, add_req).await;
     assert_eq!(add_resp.status(), StatusCode::OK);
+
+    // Verify session now has 3 members (root + user_a + user_b)
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/work-sessions/{}", session_id)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let get_resp = test::call_service(&app, get_req).await;
+    let get_body: serde_json::Value = test::read_body_json(get_resp).await;
+    let members = get_body["data"]["members"].as_array().unwrap();
+    assert_eq!(
+        members.len(),
+        3,
+        "Session should have 3 members after adding user_b"
+    );
 }
 
 #[actix_rt::test]
@@ -140,9 +166,14 @@ async fn b02_root_can_update_work_session() {
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "City B02 Upd").await;
-    let user_a =
-        db_fixtures::insert_user(&pool, "300006", "a_b02_upd@test.com", "CITY_USER", Some(city))
-            .await;
+    let user_a = db_fixtures::insert_user(
+        &pool,
+        "300006",
+        "a_b02_upd@test.com",
+        "CITY_USER",
+        Some(city),
+    )
+    .await;
     let root_id =
         db_fixtures::insert_user(&pool, "300007", "root_b02_upd@test.com", "ROOT", None).await;
 
@@ -503,4 +534,20 @@ async fn b11_can_remove_non_commander_from_session() {
 
     let remove_resp = test::call_service(&app, remove_req).await;
     assert_eq!(remove_resp.status(), StatusCode::OK);
+
+    // Verify session now has 1 member (only commander)
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/work-sessions/{}", session_id)),
+        &config,
+        &token,
+    )
+    .to_request();
+    let get_resp = test::call_service(&app, get_req).await;
+    let get_body: serde_json::Value = test::read_body_json(get_resp).await;
+    let members = get_body["data"]["members"].as_array().unwrap();
+    assert_eq!(
+        members.len(),
+        1,
+        "Session should have only commander after removing patroller"
+    );
 }
