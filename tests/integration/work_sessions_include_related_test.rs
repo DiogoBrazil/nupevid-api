@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
@@ -18,10 +19,8 @@ fn assert_user_complement(user: &serde_json::Value, expected_user_id: Option<Str
     assert!(user.get("password").is_none());
 }
 
-#[actix_rt::test]
-async fn create_work_session_with_include_related_returns_user_details() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_work_session_with_include_related_returns_user_details(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -76,10 +75,8 @@ async fn create_work_session_with_include_related_returns_user_details() {
     }
 }
 
-#[actix_rt::test]
-async fn get_active_work_session_with_include_related_returns_user_details() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_active_work_session_with_include_related_returns_user_details(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -114,10 +111,8 @@ async fn get_active_work_session_with_include_related_returns_user_details() {
     assert_user_complement(&members[0]["user"], Some(user_id.to_string()));
 }
 
-#[actix_rt::test]
-async fn list_work_sessions_with_include_related_returns_user_details() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_work_sessions_with_include_related_returns_user_details(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

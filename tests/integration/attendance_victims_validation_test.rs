@@ -1,14 +1,12 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn create_attendance_with_nonexistent_protective_measure_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_attendance_with_nonexistent_protective_measure_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -49,11 +47,8 @@ async fn create_attendance_with_nonexistent_protective_measure_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn update_attendance_change_victim_requires_permission_on_both() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_attendance_change_victim_requires_permission_on_both(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -148,11 +143,8 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn update_nonexistent_attendance_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_nonexistent_attendance_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

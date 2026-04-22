@@ -1,13 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 // ==================== ATTENDANCE VICTIMS MEMBERS TESTS ====================
 
-#[actix_rt::test]
-async fn get_victim_attendance_members_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_victim_attendance_members_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -81,10 +80,8 @@ async fn get_victim_attendance_members_success() {
     assert_eq!(members.len(), 1);
 }
 
-#[actix_rt::test]
-async fn add_victim_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_victim_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -186,10 +183,8 @@ async fn add_victim_attendance_member_success() {
     assert!(has_member);
 }
 
-#[actix_rt::test]
-async fn add_victim_attendance_member_different_city_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_victim_attendance_member_different_city_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -272,10 +267,8 @@ async fn add_victim_attendance_member_different_city_fails() {
     assert_eq!(add_resp.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
-async fn remove_victim_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_victim_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -392,10 +385,8 @@ async fn remove_victim_attendance_member_success() {
 
 // ==================== ATTENDANCE OFFENDERS MEMBERS TESTS ====================
 
-#[actix_rt::test]
-async fn get_offender_attendance_members_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_offender_attendance_members_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -470,10 +461,8 @@ async fn get_offender_attendance_members_success() {
     assert_eq!(members.len(), 1);
 }
 
-#[actix_rt::test]
-async fn add_offender_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_offender_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -577,10 +566,8 @@ async fn add_offender_attendance_member_success() {
     assert!(has_member);
 }
 
-#[actix_rt::test]
-async fn remove_offender_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_offender_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -699,10 +686,8 @@ async fn remove_offender_attendance_member_success() {
 
 // ==================== ALL SESSION MEMBERS AUTO-ADD TESTS ====================
 
-#[actix_rt::test]
-async fn create_attendance_adds_all_session_members_automatically() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_adds_all_session_members_automatically(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

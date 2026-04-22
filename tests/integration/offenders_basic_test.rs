@@ -1,12 +1,11 @@
 use actix_web::{http::StatusCode, test};
 use serde_json::Value;
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn test_create_offender_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_offender_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -41,14 +40,12 @@ async fn test_create_offender_success() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["full_name"], "Test Offender");
+    assert_eq!(body["data"]["full_name"], "TEST OFFENDER");
     assert_eq!(body["data"]["is_public_security_agent"], true);
 }
 
-#[actix_rt::test]
-async fn create_offender_with_valid_cpf_masked_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_with_valid_cpf_masked_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -85,10 +82,8 @@ async fn create_offender_with_valid_cpf_masked_success() {
     assert_eq!(body["data"]["cpf"].as_str().unwrap(), "529.982.247-25");
 }
 
-#[actix_rt::test]
-async fn search_offenders_by_name_returns_matches() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_offenders_by_name_returns_matches(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -135,13 +130,11 @@ async fn search_offenders_by_name_returns_matches() {
     let body: Value = test::read_body_json(search_resp).await;
     let results = body["data"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["full_name"].as_str().unwrap(), "Carlos Silva");
+    assert_eq!(results[0]["full_name"].as_str().unwrap(), "CARLOS SILVA");
 }
 
-#[actix_rt::test]
-async fn search_offenders_by_cpf_returns_match() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_offenders_by_cpf_returns_match(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -189,10 +182,8 @@ async fn search_offenders_by_cpf_returns_match() {
     assert_eq!(results[0]["cpf"].as_str().unwrap(), "529.982.247-25");
 }
 
-#[actix_rt::test]
-async fn search_offenders_rejects_missing_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_offenders_rejects_missing_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -218,10 +209,8 @@ async fn search_offenders_rejects_missing_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_offenders_rejects_conflicting_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_offenders_rejects_conflicting_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -247,10 +236,8 @@ async fn search_offenders_rejects_conflicting_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_offenders_rejects_empty_name_filter() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_offenders_rejects_empty_name_filter(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -276,10 +263,8 @@ async fn search_offenders_rejects_empty_name_filter() {
     );
 }
 
-#[actix_rt::test]
-async fn create_offender_with_invalid_cpf_format_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_with_invalid_cpf_format_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -321,10 +306,8 @@ async fn create_offender_with_invalid_cpf_format_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_offender_with_invalid_cpf_digits_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_with_invalid_cpf_digits_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -366,10 +349,8 @@ async fn create_offender_with_invalid_cpf_digits_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn test_get_offender_by_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_offender_by_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -395,10 +376,8 @@ async fn test_get_offender_by_id() {
     assert_eq!(body["data"]["id"], offender_id.to_string());
 }
 
-#[actix_rt::test]
-async fn test_get_all_offenders() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_all_offenders(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -424,10 +403,8 @@ async fn test_get_all_offenders() {
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
-#[actix_rt::test]
-async fn test_update_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -463,15 +440,13 @@ async fn test_update_offender() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["full_name"], "Updated Name");
+    assert_eq!(body["data"]["full_name"], "UPDATED NAME");
     assert_eq!(body["data"]["imprisoned"], true);
     assert_eq!(body["data"]["is_public_security_agent"], true);
 }
 
-#[actix_rt::test]
-async fn test_delete_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_delete_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -504,10 +479,8 @@ async fn test_delete_offender() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn test_get_offenders_by_victim_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_offenders_by_victim_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -542,10 +515,8 @@ async fn test_get_offenders_by_victim_id() {
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
-#[actix_rt::test]
-async fn create_offender_without_city_id_uses_residential_address_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_without_city_id_uses_residential_address_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -590,10 +561,8 @@ async fn create_offender_without_city_id_uses_residential_address_city() {
     assert_eq!(body["data"]["city_id"], city_id.to_string());
 }
 
-#[actix_rt::test]
-async fn create_offender_without_city_id_uses_work_address_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_without_city_id_uses_work_address_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -638,10 +607,8 @@ async fn create_offender_without_city_id_uses_work_address_city() {
     assert_eq!(body["data"]["city_id"], city_id.to_string());
 }
 
-#[actix_rt::test]
-async fn create_offender_without_city_id_and_without_residential_or_work_address_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_offender_without_city_id_and_without_residential_or_work_address_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

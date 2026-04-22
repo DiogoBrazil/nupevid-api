@@ -3,6 +3,7 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
+use sqlx::PgPool;
 
 fn build_measure_payload(
     victim_id: Uuid,
@@ -30,10 +31,8 @@ fn assert_entity_without_timestamps(entity: &serde_json::Value) {
     assert!(entity.get("updated_at").is_none());
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_include_related_returns_entities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_include_related_returns_entities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -77,10 +76,8 @@ async fn create_protective_measure_with_include_related_returns_entities() {
     assert_entity_without_timestamps(&data["court_district"]);
 }
 
-#[actix_rt::test]
-async fn get_protective_measure_by_id_with_include_related_returns_entities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_protective_measure_by_id_with_include_related_returns_entities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -125,10 +122,8 @@ async fn get_protective_measure_by_id_with_include_related_returns_entities() {
     assert_entity_without_timestamps(&data["court_district"]);
 }
 
-#[actix_rt::test]
-async fn list_protective_measures_with_include_related_returns_entities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_protective_measures_with_include_related_returns_entities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -158,10 +153,8 @@ async fn list_protective_measures_with_include_related_returns_entities() {
     assert_entity_without_timestamps(&measures[0]["court_district"]);
 }
 
-#[actix_rt::test]
-async fn get_protective_measures_by_victim_with_include_related_returns_entities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_protective_measures_by_victim_with_include_related_returns_entities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

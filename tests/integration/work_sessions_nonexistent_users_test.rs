@@ -1,14 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 6 - Test 1: Create session with non-existent member
-#[actix_rt::test]
-async fn create_session_with_nonexistent_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_session_with_nonexistent_member(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -59,11 +57,8 @@ async fn create_session_with_nonexistent_member() {
 }
 
 /// Phase 6 - Test 2: Add non-existent member to existing session
-#[actix_rt::test]
-async fn add_nonexistent_member_to_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn add_nonexistent_member_to_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -134,11 +129,8 @@ async fn add_nonexistent_member_to_session() {
 }
 
 /// Phase 6 - Test 3: Update members with non-existent user
-#[actix_rt::test]
-async fn update_members_with_nonexistent_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_members_with_nonexistent_user(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -217,11 +209,8 @@ async fn update_members_with_nonexistent_user() {
 }
 
 /// Phase 6 - Test 4: Remove non-existent member from session
-#[actix_rt::test]
-async fn remove_nonexistent_member_from_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn remove_nonexistent_member_from_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
@@ -7,10 +8,8 @@ use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[actix_rt::test]
-async fn test_update_user_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_user_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -57,10 +56,8 @@ async fn test_update_user_success() {
     );
 }
 
-#[actix_rt::test]
-async fn non_root_cannot_access_or_modify_root_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn non_root_cannot_access_or_modify_root_user(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -146,10 +143,8 @@ async fn non_root_cannot_access_or_modify_root_user() {
     assert_eq!(del_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn test_update_user_not_found() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_user_not_found(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -175,10 +170,8 @@ async fn test_update_user_not_found() {
     assert!(body["message"].as_str().unwrap().contains("not found"));
 }
 
-#[actix_rt::test]
-async fn test_update_user_duplicate_email() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_user_duplicate_email(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -237,10 +230,8 @@ async fn test_update_user_duplicate_email() {
     );
 }
 
-#[actix_rt::test]
-async fn test_update_user_duplicate_registration() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_user_duplicate_registration(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -305,10 +296,8 @@ async fn test_update_user_duplicate_registration() {
     );
 }
 
-#[actix_rt::test]
-async fn test_delete_user_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_delete_user_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -355,10 +344,8 @@ async fn test_delete_user_success() {
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn test_delete_user_not_found() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_delete_user_not_found(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

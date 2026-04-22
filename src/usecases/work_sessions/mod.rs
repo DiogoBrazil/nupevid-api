@@ -12,6 +12,15 @@ pub mod update_member_function_usecase;
 pub mod update_members_usecase;
 pub mod update_work_session_usecase;
 
+#[cfg(test)]
+mod create_work_session_usecase_test;
+#[cfg(test)]
+mod end_session_usecase_test;
+#[cfg(test)]
+mod guards_test;
+#[cfg(test)]
+mod test_support;
+
 pub use add_member_to_session_usecase::AddMemberToSessionUseCase;
 pub use create_work_session_usecase::CreateWorkSessionUseCase;
 pub use deps::WorkSessionUseCaseDependencies;

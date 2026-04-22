@@ -6,6 +6,7 @@ use crate::core::entities::common::{AddressData, EducationLevel, PhoneData};
 use crate::core::entities::offenders::SecurityForce;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct SaveOffender {
     pub full_name: String,
     pub cpf: Option<String>,

@@ -130,12 +130,14 @@ impl TryFrom<&str> for EducationLevel {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct PhoneData {
     pub phone: String,
     pub phone_type: Option<PhoneType>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct AddressData {
     pub street: Option<String>,
     pub number: Option<String>,

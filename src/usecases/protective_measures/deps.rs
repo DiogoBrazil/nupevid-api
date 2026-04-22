@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use crate::core::contracts::repository::cities::CityRepository;
-use crate::core::contracts::repository::extensions::ExtensionRepository;
 use crate::core::contracts::repository::offenders::OffenderReadRepository;
 use crate::core::contracts::repository::protective_measures::{
     ProtectiveMeasureReadRepository, ProtectiveMeasureWriteRepository,
@@ -16,7 +15,6 @@ pub struct ProtectiveMeasureUseCaseDependencies {
     pub victim_repository: Arc<dyn VictimReadRepository>,
     pub offender_repository: Arc<dyn OffenderReadRepository>,
     pub user_repository: Arc<dyn UserRepository>,
-    pub extension_repository: Arc<dyn ExtensionRepository>,
     pub city_repository: Arc<dyn CityRepository>,
 }
 
@@ -27,7 +25,6 @@ impl ProtectiveMeasureUseCaseDependencies {
         victim_repository: Arc<dyn VictimReadRepository>,
         offender_repository: Arc<dyn OffenderReadRepository>,
         user_repository: Arc<dyn UserRepository>,
-        extension_repository: Arc<dyn ExtensionRepository>,
         city_repository: Arc<dyn CityRepository>,
     ) -> Self {
         Self {
@@ -36,7 +33,6 @@ impl ProtectiveMeasureUseCaseDependencies {
             victim_repository,
             offender_repository,
             user_repository,
-            extension_repository,
             city_repository,
         }
     }

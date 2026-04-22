@@ -1,50 +1,28 @@
 use actix_web::{App, Error, dev::Service, test, web};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use nupevid_api::app_factory::AppDependencies;
-use nupevid_api::config::{config_env::Config, database::init_database};
+use nupevid_api::config::config_env::Config;
 use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use nupevid_api::middleware::auth::AuthMiddleware;
 use sqlx::PgPool;
-use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-/// Setup test database pool
-pub async fn setup_test_db() -> PgPool {
-    dotenv::dotenv().ok();
-
-    let database_url = env::var("DATABASE_TEST_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/nupevid_test".to_string());
-
-    let pool = init_database(&database_url, 5).await;
-
-    // Run migrations
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("Failed to run migrations");
-
-    pool
-}
-
-/// Build a Config instance suitable for tests, using DATABASE_TEST_URL and
-/// default values for SERVER_ADDR / JWT_SECRET / API_KEY when not provided.
+/// Build a Config instance suitable for tests.
 pub fn build_test_config() -> Config {
     dotenv::dotenv().ok();
 
-    let database_url = env::var("DATABASE_TEST_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/nupevid_test".to_string());
-
-    let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
-    let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
-    let api_key = env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
-    let jwt_issuer = env::var("JWT_ISSUER").unwrap_or_else(|_| "nupevid-api".to_string());
-    let jwt_audience = env::var("JWT_AUDIENCE").unwrap_or_else(|_| "nupevid-api".to_string());
+    let server_addr = std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
+    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
+    let api_key = std::env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
+    let jwt_issuer = std::env::var("JWT_ISSUER").unwrap_or_else(|_| "nupevid-api".to_string());
+    let jwt_audience =
+        std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "nupevid-api".to_string());
 
     Config {
-        database_url,
+        database_url: String::new(),
         server_addr,
         jwt_secret,
         api_key,
@@ -52,36 +30,6 @@ pub fn build_test_config() -> Config {
         jwt_audience,
         db_max_connections: 5,
         enable_bootstrap_root: false,
-    }
-}
-
-/// Clean all domain tables from database in foreign-key safe order.
-pub async fn clean_database(pool: &PgPool) {
-    // Child tables first, then parents
-    for sql in [
-        "DELETE FROM attendance_victim_members",
-        "DELETE FROM attendance_offender_members",
-        "DELETE FROM attendance_offender_addresses",
-        "DELETE FROM attendance_offenders",
-        "DELETE FROM attendance_victim_addresses",
-        "DELETE FROM attendance_victims",
-        "DELETE FROM work_session_members",
-        "DELETE FROM work_sessions",
-        "DELETE FROM protective_measure_extensions",
-        "DELETE FROM protective_measures",
-        "DELETE FROM offender_phones",
-        "DELETE FROM offender_addresses",
-        "DELETE FROM offenders",
-        "DELETE FROM victim_phones",
-        "DELETE FROM victim_addresses",
-        "DELETE FROM victims",
-        "DELETE FROM users",
-        "DELETE FROM cities",
-    ] {
-        sqlx::query(sql)
-            .execute(pool)
-            .await
-            .expect("Failed to clean table");
     }
 }
 

@@ -2,11 +2,10 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
+use sqlx::PgPool;
 
-#[actix_rt::test]
-async fn create_victim_with_empty_full_name_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_with_empty_full_name_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -47,10 +46,8 @@ async fn create_victim_with_empty_full_name_fails() {
     assert!(body["message"].as_str().unwrap().contains("full_name"));
 }
 
-#[actix_rt::test]
-async fn create_victim_with_invalid_cpf_format_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_with_invalid_cpf_format_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -96,10 +93,8 @@ async fn create_victim_with_invalid_cpf_format_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_victim_with_invalid_cpf_digits_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_with_invalid_cpf_digits_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -145,10 +140,8 @@ async fn create_victim_with_invalid_cpf_digits_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_victim_with_duplicate_cpf_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_with_duplicate_cpf_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -223,10 +216,8 @@ async fn create_victim_with_duplicate_cpf_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_victim_without_city_id_uses_residential_address_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_without_city_id_uses_residential_address_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -275,10 +266,8 @@ async fn create_victim_without_city_id_uses_residential_address_city() {
     assert_eq!(body["data"]["city_id"].as_str().unwrap(), city.to_string());
 }
 
-#[actix_rt::test]
-async fn create_victim_without_city_id_uses_work_address_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_without_city_id_uses_work_address_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -327,10 +316,8 @@ async fn create_victim_without_city_id_uses_work_address_city() {
     assert_eq!(body["data"]["city_id"].as_str().unwrap(), city.to_string());
 }
 
-#[actix_rt::test]
-async fn create_victim_without_city_id_and_without_residential_or_work_address_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_without_city_id_and_without_residential_or_work_address_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -384,10 +371,8 @@ async fn create_victim_without_city_id_and_without_residential_or_work_address_f
     );
 }
 
-#[actix_rt::test]
-async fn update_victim_with_empty_full_name_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_victim_with_empty_full_name_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -429,10 +414,8 @@ async fn update_victim_with_empty_full_name_fails() {
     assert!(body["message"].as_str().unwrap().contains("full_name"));
 }
 
-#[actix_rt::test]
-async fn update_victim_change_city_requires_permission_on_both_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_victim_change_city_requires_permission_on_both_cities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -475,10 +458,8 @@ async fn update_victim_change_city_requires_permission_on_both_cities() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn update_nonexistent_victim_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_nonexistent_victim_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

@@ -1,4 +1,4 @@
-use crate::controllers::{protective_measure_extensions, protective_measures};
+use crate::controllers::protective_measures;
 use actix_web::web;
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
@@ -18,17 +18,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/victim/{victim_id}")
                     .route(web::get().to(protective_measures::get_protective_measures_by_victim)),
-            )
-            .service(
-                web::resource("/{id}/extensions")
-                    .route(web::post().to(protective_measure_extensions::create_extension))
-                    .route(web::get().to(protective_measure_extensions::get_extensions_by_measure)),
-            )
-            .service(
-                web::resource("/{id}/extensions/{ext_id}")
-                    .route(web::get().to(protective_measure_extensions::get_extension_by_id))
-                    .route(web::put().to(protective_measure_extensions::update_extension_by_id))
-                    .route(web::delete().to(protective_measure_extensions::delete_extension_by_id)),
             ),
     );
 }

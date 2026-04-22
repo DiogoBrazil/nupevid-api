@@ -11,6 +11,18 @@ pub mod helpers;
 pub mod remove_attendance_member_usecase;
 pub mod update_attendance_victim_usecase;
 
+#[cfg(test)]
+mod add_attendance_member_usecase_test;
+#[cfg(test)]
+mod create_attendance_victim_usecase_test;
+#[cfg(test)]
+mod remove_attendance_member_usecase_test;
+#[cfg(test)]
+#[allow(dead_code, clippy::type_complexity, clippy::too_many_arguments)]
+mod test_support;
+#[cfg(test)]
+mod update_attendance_victim_usecase_test;
+
 pub use add_attendance_member_usecase::AddAttendanceMemberUseCase;
 pub use create_attendance_victim_usecase::CreateAttendanceVictimUseCase;
 pub use delete_attendance_victim_usecase::DeleteAttendanceVictimUseCase;

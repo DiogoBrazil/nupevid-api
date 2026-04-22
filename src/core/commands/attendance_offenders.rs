@@ -6,6 +6,7 @@ use crate::core::commands::attendance_victims::AttendanceAddressData;
 use crate::core::entities::attendance_offenders::ViolenceAggravator;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct CreateAttendanceOffender {
     pub protective_measure_id: Uuid,
     pub was_offender_present: bool,
@@ -20,6 +21,7 @@ pub struct CreateAttendanceOffender {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateAttendanceOffender {
     pub protective_measure_id: Uuid,
     pub was_offender_present: bool,

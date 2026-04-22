@@ -1,14 +1,12 @@
 use actix_web::{http::StatusCode, test};
 use chrono::Utc;
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 7 - Test 1: Verify ended_at is null when session is created
-#[actix_rt::test]
-async fn new_session_has_null_ended_at() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn new_session_has_null_ended_at(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -60,11 +58,8 @@ async fn new_session_has_null_ended_at() {
 }
 
 /// Phase 7 - Test 2: Verify ended_at is set when session is ended
-#[actix_rt::test]
-async fn ended_session_has_ended_at_timestamp() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn ended_session_has_ended_at_timestamp(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -134,11 +129,8 @@ async fn ended_session_has_ended_at_timestamp() {
 }
 
 /// Phase 7 - Test 3: Verify created_at and updated_at are set on creation
-#[actix_rt::test]
-async fn session_has_timestamps_on_creation() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn session_has_timestamps_on_creation(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -201,11 +193,8 @@ async fn session_has_timestamps_on_creation() {
 }
 
 /// Phase 7 - Test 4: Verify started_at is set on creation
-#[actix_rt::test]
-async fn session_has_started_at_timestamp() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn session_has_started_at_timestamp(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

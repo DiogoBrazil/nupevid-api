@@ -1,12 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, fixtures, test_helpers};
 use nupevid_api::core::value_objects::profiles::Profile;
 
-#[actix_rt::test]
-async fn create_city_admin_success_with_city_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_admin_success_with_city_id(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -40,10 +39,8 @@ async fn create_city_admin_success_with_city_id() {
     );
 }
 
-#[actix_rt::test]
-async fn create_second_city_admin_same_city_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_second_city_admin_same_city_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -94,10 +91,8 @@ async fn create_second_city_admin_same_city_should_fail() {
     );
 }
 
-#[actix_rt::test]
-async fn update_user_to_city_admin_without_city_id_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_to_city_admin_without_city_id_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -146,10 +141,8 @@ async fn update_user_to_city_admin_without_city_id_should_fail() {
     );
 }
 
-#[actix_rt::test]
-async fn update_user_creating_duplicate_city_admin_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_creating_duplicate_city_admin_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -41,10 +42,8 @@ fn build_attendance_offender_payload_with_address(pm_id: Uuid, city_id: Uuid) ->
     })
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_success_for_offender_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_success_for_offender_in_own_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -94,10 +93,8 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     );
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_with_address() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_with_address(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -148,10 +145,8 @@ async fn create_attendance_offender_with_address() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_attendance_offender_for_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_attendance_offender_for_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -180,10 +175,8 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn list_attendance_offenders_filtered_by_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_attendance_offenders_filtered_by_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -245,10 +238,8 @@ async fn list_attendance_offenders_filtered_by_city() {
     );
 }
 
-#[actix_rt::test]
-async fn get_attendance_offender_by_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offender_by_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -302,10 +293,8 @@ async fn get_attendance_offender_by_id() {
     );
 }
 
-#[actix_rt::test]
-async fn update_attendance_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_attendance_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -365,10 +354,8 @@ async fn update_attendance_offender() {
     assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), false);
 }
 
-#[actix_rt::test]
-async fn update_attendance_offender_change_victim_requires_permission_on_new_victim_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_attendance_offender_change_victim_requires_permission_on_new_victim_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -435,10 +422,8 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn delete_attendance_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_attendance_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -496,10 +481,8 @@ async fn delete_attendance_offender() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn get_attendance_offenders_by_offender_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offenders_by_offender_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -553,10 +536,8 @@ async fn get_attendance_offenders_by_offender_id() {
     assert_eq!(data.len(), 2);
 }
 
-#[actix_rt::test]
-async fn get_attendance_offenders_by_victim_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offenders_by_victim_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -610,10 +591,8 @@ async fn get_attendance_offenders_by_victim_id() {
     assert_eq!(data.len(), 3);
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_without_active_session_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

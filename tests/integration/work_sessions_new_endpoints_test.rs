@@ -1,13 +1,12 @@
 use actix_web::{http::StatusCode, test};
 
 use crate::common::{db_fixtures, test_helpers};
+use sqlx::PgPool;
 
 // ==================== UPDATE MEMBER FUNCTION TESTS ====================
 
-#[actix_rt::test]
-async fn update_member_function_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_member_function_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -104,10 +103,8 @@ async fn update_member_function_success() {
     assert_eq!(updated_member["function"].as_str().unwrap(), "Driver");
 }
 
-#[actix_rt::test]
-async fn update_member_function_to_commander_fails_when_already_has_commander() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_member_function_to_commander_fails_when_already_has_commander(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -183,10 +180,8 @@ async fn update_member_function_to_commander_fails_when_already_has_commander() 
     assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
-async fn update_member_function_non_creator_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_member_function_non_creator_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -278,10 +273,8 @@ async fn update_member_function_non_creator_fails() {
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn update_member_function_nonexistent_member_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_member_function_nonexistent_member_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -348,10 +341,8 @@ async fn update_member_function_nonexistent_member_fails() {
 
 // ==================== LIST SESSIONS TESTS ====================
 
-#[actix_rt::test]
-async fn list_sessions_returns_own_sessions_for_regular_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_sessions_returns_own_sessions_for_regular_user(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -446,10 +437,8 @@ async fn list_sessions_returns_own_sessions_for_regular_user() {
     );
 }
 
-#[actix_rt::test]
-async fn list_sessions_city_admin_sees_all_city_sessions() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_sessions_city_admin_sees_all_city_sessions(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -535,10 +524,8 @@ async fn list_sessions_city_admin_sees_all_city_sessions() {
     assert_eq!(sessions.len(), 2);
 }
 
-#[actix_rt::test]
-async fn list_sessions_root_sees_all_sessions() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_sessions_root_sees_all_sessions(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -633,10 +620,8 @@ async fn list_sessions_root_sees_all_sessions() {
     assert_eq!(sessions.len(), 2);
 }
 
-#[actix_rt::test]
-async fn list_sessions_with_date_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_sessions_with_date_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

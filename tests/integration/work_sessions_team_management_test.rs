@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 2 - Test 2: Add member to existing session
-#[actix_rt::test]
-async fn add_member_to_session_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn add_member_to_session_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -85,11 +83,8 @@ async fn add_member_to_session_success() {
 }
 
 /// Phase 2 - Test 3: Remove member from session
-#[actix_rt::test]
-async fn remove_member_from_session_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn remove_member_from_session_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -166,11 +161,8 @@ async fn remove_member_from_session_success() {
 }
 
 /// Phase 2 - Test 4: Update session members list
-#[actix_rt::test]
-async fn update_session_members_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_session_members_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -276,11 +268,8 @@ async fn update_session_members_success() {
 }
 
 /// Phase 2 - Test 5: Cannot add second Driver
-#[actix_rt::test]
-async fn cannot_add_second_driver() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_add_second_driver(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -355,11 +344,8 @@ async fn cannot_add_second_driver() {
 }
 
 /// Phase 2 - Test 6: Cannot remove last member (would leave session empty)
-#[actix_rt::test]
-async fn cannot_remove_last_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_remove_last_member(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

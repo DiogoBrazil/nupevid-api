@@ -21,6 +21,7 @@ pub struct AttendanceOffenderMember {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct AddAttendanceMember {
     pub user_id: Uuid,
 }

@@ -24,6 +24,12 @@ use crate::repositories::error_mapper::map_sqlx_error;
 fn map_offender_error(err: sqlx::Error) -> RepositoryError {
     let base = map_sqlx_error(err);
     match base {
+        RepositoryError::UniqueViolation { ref constraint } => match constraint.as_deref() {
+            Some("idx_offenders_cpf_unique") => {
+                RepositoryError::DuplicateEntry("An offender with this CPF already exists".into())
+            }
+            _ => base,
+        },
         RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
             Some("fk_offenders_city") => {
                 RepositoryError::ReferencedEntityNotFound("City not found".into())

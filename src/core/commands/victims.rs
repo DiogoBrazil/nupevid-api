@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::core::entities::common::{AddressData, EducationLevel, PhoneData};
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct SaveVictim {
     pub full_name: String,
     pub cpf: Option<String>,

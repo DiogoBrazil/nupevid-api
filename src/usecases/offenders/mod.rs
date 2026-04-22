@@ -10,10 +10,19 @@ pub mod get_offender_by_id_usecase;
 pub mod get_offenders_by_victim_usecase;
 pub mod helpers;
 mod normalization;
+#[cfg(test)]
+mod normalization_test;
 pub mod search_offenders_usecase;
 pub mod update_offender_address_usecase;
 pub mod update_offender_phone_usecase;
 pub mod update_offender_usecase;
+
+#[cfg(test)]
+mod create_offender_usecase_test;
+#[cfg(test)]
+mod test_support;
+#[cfg(test)]
+mod update_offender_usecase_test;
 
 pub use create_offender_address_usecase::CreateOffenderAddressUseCase;
 pub use create_offender_phone_usecase::CreateOffenderPhoneUseCase;

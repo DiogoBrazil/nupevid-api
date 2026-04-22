@@ -7,6 +7,7 @@ use crate::core::entities::attendance_victims::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct AttendanceAddressData {
     pub street: Option<String>,
     pub number: Option<String>,
@@ -17,6 +18,7 @@ pub struct AttendanceAddressData {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct CreateAttendanceVictim {
     pub protective_measure_id: Uuid,
     pub was_victim_present: bool,
@@ -37,6 +39,7 @@ pub struct CreateAttendanceVictim {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateAttendanceVictim {
     pub protective_measure_id: Uuid,
     pub was_victim_present: bool,

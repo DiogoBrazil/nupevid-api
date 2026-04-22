@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 5 - Test 1: Create session with empty description (allowed since optional)
-#[actix_rt::test]
-async fn create_session_with_empty_description() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_session_with_empty_description(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -44,11 +42,8 @@ async fn create_session_with_empty_description() {
 }
 
 /// Phase 5 - Test 2: Create session with null description (allowed since optional)
-#[actix_rt::test]
-async fn create_session_with_null_description() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_session_with_null_description(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -85,11 +80,8 @@ async fn create_session_with_null_description() {
 }
 
 /// Phase 5 - Test 3: Add member with invalid function
-#[actix_rt::test]
-async fn add_member_with_invalid_function() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn add_member_with_invalid_function(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -150,15 +142,12 @@ async fn add_member_with_invalid_function() {
 
     let add_resp = test::call_service(&app, add_req).await;
     // Invalid function is rejected during JSON deserialization
-    assert_eq!(add_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(add_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 /// Phase 5 - Test 4: Create session with member having invalid function
-#[actix_rt::test]
-async fn create_session_with_invalid_member_function() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_session_with_invalid_member_function(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -198,15 +187,12 @@ async fn create_session_with_invalid_member_function() {
 
     let resp = test::call_service(&app, req).await;
     // Invalid function is rejected during JSON deserialization
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 /// Phase 5 - Test 5: Create session with very long description (tests DB limits)
-#[actix_rt::test]
-async fn create_session_with_very_long_description() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_session_with_very_long_description(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

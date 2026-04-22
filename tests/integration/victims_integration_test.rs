@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -50,10 +51,8 @@ fn build_victim_payload_with_address(full_name: &str, city_id: Uuid) -> serde_js
     })
 }
 
-#[actix_rt::test]
-async fn search_victims_by_name_returns_matches() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_victims_by_name_returns_matches(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -89,13 +88,11 @@ async fn search_victims_by_name_returns_matches() {
     let body: serde_json::Value = test::read_body_json(search_resp).await;
     let results = body["data"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["full_name"].as_str().unwrap(), "Maria Silva");
+    assert_eq!(results[0]["full_name"].as_str().unwrap(), "MARIA SILVA");
 }
 
-#[actix_rt::test]
-async fn search_victims_by_cpf_returns_match() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_victims_by_cpf_returns_match(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -134,10 +131,8 @@ async fn search_victims_by_cpf_returns_match() {
     assert_eq!(results[0]["cpf"].as_str().unwrap(), "529.982.247-25");
 }
 
-#[actix_rt::test]
-async fn search_victims_rejects_missing_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_victims_rejects_missing_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -163,10 +158,8 @@ async fn search_victims_rejects_missing_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_victims_rejects_conflicting_filters() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_victims_rejects_conflicting_filters(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -192,10 +185,8 @@ async fn search_victims_rejects_conflicting_filters() {
     );
 }
 
-#[actix_rt::test]
-async fn search_victims_rejects_empty_name_filter() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn search_victims_rejects_empty_name_filter(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -221,10 +212,8 @@ async fn search_victims_rejects_empty_name_filter() {
     );
 }
 
-#[actix_rt::test]
-async fn root_can_create_and_list_victims_in_multiple_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_can_create_and_list_victims_in_multiple_cities(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -265,10 +254,8 @@ async fn root_can_create_and_list_victims_in_multiple_cities() {
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
-#[actix_rt::test]
-async fn city_admin_can_only_access_victims_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_can_only_access_victims_in_own_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -347,10 +334,8 @@ async fn city_admin_can_only_access_victims_in_own_city() {
     assert_eq!(victims_city_b_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn delete_victim_soft_delete_and_not_listed() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_victim_soft_delete_and_not_listed(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -411,10 +396,8 @@ async fn delete_victim_soft_delete_and_not_listed() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_victim_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_victim_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -440,10 +423,8 @@ async fn city_admin_cannot_create_victim_in_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn create_victim_with_address_in_single_request() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_victim_with_address_in_single_request(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -471,7 +452,7 @@ async fn create_victim_with_address_in_single_request() {
     // Verify victim data
     assert_eq!(
         body["data"]["full_name"].as_str().unwrap(),
-        "Vitima Com Endereco"
+        "VITIMA COM ENDERECO"
     );
     assert_eq!(body["data"]["cpf"].as_str().unwrap(), "529.982.247-25");
 
@@ -485,10 +466,8 @@ async fn create_victim_with_address_in_single_request() {
     assert_eq!(address["city_id"].as_str().unwrap(), city.to_string());
 }
 
-#[actix_rt::test]
-async fn get_victim_returns_address_when_exists() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_victim_returns_address_when_exists(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -532,10 +511,8 @@ async fn get_victim_returns_address_when_exists() {
     );
 }
 
-#[actix_rt::test]
-async fn update_victim_can_add_or_update_address() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_victim_can_add_or_update_address(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -606,7 +583,7 @@ async fn update_victim_can_add_or_update_address() {
     let update_body: serde_json::Value = test::read_body_json(update_resp).await;
     assert_eq!(
         update_body["data"]["full_name"].as_str().unwrap(),
-        "Vitima Update Renamed"
+        "VITIMA UPDATE RENAMED"
     );
     assert!(update_body["data"]["addresses"].is_array());
     assert_eq!(
@@ -627,10 +604,8 @@ async fn update_victim_can_add_or_update_address() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_victim_with_address_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_victim_with_address_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

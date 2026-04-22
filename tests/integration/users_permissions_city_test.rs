@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -7,10 +8,8 @@ use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 
-#[actix_rt::test]
-async fn city_admin_cannot_get_user_from_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_get_user_from_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -128,10 +127,8 @@ async fn city_admin_cannot_get_user_from_other_city() {
     assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_update_user_from_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_update_user_from_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -259,10 +256,8 @@ async fn city_admin_cannot_update_user_from_other_city() {
     assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_delete_user_from_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_delete_user_from_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

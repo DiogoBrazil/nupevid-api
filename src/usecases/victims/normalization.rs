@@ -10,6 +10,8 @@ pub fn normalize_victim_input(
     data: &mut SaveVictim,
     error_context: &str,
 ) -> Result<Uuid, AppError> {
+    data.full_name = data.full_name.trim().to_uppercase();
+
     let city_id = resolve_city_id_from_addresses(&data.addresses, data.city_id)
         .map_err(|e| AppError::BadRequest(format!("{}: {}", error_context, e)))?;
     data.city_id = Some(city_id);

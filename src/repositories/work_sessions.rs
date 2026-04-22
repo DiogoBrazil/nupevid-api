@@ -22,6 +22,18 @@ use crate::repositories::queries::work_sessions::{WorkSessionMembersQueries, Wor
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_work_session_error(err: sqlx::Error) -> RepositoryError {
+    if let sqlx::Error::Database(ref db_err) = err {
+        match db_err.constraint() {
+            Some("unique_active_session_per_user") => {
+                return RepositoryError::Conflict("User already has an active work session".into());
+            }
+            Some("work_session_members_work_session_id_user_id_key") => {
+                return RepositoryError::DuplicateEntry("User already added to session".into());
+            }
+            _ => {}
+        }
+    }
+
     let base = map_sqlx_error(err);
     match base {
         RepositoryError::UniqueViolation { ref constraint } => match constraint.as_deref() {

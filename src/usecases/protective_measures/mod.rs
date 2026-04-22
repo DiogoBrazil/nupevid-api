@@ -7,6 +7,11 @@ pub mod get_measures_by_victim_usecase;
 pub mod get_protective_measure_by_id_usecase;
 pub mod update_protective_measure_usecase;
 
+#[cfg(test)]
+mod create_protective_measure_usecase_test;
+#[cfg(test)]
+mod update_protective_measure_usecase_test;
+
 pub use create_protective_measure_usecase::CreateProtectiveMeasureUseCase;
 pub use delete_protective_measure_usecase::DeleteProtectiveMeasureUseCase;
 pub use deps::ProtectiveMeasureUseCaseDependencies;
