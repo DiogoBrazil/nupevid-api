@@ -10,5 +10,6 @@ pub struct ListWorkSessionsQuery {
     pub city_id: Option<Uuid>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+    #[serde(alias = "include_complement_for_entities")]
     pub include_related_entities: Option<bool>,
 }

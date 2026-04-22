@@ -5350,7 +5350,7 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -5420,7 +5420,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -5534,7 +5534,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -5599,6 +5599,14 @@ paths:
       security:
         - bearerAuth: []
           api_key: []
+      parameters:
+        - name: "include_related_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
       requestBody:
         required: true
         content:
@@ -5620,7 +5628,9 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    $ref: "#/components/schemas/ProtectiveMeasure"
+                    oneOf:
+                      - $ref: "#/components/schemas/ProtectiveMeasure"
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithRelations"
         "400":
           description: "Dados inválidos"
           content:
@@ -5744,7 +5754,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -7837,7 +7847,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -7982,7 +7992,7 @@ paths:
             type: integer
             example: 10
           description: "Quantidade de itens por página (max 200)"
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -8074,7 +8084,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -8219,7 +8229,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
@@ -8302,7 +8312,7 @@ paths:
         - bearerAuth: []
           api_key: []
       parameters:
-        - name: "include_complement_for_entities"
+        - name: "include_related_entities"
           in: "query"
           required: false
           schema:
