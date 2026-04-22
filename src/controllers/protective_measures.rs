@@ -110,6 +110,7 @@ pub async fn get_protective_measures_by_victim(
 pub async fn update_protective_measure_by_id(
     path: web::Path<Uuid>,
     measure_data: web::Json<UpdateProtectiveMeasure>,
+    query: web::Query<IncludeRelatedQuery>,
     usecase: web::Data<UpdateProtectiveMeasureUseCase>,
     presenter: web::Data<ProtectiveMeasurePresenter>,
     req: HttpRequest,
@@ -123,7 +124,9 @@ pub async fn update_protective_measure_by_id(
     let measure = usecase
         .execute(measure_data.into_inner(), measure_id, &claims)
         .await?;
-    let response = presenter.build_response(measure, false).await?;
+    let response = presenter
+        .build_response(measure, include_related(&query))
+        .await?;
     Ok(success(response))
 }
 
