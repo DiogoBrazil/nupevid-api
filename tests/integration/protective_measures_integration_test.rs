@@ -1,0 +1,495 @@
+use actix_web::{http::StatusCode, test};
+use chrono::NaiveDate;
+use uuid::Uuid;
+
+use crate::common::{db_fixtures, test_helpers};
+
+fn build_measure_payload(
+    victim_id: Uuid,
+    court_district_id: Uuid,
+    offender_id: Uuid,
+    status: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "process_number": "12345-67.2025.8.26.0000",
+        "issued_at": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        "judicial_authority": "Juiz A",
+        "court_district_id": court_district_id,
+        "status": status,
+        "violence_types": ["Physical"],
+        "relationship_to_victim": "Spouse",
+        "assaults_children": false,
+        "was_drunk_during_assault": false,
+        "victim_id": victim_id,
+        "offender_id": offender_id,
+    })
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_success_for_victim_in_own_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Medida").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(body["status"].as_u64().unwrap(), 201);
+    assert_eq!(
+        body["data"]["victim_id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
+}
+
+#[actix_rt::test]
+async fn cannot_create_second_active_measure_for_same_victim() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Regra").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
+
+    // First active measure
+    let req1 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let resp1 = test::call_service(&app, req1).await;
+    assert_eq!(resp1.status(), StatusCode::CREATED);
+
+    // Second active measure should fail
+    let req2 = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::BAD_REQUEST);
+
+    let body: serde_json::Value = test::read_body_json(resp2).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("already has an active protective measure")
+    );
+}
+
+#[actix_rt::test]
+async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
+    let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
+    let victim_in_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_in_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+
+    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_in_b, city_b, offender_in_b, "Valid");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_a_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
+async fn list_measures_by_victim_success() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Lista").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    let list_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/victim/{}", victim_id)),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let list_resp = test::call_service(&app, list_req).await;
+    assert_eq!(list_resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(list_resp).await;
+    assert_eq!(body["data"].as_array().unwrap().len(), 1);
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_nonexistent_victim_returns_404() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade NF").await;
+    let _real_victim_id = db_fixtures::insert_victim(&pool, "Vitima Real", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    // Random victim id that does not exist
+    let random_victim_id = Uuid::new_v4();
+    let payload = build_measure_payload(random_victim_id, city, offender_id, "Valid");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_empty_process_number_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Campo Obrigatorio 1").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    payload["process_number"] = serde_json::json!("");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("process_number cannot be empty")
+    );
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_empty_judicial_authority_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Campo Obrigatorio 2").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    payload["judicial_authority"] = serde_json::json!("");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("judicial_authority cannot be empty")
+    );
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_empty_violence_types_fails() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Campo Obrigatorio 3").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    payload["violence_types"] = serde_json::json!([]);
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("violence_types cannot be empty")
+    );
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_nonexistent_court_district_returns_404() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade FK 1").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, Uuid::new_v4(), offender_id, "Revoked");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["message"].as_str().unwrap(),
+        "Bad Request: Error adding protective measure: court_district_id not found"
+    );
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_with_nonexistent_offender_returns_404() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade FK 2").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, city, Uuid::new_v4(), "Revoked");
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("Offender with id")
+    );
+}
+
+#[actix_rt::test]
+async fn create_protective_measure_rejects_extension_id_on_create() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Extensao").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
+    payload["extensions"] = serde_json::json!([
+        {
+            "id": Uuid::new_v4(),
+            "extension_number": 1,
+            "extension_date": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
+            "new_valid_until": NaiveDate::from_ymd_opt(2025, 12, 31).unwrap(),
+            "notes": "nao deveria aceitar id no create"
+        }
+    ]);
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["message"].as_str().unwrap(),
+        "Bad Request: Error adding protective measure: extension id is not allowed on create"
+    );
+}
+
+#[actix_rt::test]
+async fn delete_protective_measure_soft_delete() {
+    let pool = test_helpers::setup_test_db().await;
+    test_helpers::clean_database(&pool).await;
+
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city = db_fixtures::insert_city(&pool, "Cidade Del").await;
+    let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+
+    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
+
+    let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
+    let create_req = test_helpers::with_auth_headers(
+        test::TestRequest::post()
+            .uri("/api/v1/protective-measures")
+            .set_json(&payload),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let create_resp = test::call_service(&app, create_req).await;
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let body: serde_json::Value = test::read_body_json(create_resp).await;
+    let measure_id = body["data"]["id"].as_str().unwrap();
+
+    let delete_req = test_helpers::with_auth_headers(
+        test::TestRequest::delete().uri(&format!("/api/v1/protective-measures/{}", measure_id)),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let delete_resp = test::call_service(&app, delete_req).await;
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    // GET by id should be 404
+    let get_req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!("/api/v1/protective-measures/{}", measure_id)),
+        &config,
+        &admin_token,
+    )
+    .to_request();
+    let get_resp = test::call_service(&app, get_req).await;
+    assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
+}

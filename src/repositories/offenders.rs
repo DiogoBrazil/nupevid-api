@@ -1,0 +1,630 @@
+use async_trait::async_trait;
+use log::info;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::config::querys::offenders::{
+    OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
+};
+use crate::core::contracts::repository::offenders::OffenderRepository;
+use crate::core::entities::offenders::{
+    AddressData, CreateOffender, Offender, OffenderAddress, OffenderPhone, OffenderWithDetails,
+    PhoneData, UpdateOffender,
+};
+
+#[derive(Clone)]
+pub struct PgOffenderRepository {
+    pool: PgPool,
+}
+
+impl PgOffenderRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    async fn create_phone_internal(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        offender_id: Uuid,
+        phone_data: &PhoneData,
+    ) -> Result<OffenderPhone, sqlx::Error> {
+        let phone_id = Uuid::new_v4();
+
+        let created: OffenderPhone = sqlx::query_as(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
+            .bind(phone_id)
+            .bind(offender_id)
+            .bind(&phone_data.phone)
+            .bind(&phone_data.phone_type)
+            .fetch_one(&mut **tx)
+            .await?;
+
+        Ok(created)
+    }
+
+    async fn delete_phones_by_offender_id(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        offender_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        let _: Vec<OffenderPhone> =
+            sqlx::query_as(OffenderPhonesQueries::DELETE_OFFENDER_PHONES_BY_OFFENDER_ID)
+                .bind(offender_id)
+                .fetch_all(&mut **tx)
+                .await?;
+        Ok(())
+    }
+
+    async fn create_address_internal(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        offender_id: Uuid,
+        address: &AddressData,
+    ) -> Result<OffenderAddress, sqlx::Error> {
+        let address_id = Uuid::new_v4();
+
+        let created: OffenderAddress =
+            sqlx::query_as(OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS)
+                .bind(address_id)
+                .bind(offender_id)
+                .bind(&address.street)
+                .bind(&address.number)
+                .bind(&address.district)
+                .bind(address.city_id)
+                .bind(&address.zip_code)
+                .bind(&address.complement)
+                .bind(&address.address_type)
+                .fetch_one(&mut **tx)
+                .await?;
+
+        Ok(created)
+    }
+
+    async fn delete_addresses_by_offender_id(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        offender_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        let _: Vec<OffenderAddress> =
+            sqlx::query_as(OffenderAddressesQueries::DELETE_OFFENDER_ADDRESSES_BY_OFFENDER_ID)
+                .bind(offender_id)
+                .fetch_all(&mut **tx)
+                .await?;
+        Ok(())
+    }
+
+    async fn get_phones_by_offender_id(
+        &self,
+        offender_id: Uuid,
+    ) -> Result<Vec<OffenderPhone>, sqlx::Error> {
+        let phones: Vec<OffenderPhone> =
+            sqlx::query_as(OffenderPhonesQueries::GET_OFFENDER_PHONES_BY_OFFENDER_ID)
+                .bind(offender_id)
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(phones)
+    }
+
+    async fn get_addresses_by_offender_id(
+        &self,
+        offender_id: Uuid,
+    ) -> Result<Vec<OffenderAddress>, sqlx::Error> {
+        let addresses: Vec<OffenderAddress> =
+            sqlx::query_as(OffenderAddressesQueries::GET_OFFENDER_ADDRESSES_BY_OFFENDER_ID)
+                .bind(offender_id)
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(addresses)
+    }
+}
+
+#[async_trait]
+impl OffenderRepository for PgOffenderRepository {
+    async fn create_offender(
+        &self,
+        offender: CreateOffender,
+    ) -> Result<OffenderWithDetails, sqlx::Error> {
+        let offender_id = Uuid::new_v4();
+
+        info!(
+            "[Repository] Starting transaction to create offender: {} with ID: {}",
+            offender.full_name, offender_id
+        );
+
+        let mut tx = self.pool.begin().await?;
+
+        let offender_created: Offender = sqlx::query_as(OffendersQueries::CREATE_OFFENDER)
+            .bind(offender_id)
+            .bind(&offender.full_name)
+            .bind(&offender.cpf)
+            .bind(offender.birth_date)
+            .bind(offender.city_id)
+            .bind(offender.imprisoned)
+            .bind(&offender.occupation)
+            .bind(offender.is_public_security_agent)
+            .bind(&offender.security_force)
+            .bind(offender.uses_alcohol)
+            .bind(offender.uses_drugs)
+            .bind(offender.has_psychiatric_issues)
+            .bind(&offender.psychiatric_issues_type)
+            .bind(&offender.education_level)
+            .bind(&offender.observation)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        info!("[Repository] Offender inserted, now creating phones if provided");
+
+        let mut created_phones = Vec::new();
+        if let Some(phones) = &offender.phones {
+            for phone_data in phones {
+                let phone = Self::create_phone_internal(&mut tx, offender_id, phone_data).await?;
+                created_phones.push(phone);
+            }
+            info!("[Repository] Created {} phone(s)", created_phones.len());
+        }
+
+        info!("[Repository] Now creating addresses if provided");
+
+        let mut created_addresses = Vec::new();
+        if let Some(addresses) = &offender.addresses {
+            for addr_data in addresses {
+                let created_addr =
+                    Self::create_address_internal(&mut tx, offender_id, addr_data).await?;
+                created_addresses.push(created_addr);
+            }
+            info!(
+                "[Repository] Created {} address(es)",
+                created_addresses.len()
+            );
+        }
+
+        tx.commit().await?;
+
+        info!(
+            "[Repository] Transaction committed. Offender {} created successfully",
+            offender_id
+        );
+
+        Ok(offender_created.with_details(created_phones, created_addresses))
+    }
+
+    async fn get_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, sqlx::Error> {
+        info!("[Repository] Fetching offender with id: {}", id);
+
+        let offender: Offender = sqlx::query_as(OffendersQueries::GET_OFFENDER_BY_ID)
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        let phones = self.get_phones_by_offender_id(id).await?;
+        let addresses = self.get_addresses_by_offender_id(id).await?;
+
+        info!(
+            "[Repository] Offender {} found with {} phone(s) and {} address(es)",
+            id,
+            phones.len(),
+            addresses.len(),
+        );
+
+        Ok(offender.with_details(phones, addresses))
+    }
+
+    async fn get_all_offenders(&self) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching all offenders");
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_ALL_OFFENDERS)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders", result.len());
+
+        Ok(result)
+    }
+
+    async fn get_offenders_by_city(
+        &self,
+        city_id: Uuid,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders for city: {}", city_id);
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_CITY)
+            .bind(city_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!(
+            "[Repository] Found {} offenders for city: {}",
+            result.len(),
+            city_id
+        );
+
+        Ok(result)
+    }
+
+    async fn get_offenders_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        let pattern = format!("%{}%", name);
+        info!(
+            "[Repository] Fetching offenders by name pattern: {}",
+            pattern
+        );
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_NAME)
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders by name", result.len());
+        Ok(result)
+    }
+
+    async fn get_offenders_by_cpf(
+        &self,
+        cpf: &str,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders by cpf");
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_CPF)
+            .bind(cpf)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders by cpf", result.len());
+        Ok(result)
+    }
+
+    async fn get_offenders_by_victim_id(
+        &self,
+        victim_id: Uuid,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders for victim: {}", victim_id);
+
+        let offenders: Vec<Offender> = sqlx::query_as(OffendersQueries::GET_OFFENDERS_BY_VICTIM_ID)
+            .bind(victim_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!(
+            "[Repository] Found {} offenders for victim: {}",
+            result.len(),
+            victim_id
+        );
+
+        Ok(result)
+    }
+
+    async fn get_offenders_paginated(
+        &self,
+        allowed_cities: Option<&[Uuid]>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<OffenderWithDetails>, sqlx::Error> {
+        info!("[Repository] Fetching offenders paginated");
+
+        let offenders: Vec<Offender> = match allowed_cities {
+            Some(cities) => {
+                sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED_BY_CITIES)
+                    .bind(cities)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_as(OffendersQueries::GET_OFFENDERS_PAGED)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+        };
+
+        let mut result = Vec::with_capacity(offenders.len());
+
+        for offender in offenders {
+            let phones = self.get_phones_by_offender_id(offender.id).await?;
+            let addresses = self.get_addresses_by_offender_id(offender.id).await?;
+            result.push(offender.with_details(phones, addresses));
+        }
+
+        info!("[Repository] Found {} offenders (paged)", result.len());
+        Ok(result)
+    }
+
+    async fn count_offenders(&self, allowed_cities: Option<&[Uuid]>) -> Result<i64, sqlx::Error> {
+        let total: i64 = match allowed_cities {
+            Some(cities) => {
+                sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS_BY_CITIES)
+                    .bind(cities)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+            None => {
+                sqlx::query_scalar(OffendersQueries::COUNT_OFFENDERS)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+        };
+        Ok(total)
+    }
+
+    async fn update_offender_by_id(
+        &self,
+        data: UpdateOffender,
+        id: Uuid,
+    ) -> Result<OffenderWithDetails, sqlx::Error> {
+        info!(
+            "[Repository] Starting transaction to update offender: {}",
+            id
+        );
+
+        let mut tx = self.pool.begin().await?;
+
+        let offender_updated: Offender = sqlx::query_as(OffendersQueries::UPDATE_OFFENDER_BY_ID)
+            .bind(id)
+            .bind(&data.full_name)
+            .bind(&data.cpf)
+            .bind(data.birth_date)
+            .bind(data.city_id)
+            .bind(data.imprisoned)
+            .bind(&data.occupation)
+            .bind(data.is_public_security_agent)
+            .bind(&data.security_force)
+            .bind(data.uses_alcohol)
+            .bind(data.uses_drugs)
+            .bind(data.has_psychiatric_issues)
+            .bind(&data.psychiatric_issues_type)
+            .bind(&data.education_level)
+            .bind(&data.observation)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        Self::delete_phones_by_offender_id(&mut tx, id).await?;
+        let mut updated_phones = Vec::new();
+        if let Some(phones) = &data.phones {
+            for phone_data in phones {
+                let phone = Self::create_phone_internal(&mut tx, id, phone_data).await?;
+                updated_phones.push(phone);
+            }
+            info!(
+                "[Repository] Updated {} phone(s) for offender: {}",
+                phones.len(),
+                id
+            );
+        }
+
+        Self::delete_addresses_by_offender_id(&mut tx, id).await?;
+        let mut updated_addresses = Vec::new();
+        if let Some(addresses) = &data.addresses {
+            for addr_data in addresses {
+                let created_addr = Self::create_address_internal(&mut tx, id, addr_data).await?;
+                updated_addresses.push(created_addr);
+            }
+            info!(
+                "[Repository] Updated {} address(es) for offender: {}",
+                addresses.len(),
+                id
+            );
+        }
+
+        tx.commit().await?;
+
+        info!(
+            "[Repository] Transaction committed. Offender {} updated",
+            id
+        );
+
+        Ok(offender_updated.with_details(updated_phones, updated_addresses))
+    }
+
+    async fn delete_offender_by_id(&self, id: Uuid) -> Result<OffenderWithDetails, sqlx::Error> {
+        info!(
+            "[Repository] Starting transaction to soft delete offender: {}",
+            id
+        );
+
+        let phones = self.get_phones_by_offender_id(id).await?;
+        let addresses = self.get_addresses_by_offender_id(id).await?;
+
+        let mut tx = self.pool.begin().await?;
+
+        Self::delete_phones_by_offender_id(&mut tx, id).await?;
+        Self::delete_addresses_by_offender_id(&mut tx, id).await?;
+        let deleted_offender: Offender = sqlx::query_as(OffendersQueries::DELETE_OFFENDER_BY_ID)
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        info!(
+            "[Repository] Transaction committed. Offender {} soft deleted",
+            id
+        );
+
+        Ok(deleted_offender.with_details(phones, addresses))
+    }
+
+    async fn create_phone(
+        &self,
+        offender_id: Uuid,
+        phone_data: PhoneData,
+    ) -> Result<OffenderPhone, sqlx::Error> {
+        info!("[Repository] Creating phone for offender: {}", offender_id);
+        let phone_id = Uuid::new_v4();
+
+        let phone: OffenderPhone = sqlx::query_as(OffenderPhonesQueries::CREATE_OFFENDER_PHONE)
+            .bind(phone_id)
+            .bind(offender_id)
+            .bind(&phone_data.phone)
+            .bind(&phone_data.phone_type)
+            .fetch_one(&self.pool)
+            .await?;
+
+        info!("[Repository] Phone {} created successfully", phone_id);
+        Ok(phone)
+    }
+
+    async fn get_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, sqlx::Error> {
+        info!("[Repository] Fetching phone with id: {}", phone_id);
+
+        let phone: OffenderPhone = sqlx::query_as(OffenderPhonesQueries::GET_OFFENDER_PHONE_BY_ID)
+            .bind(phone_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        info!("[Repository] Phone {} found", phone_id);
+        Ok(phone)
+    }
+
+    async fn update_phone_by_id(
+        &self,
+        phone_id: Uuid,
+        phone_data: PhoneData,
+    ) -> Result<OffenderPhone, sqlx::Error> {
+        info!("[Repository] Updating phone: {}", phone_id);
+
+        let phone: OffenderPhone =
+            sqlx::query_as(OffenderPhonesQueries::UPDATE_OFFENDER_PHONE_BY_ID)
+                .bind(phone_id)
+                .bind(&phone_data.phone)
+                .bind(&phone_data.phone_type)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!("[Repository] Phone {} updated successfully", phone_id);
+        Ok(phone)
+    }
+
+    async fn delete_phone_by_id(&self, phone_id: Uuid) -> Result<OffenderPhone, sqlx::Error> {
+        info!("[Repository] Soft deleting phone: {}", phone_id);
+
+        let phone: OffenderPhone =
+            sqlx::query_as(OffenderPhonesQueries::DELETE_OFFENDER_PHONE_BY_ID)
+                .bind(phone_id)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!("[Repository] Phone {} soft deleted successfully", phone_id);
+        Ok(phone)
+    }
+
+    async fn create_address(
+        &self,
+        offender_id: Uuid,
+        address_data: AddressData,
+    ) -> Result<OffenderAddress, sqlx::Error> {
+        info!(
+            "[Repository] Creating address for offender: {}",
+            offender_id
+        );
+        let address_id = Uuid::new_v4();
+
+        let address: OffenderAddress =
+            sqlx::query_as(OffenderAddressesQueries::CREATE_OFFENDER_ADDRESS)
+                .bind(address_id)
+                .bind(offender_id)
+                .bind(&address_data.street)
+                .bind(&address_data.number)
+                .bind(&address_data.district)
+                .bind(address_data.city_id)
+                .bind(&address_data.zip_code)
+                .bind(&address_data.complement)
+                .bind(&address_data.address_type)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!("[Repository] Address {} created successfully", address_id);
+        Ok(address)
+    }
+
+    async fn get_address_by_id(&self, address_id: Uuid) -> Result<OffenderAddress, sqlx::Error> {
+        info!("[Repository] Fetching address with id: {}", address_id);
+
+        let address: OffenderAddress =
+            sqlx::query_as(OffenderAddressesQueries::GET_OFFENDER_ADDRESS_BY_ID)
+                .bind(address_id)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!("[Repository] Address {} found", address_id);
+        Ok(address)
+    }
+
+    async fn update_address_by_id(
+        &self,
+        address_id: Uuid,
+        address_data: AddressData,
+    ) -> Result<OffenderAddress, sqlx::Error> {
+        info!("[Repository] Updating address: {}", address_id);
+
+        let address: OffenderAddress =
+            sqlx::query_as(OffenderAddressesQueries::UPDATE_OFFENDER_ADDRESS_BY_ID)
+                .bind(address_id)
+                .bind(&address_data.street)
+                .bind(&address_data.number)
+                .bind(&address_data.district)
+                .bind(address_data.city_id)
+                .bind(&address_data.zip_code)
+                .bind(&address_data.complement)
+                .bind(&address_data.address_type)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!("[Repository] Address {} updated successfully", address_id);
+        Ok(address)
+    }
+
+    async fn delete_address_by_id(&self, address_id: Uuid) -> Result<OffenderAddress, sqlx::Error> {
+        info!("[Repository] Soft deleting address: {}", address_id);
+
+        let address: OffenderAddress =
+            sqlx::query_as(OffenderAddressesQueries::DELETE_OFFENDER_ADDRESS_BY_ID)
+                .bind(address_id)
+                .fetch_one(&self.pool)
+                .await?;
+
+        info!(
+            "[Repository] Address {} soft deleted successfully",
+            address_id
+        );
+        Ok(address)
+    }
+}

@@ -1,0 +1,5581 @@
+openapi: 3.0.3
+info:
+  title: "NUPEVID API"
+  description: "API do sistema NUPEVID para gerenciamento de vítimas, atendimentos e medidas protetivas"
+  version: "1.0.0"
+  contact:
+    name: "Equipe NUPEVID"
+
+servers:
+  - url: "/api/v1"
+    description: "Servidor Principal"
+
+tags:
+  - name: "Auth"
+    description: "Autenticação e autorização"
+  - name: "Users"
+    description: "Gerenciamento de usuários"
+  - name: "Cities"
+    description: "Gerenciamento de cidades"
+  - name: "Victims"
+    description: "Gerenciamento de vítimas"
+  - name: "Offenders"
+    description: "Gerenciamento de agressores"
+  - name: "Protective Measures"
+    description: "Gerenciamento de medidas protetivas"
+  - name: "Attendance Victims"
+    description: "Gerenciamento de atendimentos às vítimas"
+  - name: "Attendance Offenders"
+    description: "Gerenciamento de atendimentos aos agressores"
+  - name: "Work Sessions"
+    description: "Gerenciamento de sessões de trabalho e equipes"
+
+security:
+  - bearerAuth: []
+  - api_key: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Autenticação via Token JWT obtido no endpoint /auth/login"
+    api_key:
+      type: apiKey
+      in: header
+      name: api_key
+      description: "Chave de API configurada nas variáveis de ambiente"
+
+  schemas:
+    # --- Error Responses ---
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: "Tipo de erro"
+        message:
+          type: string
+          description: "Mensagem de erro descritiva"
+        status_code:
+          type: integer
+          format: int32
+          description: "Código de status HTTP"
+
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+          description: "Código de status da resposta"
+        data:
+          type: object
+          description: "Dados da resposta"
+
+    # --- Auth Schemas ---
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@nupevid.com"
+        password:
+          type: string
+          format: password
+          example: "SecurePassword123!"
+        auto_create_session:
+          type: boolean
+          description: "Se true, cria automaticamente uma sessao de trabalho no login (default: true). Para perfis nao ROOT, exige que o usuario tenha city_id."
+          default: true
+          example: true
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: "Token JWT para autenticação"
+            id:
+              type: string
+              format: uuid
+              description: "ID do usuário"
+            full_name:
+              type: string
+              description: "Nome completo do usuário"
+            email:
+              type: string
+              format: email
+              description: "Email do usuário"
+            rank:
+              type: string
+              description: "Posto/Graduação do usuário"
+              example: "CAP PM"
+            registration:
+              type: string
+              description: "Matrícula do usuário"
+              example: "100000001"
+            profile:
+              type: string
+              description: "Perfil de acesso do usuário"
+              enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+              example: "CITY_ADMIN"
+            work_session:
+              oneOf:
+                - $ref: "#/components/schemas/WorkSessionWithMembers"
+                - type: "null"
+              description: "Sessão de trabalho ativa do usuário (se auto_create_session foi true e criou/retornou sessão)"
+              nullable: true
+
+    # --- Work Sessions Schemas ---
+    TeamMemberFunction:
+      type: string
+      description: "Função do membro na equipe da sessão de trabalho"
+      enum:
+        - "Commander"
+        - "Driver"
+        - "Patroller"
+      example: "Commander"
+
+    AddWorkSessionMember:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário a ser adicionado como membro"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+
+    CreateWorkSession:
+      type: object
+      required:
+        - members
+      properties:
+        description:
+          type: string
+          description: "Descrição opcional da sessão de trabalho"
+          example: "Patrulhamento preventivo zona leste"
+        members:
+          type: array
+          description: "Lista de membros da sessão. O usuário solicitante deve estar incluído e a equipe deve ter exatamente um Commander."
+          items:
+            $ref: "#/components/schemas/AddWorkSessionMember"
+          example:
+            - user_id: "550e8400-e29b-41d4-a716-446655440001"
+              function: "Commander"
+            - user_id: "550e8400-e29b-41d4-a716-446655440002"
+              function: "Patroller"
+
+    WorkSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário que criou a sessão"
+        started_at:
+          type: string
+          format: date-time
+          description: "Data e hora de início da sessão"
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data e hora de término da sessão (null se ativa)"
+        is_active:
+          type: boolean
+          description: "Indica se a sessão está ativa"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição da sessão"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WorkSessionMemberWithDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário"
+        user_name:
+          type: string
+          description: "Nome completo do usuário"
+          example: "João Silva"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        created_at:
+          type: string
+          format: date-time
+
+    WorkSessionMemberWithUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        user:
+          $ref: "#/components/schemas/UserComplement"
+    WorkSessionMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        work_session_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+        created_at:
+          type: string
+          format: date-time
+
+    WorkSessionWithMembers:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        members:
+          type: array
+          description: "Lista de membros da sessão com detalhes"
+          items:
+            $ref: "#/components/schemas/WorkSessionMemberWithDetails"
+
+    WorkSessionWithMembersComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_by_user_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        members:
+          type: array
+          description: "Lista de membros da sessão com dados do usuário"
+          items:
+            $ref: "#/components/schemas/WorkSessionMemberWithUser"
+
+    UpdateWorkSessionMembers:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          description: "Nova lista completa de membros da sessão"
+          items:
+            $ref: "#/components/schemas/AddWorkSessionMember"
+
+    UpdateMemberFunction:
+      type: object
+      required:
+        - function
+      properties:
+        function:
+          $ref: "#/components/schemas/TeamMemberFunction"
+
+    # --- User Schemas ---
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rank:
+          type: string
+          example: "CAP PM"
+        registration:
+          type: string
+          example: "100000001"
+        full_name:
+          type: string
+          example: "João Silva"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão do usuário"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    UserComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rank:
+          type: string
+          example: "CAP PM"
+        registration:
+          type: string
+          example: "100000001"
+        full_name:
+          type: string
+          example: "João Silva"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão do usuário"
+        is_deleted:
+          type: boolean
+
+    CreateUserRequest:
+      type: object
+      required:
+        - rank
+        - registration
+        - full_name
+        - profile
+        - email
+        - password
+      properties:
+        rank:
+          type: string
+          example: "CB PM"
+        registration:
+          type: string
+          pattern: "^1000[0-9]{5}$"
+          example: "100000001"
+        full_name:
+          type: string
+          example: "Maria Santos"
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+          description: "Políticas de permissão opcionais"
+
+    UpdateUserRequest:
+      type: object
+      required:
+        - rank
+        - registration
+        - full_name
+        - profile
+        - email
+      properties:
+        rank:
+          type: string
+        registration:
+          type: string
+        full_name:
+          type: string
+        profile:
+          type: string
+          enum: ["ROOT", "CITY_ADMIN", "CITY_USER"]
+        email:
+          type: string
+          format: email
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        permission_policies:
+          type: object
+
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+          description: "Senha atual (obrigatória)"
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          description: "Nova senha (obrigatória para todos)"
+
+    ResetUserPasswordResponse:
+      type: object
+      properties:
+        temporary_password:
+          type: string
+          description: "Senha provisória gerada para o usuário"
+
+    AppendPolicyCitiesRequest:
+      type: object
+      required:
+        - city_ids
+      properties:
+        city_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # --- City Schemas ---
+    City:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "PORTO VELHO"
+        state:
+          type: string
+          example: "RO"
+        battalion:
+          type: string
+          example: "1ºBPM"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CityComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "PORTO VELHO"
+        state:
+          type: string
+          example: "RO"
+        battalion:
+          type: string
+          example: "1ºBPM"
+        is_deleted:
+          type: boolean
+
+    CreateCityRequest:
+      type: object
+      required:
+        - name
+        - state
+        - battalion
+      properties:
+        name:
+          type: string
+          example: "ARIQUEMES"
+        state:
+          type: string
+          enum: ["RO"]
+        battalion:
+          type: string
+          example: "2ºBPM"
+
+    UpdateCityRequest:
+      type: object
+      required:
+        - name
+        - state
+        - battalion
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+          enum: ["RO"]
+        battalion:
+          type: string
+
+    # --- Enums ---
+    PhoneType:
+      type: string
+      enum:
+        - "Mobile"
+        - "Residential"
+        - "Work"
+      description: "Tipo de telefone"
+
+    ViolenceType:
+      type: string
+      enum:
+        - "Physical"
+        - "Sexual"
+        - "Psychological"
+        - "Moral"
+      description: "Tipo de violência sofrida pela vítima"
+
+    HasChildren:
+      type: boolean
+      description: "Indicador de filhos da vítima"
+
+    SecurityForce:
+      type: string
+      enum:
+        - "Military Police"
+        - "Civil Police"
+        - "Penal Police"
+        - "Fire Department"
+        - "Federal Highway Police"
+        - "Federal Police"
+        - "Municipal Guard"
+      description: "Força de segurança do agressor (quando aplicável)"
+
+    RelationshipToVictim:
+      type: string
+      enum:
+        - "Spouse"
+        - "Ex-Spouse"
+        - "Mother"
+        - "Father"
+        - "Stepfather"
+        - "Stepmother"
+        - "Son/Daughter"
+        - "Sibling"
+        - "Cousin"
+        - "Grandfather"
+        - "Grandmother"
+        - "Brother/Sister-in-law"
+        - "Father/Mother-in-law"
+        - "Son-in-law"
+        - "Daughter-in-law"
+        - "Uncle/Aunt"
+      description: "Relacionamento do agressor com a vítima"
+
+    EducationLevel:
+      type: string
+      enum:
+        - "Elementary"
+        - "High School"
+        - "College"
+        - "Postgraduate"
+        - "Illiterate"
+        - "Semi-illiterate"
+        - "Master"
+        - "Doctorate"
+      description: "Nível de escolaridade"
+
+    ProtectiveMeasureStatus:
+      type: string
+      enum:
+        - "Valid"
+        - "Revoked"
+        - "Expired"
+      description: "Status da medida protetiva"
+
+    RiskLevel:
+      type: string
+      enum:
+        - "High"
+        - "Medium"
+        - "Low"
+      description: "Nível de risco da vítima"
+
+    OffenderFreedomStatus:
+      type: string
+      enum:
+        - "Imprisoned"
+        - "Free"
+        - "Monitored"
+      description: "Condição de liberdade atual do agressor"
+
+    OffenderFirearmAccess:
+      type: string
+      enum:
+        - "Yes"
+        - "No"
+        - "Unknown"
+      description: "Se o agressor tem acesso a arma de fogo"
+
+    # --- Victim Schemas ---
+    VictimPhone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
+    PhoneData:
+      type: object
+      required:
+        - phone
+      properties:
+        phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
+    AddressType:
+      type: string
+      enum:
+        - "Residential"
+        - "Work"
+        - "Correspondence"
+        - "Commercial"
+        - "Institutional"
+        - "Temporary"
+        - "Other"
+      description: "Tipo de endereco da vitima"
+
+    Victim:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        education_level:
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          example: "Professora"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+          example: 2
+        is_pregnant:
+          type: boolean
+          nullable: true
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimAddress"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    VictimComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        education_level:
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          example: "Professora"
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+          example: 2
+        is_pregnant:
+          type: boolean
+          nullable: true
+        has_special_needs:
+          type: boolean
+        special_needs_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/VictimAddress"
+        is_deleted:
+          type: boolean
+
+    VictimAddress:
+      type: object
+      required:
+        - city_id
+        - address_type
+      properties:
+        id:
+          type: string
+          format: uuid
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
+
+    AddressData:
+      type: object
+      required:
+        - city_id
+        - address_type
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
+
+    CreateVictimRequest:
+      type: object
+      required:
+        - full_name
+        - uses_alcohol
+        - uses_drugs
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        education_level:
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+        is_pregnant:
+          type: boolean
+          nullable: true
+        special_needs_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    UpdateVictimRequest:
+      type: object
+      required:
+        - full_name
+        - uses_alcohol
+        - uses_drugs
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+        education_level:
+          allOf:
+            - $ref: "#/components/schemas/EducationLevel"
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        has_children:
+          $ref: "#/components/schemas/HasChildren"
+        children_count:
+          type: integer
+          nullable: true
+        is_pregnant:
+          type: boolean
+          nullable: true
+        special_needs_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    # --- Offender Schemas ---
+    OffenderPhone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+          example: "(69) 99999-8888"
+        phone_type:
+          $ref: "#/components/schemas/PhoneType"
+
+    OffenderAddress:
+      type: object
+      required:
+        - city_id
+        - address_type
+      properties:
+        id:
+          type: string
+          format: uuid
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        address_type:
+          $ref: "#/components/schemas/AddressType"
+
+    Offender:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderAddress"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    OffenderComplement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        is_public_security_agent:
+          type: boolean
+        security_force:
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderPhone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffenderAddress"
+        is_deleted:
+          type: boolean
+
+    CreateOffenderRequest:
+      type: object
+      required:
+        - full_name
+        - imprisoned
+        - uses_alcohol
+        - uses_drugs
+        - education_level
+      properties:
+        full_name:
+          type: string
+          example: "João da Silva Santos"
+        cpf:
+          type: string
+          nullable: true
+          example: "123.456.789-00"
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+          example: "Mecânico"
+        security_force:
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+          example: "High School"
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+
+    UpdateOffenderRequest:
+      type: object
+      required:
+        - full_name
+        - imprisoned
+        - uses_alcohol
+        - uses_drugs
+        - education_level
+      properties:
+        full_name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        imprisoned:
+          type: boolean
+        occupation:
+          type: string
+          nullable: true
+        security_force:
+          allOf:
+            - $ref: "#/components/schemas/SecurityForce"
+          nullable: true
+        uses_alcohol:
+          type: boolean
+        uses_drugs:
+          type: boolean
+        has_psychiatric_issues:
+          type: boolean
+        psychiatric_issues_type:
+          type: array
+          items:
+            type: string
+          nullable: true
+        education_level:
+          $ref: "#/components/schemas/EducationLevel"
+        observation:
+          type: string
+          nullable: true
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneData"
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressData"
+          nullable: true
+
+    # --- Protective Measure Schemas ---
+    ProtectiveMeasure:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        process_number:
+          type: string
+        sei_process_number:
+          type: string
+          nullable: true
+          description: "Número do processo no sistema SEI"
+        occurrence_report_number:
+          type: string
+          nullable: true
+          description: "Número do boletim de ocorrência"
+        issued_at:
+          type: string
+          format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+          description: "Data de validade da medida protetiva"
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
+          description: "Distância em metros que o agressor deve manter da vítima"
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        was_drunk_during_assault:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor associado à medida protetiva"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateProtectiveMeasureRequest:
+      type: object
+      required:
+        - process_number
+        - issued_at
+        - judicial_authority
+        - court_district_id
+        - status
+        - violence_types
+        - relationship_to_victim
+        - assaults_children
+        - was_drunk_during_assault
+        - victim_id
+        - offender_id
+      properties:
+        process_number:
+          type: string
+          example: "12345-67.2025.8.26.0000"
+        sei_process_number:
+          type: string
+          nullable: true
+          example: "SEI-2025/001234"
+        occurrence_report_number:
+          type: string
+          nullable: true
+          example: "BO-2025/001234"
+          description: "Número do boletim de ocorrência"
+        issued_at:
+          type: string
+          format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
+          example: 500
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+        was_drunk_during_assault:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+        offender_id:
+          type: string
+          format: uuid
+        extensions:
+          type: array
+          description: "Prorrogações opcionais a serem criadas junto com a medida"
+          items:
+            $ref: "#/components/schemas/ProtectiveMeasureExtensionUpsert"
+
+    UpdateProtectiveMeasureRequest:
+      type: object
+      required:
+        - process_number
+        - issued_at
+        - judicial_authority
+        - court_district_id
+        - status
+        - violence_types
+        - relationship_to_victim
+        - assaults_children
+        - was_drunk_during_assault
+        - victim_id
+        - offender_id
+      properties:
+        process_number:
+          type: string
+        sei_process_number:
+          type: string
+          nullable: true
+        occurrence_report_number:
+          type: string
+          nullable: true
+        issued_at:
+          type: string
+          format: date
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+        judicial_authority:
+          type: string
+        court_district_id:
+          type: string
+          format: uuid
+        distance_meters:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ProtectiveMeasureStatus"
+        violence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViolenceType"
+        relationship_to_victim:
+          $ref: "#/components/schemas/RelationshipToVictim"
+        assaults_children:
+          type: boolean
+        was_drunk_during_assault:
+          type: boolean
+        victim_id:
+          type: string
+          format: uuid
+        offender_id:
+          type: string
+          format: uuid
+        extensions:
+          type: array
+          description: "Prorrogações opcionais para criar/atualizar (id opcional)"
+          items:
+            $ref: "#/components/schemas/ProtectiveMeasureExtensionUpsert"
+
+    # --- Extension Schemas ---
+    ProtectiveMeasureExtensionUpsert:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "Use para atualizar uma prorrogação existente; omita para criar"
+        extension_number:
+          type: integer
+          example: 1
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    ProtectiveMeasureExtension:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        protective_measure_id:
+          type: string
+          format: uuid
+        extension_number:
+          type: integer
+          description: "Número da prorrogação (1ª, 2ª, 3ª, etc.)"
+          example: 1
+        extension_date:
+          type: string
+          format: date
+          description: "Data em que a prorrogação foi concedida"
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+          description: "Nova data de validade após a prorrogação"
+        notes:
+          type: string
+          nullable: true
+          description: "Observações sobre a prorrogação"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateExtensionRequest:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        extension_number:
+          type: integer
+          example: 1
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    UpdateExtensionRequest:
+      type: object
+      required:
+        - extension_number
+        - extension_date
+      properties:
+        extension_number:
+          type: integer
+        extension_date:
+          type: string
+          format: date
+        new_valid_until:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ProtectiveMeasureWithExtensions:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/ProtectiveMeasure"
+        - type: object
+          properties:
+            extensions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProtectiveMeasureExtension"
+
+    ProtectiveMeasureWithExtensionsAndEntities:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/ProtectiveMeasure"
+        - type: object
+          properties:
+            extensions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProtectiveMeasureExtension"
+            victim:
+              $ref: "#/components/schemas/VictimComplement"
+            offender:
+              $ref: "#/components/schemas/OffenderComplement"
+            court_district:
+              $ref: "#/components/schemas/CityComplement"
+
+    # --- Attendance Victim Schemas ---
+    AttendanceVictim:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddress"
+          nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    AttendanceVictimAddress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do endereço do atendimento à vítima"
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+
+    AttendanceVictimAddressData:
+      type: object
+      description: "Dados de endereço para criar/atualizar atendimento à vítima"
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+        zip_code:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+
+    CreateAttendanceVictimRequest:
+      type: object
+      required:
+        - victim_id
+        - was_victim_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - needs_legal_assistance
+        - needs_psychological_support
+        - was_instructed_about_protective_measure_procedures
+        - offender_violated_protective_measure
+      properties:
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+          example: false
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+          example: false
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+          example: false
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+          example: false
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
+          example: false
+
+    UpdateAttendanceVictimRequest:
+      type: object
+      required:
+        - victim_id
+        - was_victim_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - needs_legal_assistance
+        - needs_psychological_support
+        - was_instructed_about_protective_measure_procedures
+        - offender_violated_protective_measure
+      properties:
+        victim_id:
+          type: string
+          format: uuid
+        was_victim_present:
+          type: boolean
+        attendance_date:
+          type: string
+          format: date
+        attendance_time:
+          type: string
+          format: time
+        description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+        offender_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID do agressor associado ao atendimento"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva associada ao atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        risk_level:
+          allOf:
+            - $ref: "#/components/schemas/RiskLevel"
+          nullable: true
+          description: "Nível de risco avaliado durante o atendimento"
+        offender_freedom_status:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFreedomStatus"
+          nullable: true
+          description: "Condição de liberdade do agressor no momento do atendimento"
+        offender_has_firearm_access:
+          allOf:
+            - $ref: "#/components/schemas/OffenderFirearmAccess"
+          nullable: true
+          description: "Informação sobre acesso do agressor a armas de fogo"
+        needs_legal_assistance:
+          type: boolean
+          description: "Indica se a vítima necessita de atendimento jurídico"
+        needs_psychological_support:
+          type: boolean
+          description: "Indica se a vítima necessita de acompanhamento psicológico"
+        was_instructed_about_protective_measure_procedures:
+          type: boolean
+          description: "Indica se foi orientada sobre procedimentos para prorrogação ou revogação de MPU"
+        offender_violated_protective_measure:
+          type: boolean
+          description: "Indica se o agressor descumpriu a medida protetiva"
+
+    # --- Attendance Offender Schemas ---
+    ViolenceAggravator:
+      type: string
+      enum:
+        - AlcoholUse
+        - DrugUse
+        - PsychiatricIssues
+        - Other
+      description: "Agravantes da violência durante o atendimento ao agressor"
+
+    CreateAttendanceOffender:
+      type: object
+      required:
+        - offender_id
+        - victim_id
+        - was_offender_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - assaults_children
+        - violence_aggravator
+      properties:
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+          example: "2025-01-15"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+          example: "14:30:00"
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+          description: "Endereço onde o atendimento foi realizado"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+
+    UpdateAttendanceOffender:
+      type: object
+      required:
+        - offender_id
+        - victim_id
+        - was_offender_present
+        - attendance_date
+        - attendance_time
+        - is_remote
+        - assaults_children
+        - violence_aggravator
+      properties:
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+        address:
+          $ref: "#/components/schemas/AttendanceVictimAddressData"
+          nullable: true
+          description: "Endereço onde o atendimento foi realizado"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+
+    AttendanceOffenderWithAddress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID único do atendimento"
+        offender_id:
+          type: string
+          format: uuid
+          description: "ID do agressor atendido"
+        victim_id:
+          type: string
+          format: uuid
+          description: "ID da vítima relacionada"
+        protective_measure_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da medida protetiva relacionada"
+        was_offender_present:
+          type: boolean
+          description: "Indica se o agressor estava presente no atendimento"
+        attendance_date:
+          type: string
+          format: date
+          description: "Data do atendimento"
+        attendance_time:
+          type: string
+          format: time
+          description: "Hora do atendimento"
+        is_remote:
+          type: boolean
+          description: "Indica se o atendimento foi realizado remotamente"
+        assaults_children:
+          type: boolean
+          description: "Indica se o agressor agride os filhos"
+        violence_aggravator:
+          $ref: "#/components/schemas/ViolenceAggravator"
+          description: "Agravante da violência identificado"
+        violence_aggravator_other:
+          type: string
+          nullable: true
+          description: "Descrição do agravante quando é 'Other'"
+        description:
+          type: string
+          nullable: true
+          description: "Descrição detalhada do atendimento"
+        created_at:
+          type: string
+          format: date-time
+          description: "Data e hora de criação do registro"
+        updated_at:
+          type: string
+          format: date-time
+          description: "Data e hora da última atualização"
+        is_deleted:
+          type: boolean
+          description: "Indica se o registro foi excluído (soft delete)"
+        address:
+          allOf:
+            - $ref: "#/components/schemas/AttendanceOffenderAddressResponse"
+          nullable: true
+          description: "Endereço do atendimento"
+
+    AttendanceOffenderAddressResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID único do endereço"
+        street:
+          type: string
+          nullable: true
+          description: "Nome da rua"
+        number:
+          type: string
+          nullable: true
+          description: "Número do endereço"
+        district:
+          type: string
+          nullable: true
+          description: "Bairro"
+        city_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da cidade"
+        zip_code:
+          type: string
+          nullable: true
+          description: "CEP"
+        complement:
+          type: string
+          nullable: true
+          description: "Complemento do endereço"
+
+    # --- Attendance Members Schemas ---
+    AddAttendanceMember:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário a ser adicionado como membro do atendimento"
+
+    AttendanceMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID do registro de membro"
+        attendance_id:
+          type: string
+          format: uuid
+          description: "ID do atendimento"
+        user_id:
+          type: string
+          format: uuid
+          description: "ID do usuário"
+        user_name:
+          type: string
+          description: "Nome completo do usuário"
+          example: "João Silva"
+        work_session_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "ID da sessão de trabalho associada (preenchido automaticamente ao criar atendimento)"
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  # === AUTH ENDPOINTS ===
+  /auth/login:
+    post:
+      tags:
+        - "Auth"
+      summary: "Realizar login no sistema"
+      description: "Autentica um usuário e retorna um token JWT válido por tempo configurado"
+      operationId: "authLogin"
+      security:
+        - api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: "Login realizado com sucesso"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                status: 200
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  full_name: "João Silva"
+                  email: "joao.silva@pm.pr.gov.br"
+                  rank: "CAP PM"
+                  registration: "100000001"
+                  profile: "CITY_ADMIN"
+        "401":
+          description: "Credenciais inválidas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Usuario precisa estar associado a uma cidade para auto-criar sessao"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === USER ENDPOINTS ===
+  /users:
+    get:
+      tags:
+        - "Users"
+      summary: "Listar todos os usuários"
+      description: "Retorna lista de usuários com filtros baseados nas permissões do usuário autenticado"
+      operationId: "getAllUsers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
+      responses:
+        "200":
+          description: "Lista de usuários retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Users"
+      summary: "Criar novo usuário"
+      description: "Cria um novo usuário no sistema. Apenas ROOT e CITY_ADMIN podem criar usuários"
+      operationId: "createUser"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: "Usuário criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar usuários"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/search:
+    get:
+      tags:
+        - "Users"
+      summary: "Buscar usuários por nome ou registration"
+      description: "Busca usuários pelo nome (ILIKE) ou registration exata. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
+      operationId: "searchUsers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome do usuário (parcial). Mutuamente exclusivo com registration."
+        - name: "registration"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Registration do usuário. Mutuamente exclusivo com name."
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+        "400":
+          description: "Parâmetros inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+
+    get:
+      tags:
+        - "Users"
+      summary: "Obter usuário por ID"
+      description: "Retorna detalhes de um usuário específico"
+      operationId: "getUserById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Usuário encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Users"
+      summary: "Atualizar usuário"
+      description: "Atualiza informações de um usuário existente"
+      operationId: "updateUser"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: "Usuário atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Users"
+      summary: "Deletar usuário (soft delete)"
+      description: "Realiza soft delete de um usuário"
+      operationId: "deleteUser"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Usuário deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/password:
+    patch:
+      tags:
+        - "Users"
+      summary: "Atualizar senha do usuário atual"
+      description: |
+        Atualiza a senha do usuário autenticado.
+
+        **Regras:**
+        - É obrigatório informar a senha atual
+      operationId: "updateUserPassword"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasswordRequest"
+            examples:
+              usuario_comum:
+                summary: "Usuário alterando sua própria senha"
+                value:
+                  current_password: "SenhaAtual123!"
+                  new_password: "NovaSenha456!"
+      responses:
+        "200":
+          description: "Senha atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Senha atual incorreta ou dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/password/reset:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+
+    post:
+      tags:
+        - "Users"
+      summary: "Reset de senha do usuário"
+      description: |
+        Gera uma senha provisória e atualiza o usuário.
+
+        **Regras:**
+        - Apenas ROOT e CITY_ADMIN podem usar
+        - CITY_ADMIN só pode resetar usuários da própria cidade
+      operationId: "resetUserPassword"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Senha provisória gerada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ResetUserPasswordResponse"
+        "403":
+          description: "Sem permissão para resetar senha"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Usuário não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/policies/{policy}/cities:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário"
+      - name: "policy"
+        in: "path"
+        required: true
+        schema:
+          type: string
+        description: "Nome da política (ex: read_victims, create_victims, etc)"
+
+    post:
+      tags:
+        - "Users"
+      summary: "Adicionar cidades a uma política de usuário"
+      description: "Adiciona permissões de cidades específicas a uma política de um usuário"
+      operationId: "appendUserPolicyCities"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendPolicyCitiesRequest"
+      responses:
+        "200":
+          description: "Políticas atualizadas com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: "Política inválida"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para modificar políticas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Users"
+      summary: "Remover cidades de uma política de usuário"
+      description: "Remove permissões de cidades específicas de uma política de um usuário"
+      operationId: "removeUserPolicyCities"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendPolicyCitiesRequest"
+      responses:
+        "200":
+          description: "Políticas atualizadas com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/User"
+
+  # === CITY ENDPOINTS ===
+  /cities:
+    get:
+      tags:
+        - "Cities"
+      summary: "Listar todas as cidades"
+      description: "Retorna lista de cidades com filtros baseados nas permissões do usuário"
+      operationId: "getAllCities"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de cidades retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/City"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Cities"
+      summary: "Criar nova cidade"
+      description: "Cria uma nova cidade no sistema. Apenas ROOT pode criar cidades"
+      operationId: "createCity"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCityRequest"
+      responses:
+        "201":
+          description: "Cidade criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/City"
+        "400":
+          description: "Dados inválidos ou cidade duplicada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas ROOT pode criar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cities/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da cidade"
+
+    get:
+      tags:
+        - "Cities"
+      summary: "Obter cidade por ID"
+      description: "Retorna detalhes de uma cidade específica"
+      operationId: "getCityById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Cidade encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "404":
+          description: "Cidade não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Cities"
+      summary: "Atualizar cidade"
+      description: "Atualiza informações de uma cidade. Apenas ROOT pode atualizar cidades"
+      operationId: "updateCity"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCityRequest"
+      responses:
+        "200":
+          description: "Cidade atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas ROOT pode atualizar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Cities"
+      summary: "Deletar cidade (soft delete)"
+      description: "Realiza soft delete de uma cidade. Apenas ROOT pode deletar cidades"
+      operationId: "deleteCity"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Cidade deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/City"
+        "403":
+          description: "Apenas ROOT pode deletar cidades"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === VICTIM ENDPOINTS ===
+  /victims:
+    get:
+      tags:
+        - "Victims"
+      summary: "Listar todas as vítimas"
+      description: "Retorna lista de vítimas com filtros baseados nas permissões do usuário"
+      operationId: "getAllVictims"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de vítimas retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Victim"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Criar nova vítima"
+      description: "Cria uma nova vítima no sistema"
+      operationId: "createVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVictimRequest"
+      responses:
+        "201":
+          description: "Vítima criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar vítima nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /victims/search:
+    get:
+      tags:
+        - "Victims"
+      summary: "Buscar vítimas por nome ou CPF"
+      description: "Busca vítimas pelo nome (ILIKE) ou CPF exato. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
+      operationId: "searchVictims"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome da vítima (parcial). Mutuamente exclusivo com cpf."
+        - name: "cpf"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "CPF da vítima no formato 000.000.000-00. Mutuamente exclusivo com name."
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Parâmetros inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /victims/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Victims"
+      summary: "Obter vítima por ID"
+      description: "Retorna detalhes de uma vítima específica"
+      operationId: "getVictimById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Vítima encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar vítima"
+      description: "Atualiza informações de uma vítima existente"
+      operationId: "updateVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVictimRequest"
+      responses:
+        "200":
+          description: "Vítima atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar vítima (soft delete)"
+      description: "Realiza soft delete de uma vítima"
+      operationId: "deleteVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Vítima deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Victim"
+
+  /victims/{id}/phones:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Adicionar telefone à vítima"
+      description: "Adiciona um novo telefone para a vítima"
+      operationId: "addPhoneToVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "201":
+          description: "Telefone adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/VictimPhone"
+
+  /victims/{id}/phones/{phone_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+      - name: "phone_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do telefone"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar telefone da vítima"
+      description: "Atualiza informações de um telefone existente"
+      operationId: "updateVictimPhone"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "200":
+          description: "Telefone atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/VictimPhone"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar telefone da vítima (soft delete)"
+      description: "Remove um telefone da vítima"
+      operationId: "deleteVictimPhone"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Telefone deletado com sucesso"
+
+  /victims/{id}/addresses:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    post:
+      tags:
+        - "Victims"
+      summary: "Adicionar endereço à vítima"
+      description: "Adiciona um novo endereço para a vítima"
+      operationId: "addAddressToVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "201":
+          description: "Endereço adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/VictimAddress"
+
+  /victims/{id}/addresses/{address_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+      - name: "address_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do endereço"
+
+    put:
+      tags:
+        - "Victims"
+      summary: "Atualizar endereço da vítima"
+      description: "Atualiza informações de um endereço existente"
+      operationId: "updateVictimAddress"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "200":
+          description: "Endereço atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/VictimAddress"
+
+    delete:
+      tags:
+        - "Victims"
+      summary: "Deletar endereço da vítima (soft delete)"
+      description: "Remove um endereço da vítima"
+      operationId: "deleteVictimAddress"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Endereço deletado com sucesso"
+
+  # === OFFENDER ENDPOINTS ===
+  /offenders:
+    get:
+      tags:
+        - "Offenders"
+      summary: "Listar todos os agressores"
+      description: "Retorna lista de agressores com filtros baseados nas permissões do usuário"
+      operationId: "getAllOffenders"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de agressores retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Criar novo agressor"
+      description: "Cria um novo agressor no sistema"
+      operationId: "createOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOffenderRequest"
+      responses:
+        "201":
+          description: "Agressor criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar agressor nesta cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /offenders/search:
+    get:
+      tags:
+        - "Offenders"
+      summary: "Buscar agressores por nome ou CPF"
+      description: "Busca agressores pelo nome (ILIKE) ou CPF exato. Envie apenas um dos parâmetros; informar ambos ou nenhum gera erro."
+      operationId: "searchOffenders"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "name"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "Nome do agressor (parcial). Mutuamente exclusivo com cpf."
+        - name: "cpf"
+          in: "query"
+          required: false
+          schema:
+            type: string
+          description: "CPF do agressor no formato 000.000.000-00. Mutuamente exclusivo com name."
+      responses:
+        "200":
+          description: "Resultados da busca"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Parâmetros inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /offenders/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    get:
+      tags:
+        - "Offenders"
+      summary: "Obter agressor por ID"
+      description: "Retorna detalhes de um agressor específico"
+      operationId: "getOffenderById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Agressor encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar agressor"
+      description: "Atualiza informações de um agressor existente"
+      operationId: "updateOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOffenderRequest"
+      responses:
+        "200":
+          description: "Agressor atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar agressor (soft delete)"
+      description: "Realiza soft delete de um agressor"
+      operationId: "deleteOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Agressor deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/Offender"
+
+  /offenders/victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Offenders"
+      summary: "Listar agressores de uma vítima"
+      description: "Retorna todos os agressores associados a uma vítima específica"
+      operationId: "getOffendersByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de agressores da vítima"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offender"
+
+  /offenders/{id}/phones:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Adicionar telefone ao agressor"
+      description: "Adiciona um novo telefone para o agressor"
+      operationId: "addPhoneToOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "201":
+          description: "Telefone adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/OffenderPhone"
+
+  /offenders/{id}/phones/{phone_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+      - name: "phone_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do telefone"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar telefone do agressor"
+      description: "Atualiza informações de um telefone existente"
+      operationId: "updateOffenderPhone"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneData"
+      responses:
+        "200":
+          description: "Telefone atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/OffenderPhone"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar telefone do agressor (soft delete)"
+      description: "Remove um telefone do agressor"
+      operationId: "deleteOffenderPhone"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Telefone deletado com sucesso"
+
+  /offenders/{id}/addresses:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    post:
+      tags:
+        - "Offenders"
+      summary: "Adicionar endereço ao agressor"
+      description: "Adiciona um novo endereço para o agressor"
+      operationId: "addAddressToOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "201":
+          description: "Endereço adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/OffenderAddress"
+
+  /offenders/{id}/addresses/{address_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+      - name: "address_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do endereço"
+
+    put:
+      tags:
+        - "Offenders"
+      summary: "Atualizar endereço do agressor"
+      description: "Atualiza informações de um endereço existente"
+      operationId: "updateOffenderAddress"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressData"
+      responses:
+        "200":
+          description: "Endereço atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/OffenderAddress"
+
+    delete:
+      tags:
+        - "Offenders"
+      summary: "Deletar endereço do agressor (soft delete)"
+      description: "Remove um endereço do agressor"
+      operationId: "deleteOffenderAddress"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Endereço deletado com sucesso"
+
+  # === PROTECTIVE MEASURE ENDPOINTS ===
+  /protective-measures:
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Listar todas as medidas protetivas"
+      description: "Retorna lista de medidas protetivas com filtros baseados nas permissões"
+      operationId: "getAllProtectiveMeasures"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de medidas protetivas retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Protective Measures"
+      summary: "Criar nova medida protetiva"
+      description: "Cria uma nova medida protetiva. Apenas uma medida ativa por vítima é permitida"
+      operationId: "createProtectiveMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProtectiveMeasureRequest"
+      responses:
+        "201":
+          description: "Medida protetiva criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/ProtectiveMeasure"
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+        "400":
+          description: "Dados inválidos ou vítima já possui medida ativa"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /protective-measures/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Obter medida protetiva por ID"
+      description: "Retorna detalhes de uma medida protetiva específica"
+      operationId: "getProtectiveMeasureById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
+      responses:
+        "200":
+          description: "Medida protetiva encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                      - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+
+    put:
+      tags:
+        - "Protective Measures"
+      summary: "Atualizar medida protetiva"
+      description: "Atualiza informações de uma medida protetiva existente"
+      operationId: "updateProtectiveMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProtectiveMeasureRequest"
+      responses:
+        "200":
+          description: "Medida protetiva atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+
+    delete:
+      tags:
+        - "Protective Measures"
+      summary: "Deletar medida protetiva (soft delete)"
+      description: "Realiza soft delete de uma medida protetiva"
+      operationId: "deleteProtectiveMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Medida protetiva deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasure"
+
+  /protective-measures/victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Protective Measures"
+      summary: "Listar medidas protetivas de uma vítima"
+      description: "Retorna todas as medidas protetivas associadas a uma vítima específica"
+      operationId: "getProtectiveMeasuresByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui entidades relacionadas completas (victim, offender, court_district) sem created_at/updated_at"
+      responses:
+        "200":
+          description: "Lista de medidas protetivas da vítima"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensions"
+                        - $ref: "#/components/schemas/ProtectiveMeasureWithExtensionsAndEntities"
+
+  # === EXTENSION ENDPOINTS ===
+  /protective-measures/{id}/extensions:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+
+    post:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Criar prorrogação de medida protetiva"
+      description: "Adiciona uma nova prorrogação a uma medida protetiva existente"
+      operationId: "createExtension"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExtensionRequest"
+      responses:
+        "201":
+          description: "Prorrogação criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Medida protetiva não encontrada"
+
+    get:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Listar prorrogações de uma medida protetiva"
+      description: "Retorna todas as prorrogações de uma medida protetiva específica"
+      operationId: "getExtensionsByMeasure"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de prorrogações"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProtectiveMeasureExtension"
+
+  /protective-measures/{id}/extensions/{ext_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da medida protetiva"
+      - name: "ext_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da prorrogação"
+
+    get:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Obter prorrogação específica"
+      description: "Retorna detalhes de uma prorrogação específica"
+      operationId: "getExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Prorrogação encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
+
+    put:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Atualizar prorrogação"
+      description: "Atualiza dados de uma prorrogação existente"
+      operationId: "updateExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExtensionRequest"
+      responses:
+        "200":
+          description: "Prorrogação atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
+
+    delete:
+      tags:
+        - "Protective Measures Extensions"
+      summary: "Deletar prorrogação"
+      description: "Remove uma prorrogação (soft delete)"
+      operationId: "deleteExtensionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Prorrogação deletada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/ProtectiveMeasureExtension"
+        "404":
+          description: "Prorrogação não encontrada"
+
+  # === ATTENDANCE VICTIM ENDPOINTS ===
+  /attendance-victims:
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar todos os atendimentos às vítimas"
+      description: "Retorna lista de atendimentos às vítimas com filtros baseados nas permissões"
+      operationId: "getAllAttendanceVictims"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceVictim"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Attendance Victims"
+      summary: "Criar novo atendimento à vítima"
+      description: "Cria um novo registro de atendimento a uma vítima"
+      operationId: "createAttendanceVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttendanceVictimRequest"
+      responses:
+        "201":
+          description: "Atendimento criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceVictim"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-victims/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Obter atendimento à vítima por ID"
+      description: "Retorna detalhes de um atendimento específico"
+      operationId: "getAttendanceVictimById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceVictim"
+
+    put:
+      tags:
+        - "Attendance Victims"
+      summary: "Atualizar atendimento à vítima"
+      description: "Atualiza informações de um atendimento existente"
+      operationId: "updateAttendanceVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttendanceVictimRequest"
+      responses:
+        "200":
+          description: "Atendimento atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceVictim"
+
+    delete:
+      tags:
+        - "Attendance Victims"
+      summary: "Deletar atendimento à vítima (soft delete)"
+      description: "Realiza soft delete de um atendimento"
+      operationId: "deleteAttendanceVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceVictim"
+
+  /attendance-victims/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar membros do atendimento à vítima"
+      description: "Retorna lista de todos os membros (policiais) que participaram do atendimento. Membros são automaticamente adicionados da sessão de trabalho ativa."
+      operationId: "getAttendanceVictimMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de membros retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceMember"
+
+    post:
+      tags:
+        - "Attendance Victims"
+      summary: "Adicionar membro ao atendimento"
+      description: "Adiciona manualmente um membro ao atendimento. Requer política 'manage_attendance_members'. Membro deve ser da mesma cidade."
+      operationId: "addAttendanceVictimMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAttendanceMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+      responses:
+        "201":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceMember"
+        "400":
+          description: "Membro de cidade diferente ou já existe"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-victims/{id}/members/{user_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    delete:
+      tags:
+        - "Attendance Victims"
+      summary: "Remover membro do atendimento"
+      description: "Remove um membro específico do atendimento. Requer política 'manage_attendance_members'."
+      operationId: "removeAttendanceVictimMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Member removed successfully"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-victims/by-victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Attendance Victims"
+      summary: "Listar atendimentos por vítima"
+      description: "Retorna todos os atendimentos relacionados a uma vítima específica"
+      operationId: "getAttendanceVictimsByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceVictim"
+        "403":
+          description: "Sem permissão para acessar vítima de outra cidade"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # --- Attendance Offenders Endpoints ---
+  /attendance-offenders:
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar todos os atendimentos aos agressores"
+      description: "Retorna lista de todos os atendimentos aos agressores (filtrada por cidade conforme permissões)"
+      operationId: "getAllAttendanceOffenders"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+
+    post:
+      tags:
+        - "Attendance Offenders"
+      summary: "Criar novo atendimento ao agressor"
+      description: "Cria um novo registro de atendimento a um agressor"
+      operationId: "createAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttendanceOffender"
+            example:
+              offender_id: "123e4567-e89b-12d3-a456-426614174000"
+              victim_id: "123e4567-e89b-12d3-a456-426614174001"
+              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              was_offender_present: true
+              attendance_date: "2025-01-15"
+              attendance_time: "14:30:00"
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "123e4567-e89b-12d3-a456-426614174003"
+                zip_code: "12345-678"
+                complement: "Sala 10"
+              is_remote: false
+              assaults_children: true
+              violence_aggravator: "AlcoholUse"
+              violence_aggravator_other: null
+              description: "Atendimento inicial ao agressor"
+      responses:
+        "201":
+          description: "Atendimento criado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "400":
+          description: "Dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Agressor ou vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Obter atendimento ao agressor por ID"
+      description: "Retorna detalhes de um atendimento específico"
+      operationId: "getAttendanceOffenderById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Attendance Offenders"
+      summary: "Atualizar atendimento ao agressor"
+      description: "Atualiza informações de um atendimento existente"
+      operationId: "updateAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttendanceOffender"
+            example:
+              offender_id: "123e4567-e89b-12d3-a456-426614174000"
+              victim_id: "123e4567-e89b-12d3-a456-426614174001"
+              protective_measure_id: "123e4567-e89b-12d3-a456-426614174002"
+              was_offender_present: true
+              attendance_date: "2025-01-15"
+              attendance_time: "14:30:00"
+              address:
+                street: "Rua das Flores"
+                number: "123"
+                district: "Centro"
+                city_id: "123e4567-e89b-12d3-a456-426614174003"
+                zip_code: "12345-678"
+                complement: "Sala 10"
+              is_remote: false
+              assaults_children: false
+              violence_aggravator: "DrugUse"
+              violence_aggravator_other: null
+              description: "Atendimento de acompanhamento"
+      responses:
+        "200":
+          description: "Atendimento atualizado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - "Attendance Offenders"
+      summary: "Deletar atendimento ao agressor (soft delete)"
+      description: "Realiza soft delete de um atendimento"
+      operationId: "deleteAttendanceOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Atendimento deletado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Atendimento não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar membros do atendimento ao agressor"
+      description: "Retorna lista de todos os membros (policiais) que participaram do atendimento. Membros são automaticamente adicionados da sessão de trabalho ativa."
+      operationId: "getAttendanceOffenderMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de membros retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceMember"
+
+    post:
+      tags:
+        - "Attendance Offenders"
+      summary: "Adicionar membro ao atendimento"
+      description: "Adiciona manualmente um membro ao atendimento. Requer política 'manage_attendance_members'. Membro deve ser da mesma cidade."
+      operationId: "addAttendanceOffenderMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAttendanceMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+      responses:
+        "201":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    $ref: "#/components/schemas/AttendanceMember"
+        "400":
+          description: "Membro de cidade diferente ou já existe"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/{id}/members/{user_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do atendimento"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    delete:
+      tags:
+        - "Attendance Offenders"
+      summary: "Remover membro do atendimento"
+      description: "Remove um membro específico do atendimento. Requer política 'manage_attendance_members'."
+      operationId: "removeAttendanceOffenderMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Member removed successfully"
+        "403":
+          description: "Sem permissão para gerenciar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/by-offender/{offender_id}:
+    parameters:
+      - name: "offender_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do agressor"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos por agressor"
+      description: "Retorna todos os atendimentos relacionados a um agressor específico"
+      operationId: "getAttendanceOffendersByOffender"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Agressor não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance-offenders/by-victim/{victim_id}:
+    parameters:
+      - name: "victim_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da vítima"
+
+    get:
+      tags:
+        - "Attendance Offenders"
+      summary: "Listar atendimentos aos agressores por vítima"
+      description: "Retorna todos os atendimentos aos agressores relacionados a uma vítima específica"
+      operationId: "getAttendanceOffendersByVictim"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Lista de atendimentos retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceOffenderWithAddress"
+        "404":
+          description: "Vítima não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # === WORK SESSIONS ENDPOINTS ===
+  /work-sessions:
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Criar nova sessão de trabalho"
+      description: "Cria uma nova sessão de trabalho. O usuário solicitante deve estar incluído em members e a equipe deve ter exatamente um Commander. Requer política 'create_work_sessions'."
+      operationId: "createWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkSession"
+            example:
+              description: "Patrulhamento preventivo zona leste"
+              members:
+                - user_id: "550e8400-e29b-41d4-a716-446655440001"
+                  function: "Commander"
+                - user_id: "550e8400-e29b-41d4-a716-446655440002"
+                  function: "Patroller"
+      responses:
+        "201":
+          description: "Sessão de trabalho criada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+        "400":
+          description: "Dados inválidos (ex: usuário já possui sessão ativa, validação de funções falhou)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para criar sessão de trabalho"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Listar sessões de trabalho"
+      description: "Retorna lista de sessões de trabalho. Usuários regulares veem apenas suas próprias sessões. CITY_ADMIN vê todas da cidade. ROOT vê todas. Suporta filtros opcionais."
+      operationId: "listWorkSessions"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "user_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por ID do usuário criador"
+        - name: "start_date"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+          description: "Data inicial (filtro por data de início da sessão)"
+          example: "2025-01-01"
+        - name: "end_date"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+          description: "Data final (filtro por data de início da sessão)"
+          example: "2025-12-31"
+        - name: "city_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtrar por cidade dos membros"
+        - name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: "Número da página (1-based)"
+        - name: "page_size"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            example: 10
+          description: "Quantidade de itens por página (max 200)"
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
+      responses:
+        "200":
+          description: "Lista de sessões retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: "#/components/schemas/WorkSessionWithMembers"
+                        - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 10
+                  total_items:
+                    type: integer
+                    example: 100
+                  total_pages:
+                    type: integer
+                    example: 10
+        "403":
+          description: "Sem permissão para visualizar sessões"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/active:
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Obter sessão de trabalho ativa do usuário"
+      description: "Retorna a sessão de trabalho ativa do usuário autenticado (se houver)"
+      operationId: "getActiveWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
+      responses:
+        "200":
+          description: "Sessão ativa retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+        "404":
+          description: "Nenhuma sessão ativa encontrada para o usuário"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/end:
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Encerrar sessão de trabalho ativa"
+      description: "Encerra a sessão de trabalho ativa onde o usuário autenticado é membro. Requer política 'end_work_sessions' e o usuário deve ser criador ou Commander na sessão."
+      operationId: "endWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Sessão encerrada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: string
+                    example: "Work session ended successfully"
+        "404":
+          description: "Usuário não possui sessão ativa"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para encerrar sessão de trabalho"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+
+    get:
+      tags:
+        - "Work Sessions"
+      summary: "Obter sessão de trabalho por ID"
+      description: "Retorna detalhes de uma sessão de trabalho específica. Usuários regulares só podem ver suas próprias sessões. CITY_ADMIN vê todas da cidade. ROOT vê todas. Requer política 'view_other_work_sessions' para ver sessões de outros usuários."
+      operationId: "getWorkSessionById"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
+      responses:
+        "200":
+          description: "Sessão retornada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+        "403":
+          description: "Sem permissão para visualizar esta sessão"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Work Sessions"
+      summary: "Atualizar sessão de trabalho"
+      description: "Atualiza a sessão de trabalho ativa, substituindo a lista de membros e, se informado, a descrição. Apenas o criador ou Commander podem atualizar. Requer política 'update_work_sessions'."
+      operationId: "updateWorkSession"
+      security:
+        - bearerAuth: []
+          api_key: []
+      parameters:
+        - name: "include_complement_for_entities"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+            example: false
+          description: "Quando true, inclui dados completos do usuário nos membros (sem created_at/updated_at)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkSession"
+      responses:
+        "200":
+          description: "Sessão atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkSessionWithMembers"
+                      - $ref: "#/components/schemas/WorkSessionWithMembersComplement"
+        "400":
+          description: "Sessão inativa ou dados inválidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Sem permissão para atualizar sessão"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+
+    post:
+      tags:
+        - "Work Sessions"
+      summary: "Adicionar membro à sessão de trabalho"
+      description: "Adiciona um novo membro à sessão de trabalho. Apenas o criador ou Commander podem adicionar membros. Validações aplicadas (1 Commander, máx 1 Driver, cidade igual)."
+      operationId: "addWorkSessionMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddWorkSessionMember"
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440003"
+              function: "Patroller"
+      responses:
+        "200":
+          description: "Membro adicionado com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionMember"
+        "400":
+          description: "Erro de validação (ex: dois Commanders, cidade diferente)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador ou Commander podem adicionar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão não encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - "Work Sessions"
+      summary: "Atualizar lista completa de membros"
+      description: "Substitui completamente a lista de membros da sessão. Apenas o criador ou Commander podem atualizar. Validações aplicadas."
+      operationId: "updateWorkSessionMembers"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkSessionMembers"
+            example:
+              members:
+                - user_id: "550e8400-e29b-41d4-a716-446655440001"
+                  function: "Driver"
+                - user_id: "550e8400-e29b-41d4-a716-446655440002"
+                  function: "Patroller"
+      responses:
+        "200":
+          description: "Membros atualizados com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/WorkSessionWithMembers"
+        "400":
+          description: "Erro de validação"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador ou Commander podem atualizar membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members/{member_id}:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+      - name: "member_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    delete:
+      tags:
+        - "Work Sessions"
+      summary: "Remover membro da sessão de trabalho"
+      description: "Remove um membro da sessão. Apenas o criador ou Commander podem remover. Não pode deixar sessão vazia."
+      operationId: "removeWorkSessionMember"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Membro removido com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: string
+                    example: "Member removed successfully"
+        "400":
+          description: "Não pode remover criador ou deixar sessão vazia"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador ou Commander podem remover membros"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão ou membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /work-sessions/{id}/members/{user_id}/function:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID da sessão de trabalho"
+      - name: "user_id"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: "ID do usuário membro"
+
+    put:
+      tags:
+        - "Work Sessions"
+      summary: "Atualizar função de um membro"
+      description: "Altera a função (Commander/Driver/Patroller) de um membro específico. Apenas o criador ou Commander podem atualizar. Validações aplicadas."
+      operationId: "updateMemberFunction"
+      security:
+        - bearerAuth: []
+          api_key: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberFunction"
+            example:
+              function: "Driver"
+      responses:
+        "200":
+          description: "Função atualizada com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    type: string
+                    example: "Member function updated successfully"
+        "400":
+          description: "Erro de validação (ex: dois Commanders, dois Drivers)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Apenas o criador ou Commander podem atualizar funções"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Sessão ou membro não encontrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
