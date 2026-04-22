@@ -311,6 +311,8 @@ Arquivo de referência: `.env.example`
 DATABASE_URL=postgresql://user:password@localhost:5432/database
 SERVER_ADDR=0.0.0.0:8080
 JWT_SECRET=your_jwt_secret_key_here
+JWT_ISSUER=nupevid-api
+JWT_AUDIENCE=nupevid-api
 API_KEY=your_api_key_here
 ```
 
@@ -324,6 +326,8 @@ DATABASE_TEST_URL=postgresql://user:password@localhost:5432/database_test
 
 ```env
 RUST_LOG=info
+DB_MAX_CONNECTIONS=20
+ENABLE_BOOTSTRAP_ROOT=false
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=your_database_name
@@ -336,10 +340,14 @@ DB_PASSWORD=your_database_password
 - `DATABASE_URL`: conexão principal com PostgreSQL.
 - `SERVER_ADDR`: bind HTTP da aplicação.
 - `JWT_SECRET`: segredo de assinatura/validação dos tokens JWT.
+- `JWT_ISSUER`: emissor esperado nos tokens JWT.
+- `JWT_AUDIENCE`: audiência esperada nos tokens JWT.
 - `API_KEY`: chave exigida no header `api_key`.
 - `DATABASE_TEST_URL`: banco usado na suíte de integração.
 - `RUST_LOG`: nível de log.
-- `DB_*`: úteis em docker-compose/interpolação; não são lidas diretamente por `Config::from_env`.
+- `DB_MAX_CONNECTIONS`: tamanho máximo do pool de conexões com o banco.
+- `ENABLE_BOOTSTRAP_ROOT`: quando `true`, cria/atualiza o usuário administrador inicial no boot.
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`: úteis em docker-compose/interpolação.
 
 ---
 
