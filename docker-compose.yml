@@ -17,7 +17,11 @@ services:
     networks:
       - nupevid_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nupevid_user} -d ${DB_NAME:-nupevid}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-nupevid_user} -d ${DB_NAME:-nupevid}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,6 +43,7 @@ services:
       RUST_LOG: info
     networks:
       - nupevid_network
+      - dev_default
 
 volumes:
   postgres_data:
@@ -47,3 +52,5 @@ volumes:
 networks:
   nupevid_network:
     driver: bridge
+  dev_default:
+    external: true
