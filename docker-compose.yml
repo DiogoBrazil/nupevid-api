@@ -49,8 +49,26 @@ services:
       - nupevid_network
       - dev_default
 
+  logstreamer:
+    image: sgtribeiro/logstreamer:latest
+    container_name: nupevid_logstreamer
+    restart: unless-stopped
+    ports:
+      - "${LOGSTREAMER_PORT:-8081}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - logstreamer_data:/data
+    environment:
+      ADMIN_USERNAME: ${LOGSTREAMER_ADMIN:-admin}
+      ADMIN_PASSWORD: ${LOGSTREAMER_PASSWORD:?set LOGSTREAMER_PASSWORD in .env}
+      JWT_SECRET: ${LOGSTREAMER_JWT_SECRET:-}
+      RUST_LOG: logstreamer=info
+      TZ: America/Porto_Velho
+
 volumes:
   postgres_data:
+    driver: local
+  logstreamer_data:
     driver: local
 
 networks:
