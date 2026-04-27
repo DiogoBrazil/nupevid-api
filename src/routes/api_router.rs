@@ -1,6 +1,6 @@
 use crate::routes::{
-    attendance_offenders, attendance_victims, auth, cities, offenders, protective_measures,
-    swagger, users, victims, work_sessions,
+    attendance_offenders, attendance_victims, auth, cities, machine_information, offenders,
+    protective_measures, swagger, users, victims, work_sessions,
 };
 use actix_web::web;
 
@@ -14,6 +14,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(attendance_victims::configure_routes)
                     .configure(auth::configure_routes)
                     .configure(cities::configure_routes)
+                    .configure(machine_information::configure_routes)
                     .configure(offenders::configure_routes)
                     .configure(protective_measures::configure_routes)
                     .configure(users::configure_routes)

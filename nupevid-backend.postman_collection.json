@@ -2861,6 +2861,39 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "machine-information",
+      "item": [
+        {
+          "name": "get machine information",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/machine-information",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "machine-information"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

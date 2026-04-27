@@ -3,10 +3,12 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 use crate::adapters::password_hasher::Argon2PasswordHasher;
+use crate::adapters::system_metrics::SysinfoSystemMetrics;
 use crate::adapters::token_generator::JwtTokenGenerator;
 use crate::config::config_env::Config;
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
+use crate::core::contracts::adapters::system_metrics::SystemMetricsPort;
 use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::contracts::repository::attendance_offenders::{
@@ -58,6 +60,9 @@ use crate::usecases::auth::{AuthUseCaseDependencies, LoginUseCase};
 use crate::usecases::cities::{
     CityUseCaseDependencies, CreateCityUseCase, DeleteCityByIdUseCase, GetAllCitiesUseCase,
     GetCityByIdUseCase, UpdateCityByIdUseCase,
+};
+use crate::usecases::machine_information::{
+    GetMachineInformationUseCase, MachineInformationUseCaseDependencies,
 };
 use crate::usecases::offenders::{
     CreateOffenderAddressUseCase, CreateOffenderPhoneUseCase, CreateOffenderUseCase,
@@ -141,6 +146,7 @@ impl AppDependencies {
     pub fn new(pool: PgPool, config: Config) -> Self {
         let password_hasher: Arc<dyn PasswordHasherPort> = Arc::new(Argon2PasswordHasher::new());
         let token_generator: Arc<dyn TokenGeneratorPort> = Arc::new(JwtTokenGenerator::new());
+        let system_metrics: Arc<dyn SystemMetricsPort> = Arc::new(SysinfoSystemMetrics::new());
 
         // Repositories
         let user_repository: Arc<dyn UserRepository> =
@@ -233,6 +239,9 @@ impl AppDependencies {
             Arc::clone(&work_session_read_repository),
             Arc::clone(&attendance_member_repository),
         );
+        let machine_information_usecase_deps =
+            MachineInformationUseCaseDependencies::new(Arc::clone(&system_metrics));
+
         let attendance_offender_usecase_deps = AttendanceOffenderUseCaseDependencies::new(
             Arc::clone(&attendance_offender_read_repository),
             Arc::clone(&attendance_offender_write_repository),
@@ -278,6 +287,11 @@ impl AppDependencies {
 
         // Auth
         register!(LoginUseCase::new(auth_usecase_deps));
+
+        // Machine information
+        register!(GetMachineInformationUseCase::new(
+            machine_information_usecase_deps
+        ));
 
         // Work sessions
         register!(CreateWorkSessionUseCase::new(

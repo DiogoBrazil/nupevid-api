@@ -6,6 +6,7 @@ use nupevid_api::app_factory::AppDependencies;
 use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::middleware::auth::AuthMiddleware;
 use nupevid_api::utils::seeder::seed_admin_user;
+use std::io::Write;
 use std::sync::Arc;
 
 #[actix_web::main]
@@ -13,8 +14,16 @@ async fn main() -> std::io::Result<()> {
     let env = Env::default().filter_or("RUST_LOG", "info,actix_web=info");
 
     Builder::from_env(env)
-        .format_timestamp_millis()
-        .format_module_path(true)
+        .format(|buf, record| {
+            let line = serde_json::json!({
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "level": record.level().to_string().to_lowercase(),
+                "target": record.target(),
+                "module": record.module_path().unwrap_or(""),
+                "message": record.args().to_string(),
+            });
+            writeln!(buf, "{}", line)
+        })
         .init();
 
     dotenv::dotenv().ok();
@@ -52,8 +61,8 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
-            .wrap(Logger::default())
             .wrap(AuthMiddleware)
+            .wrap(Logger::default())
             .configure(|cfg: &mut web::ServiceConfig| deps.configure(cfg))
     })
     .bind(server_addr)?
