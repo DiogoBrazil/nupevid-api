@@ -29,6 +29,8 @@ tags:
     description: "Gerenciamento de atendimentos aos agressores"
   - name: "Work Sessions"
     description: "Gerenciamento de sessões de trabalho e equipes"
+  - name: "Machine Information"
+    description: "Métricas de hardware/sistema da máquina onde a API está em execução"
 
 security:
   - bearerAuth: []
@@ -2245,6 +2247,150 @@ components:
         created_at:
           type: string
           format: date-time
+
+    # --- Machine Information Schemas ---
+    MachineCpuInfo:
+      type: object
+      required:
+        - name
+        - architecture
+        - physical_cores
+        - logical_cores
+        - percent
+        - temperature
+      properties:
+        name:
+          type: string
+          description: "Nome/marca do processador"
+          example: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        architecture:
+          type: string
+          description: "Arquitetura do processador"
+          example: "x86_64"
+        physical_cores:
+          type: integer
+          description: "Núcleos físicos"
+          example: 6
+        logical_cores:
+          type: integer
+          description: "Núcleos lógicos (threads)"
+          example: 12
+        percent:
+          type: number
+          format: float
+          description: "Uso de CPU em porcentagem (com duas casas decimais)"
+          example: 12.5
+        temperature:
+          type: string
+          description: |
+            Temperatura da CPU em graus Celsius (formatada com duas casas).
+            Retorna `\"Not available\"` quando o sistema operacional não expõe sensores.
+          example: "45.20"
+
+    MachineMemoryInfo:
+      type: object
+      required:
+        - total_gb
+        - available_gb
+        - used_gb
+        - percent
+        - free_percent
+      properties:
+        total_gb:
+          type: number
+          format: float
+          description: "Memória total em GB"
+          example: 31.2
+        available_gb:
+          type: number
+          format: float
+          description: "Memória disponível em GB"
+          example: 18.5
+        used_gb:
+          type: number
+          format: float
+          description: "Memória em uso em GB"
+          example: 12.7
+        percent:
+          type: number
+          format: float
+          description: "Percentual de memória em uso"
+          example: 40.71
+        free_percent:
+          type: number
+          format: float
+          description: "Percentual de memória disponível"
+          example: 59.29
+
+    MachineDiskInfo:
+      type: object
+      required:
+        - total_gb
+        - used_gb
+        - free_gb
+        - percent
+        - free_percent
+      properties:
+        total_gb:
+          type: number
+          format: float
+          description: "Tamanho total do disco em GB"
+          example: 500.0
+        used_gb:
+          type: number
+          format: float
+          description: "Espaço em uso em GB"
+          example: 320.0
+        free_gb:
+          type: number
+          format: float
+          description: "Espaço livre em GB"
+          example: 180.0
+        percent:
+          type: number
+          format: float
+          description: "Percentual em uso"
+          example: 64.0
+        free_percent:
+          type: number
+          format: float
+          description: "Percentual livre"
+          example: 36.0
+
+    MachineNetworkInfo:
+      type: object
+      required:
+        - ip
+      properties:
+        ip:
+          type: string
+          description: |
+            IP público externo da máquina (consultado em api.ipify.org).
+            Em ambiente offline retorna `\"Unable to obtain IP\"`.
+          example: "203.0.113.45"
+
+    MachineInformation:
+      type: object
+      required:
+        - cpu
+        - memory
+        - disk
+        - network
+        - uptime
+      properties:
+        cpu:
+          $ref: "#/components/schemas/MachineCpuInfo"
+        memory:
+          $ref: "#/components/schemas/MachineMemoryInfo"
+        disk:
+          $ref: "#/components/schemas/MachineDiskInfo"
+        network:
+          $ref: "#/components/schemas/MachineNetworkInfo"
+        uptime:
+          type: integer
+          format: int64
+          description: "Tempo de atividade do sistema em milissegundos"
+          example: 864000000
 
 paths:
   # === AUTH ENDPOINTS ===
@@ -8773,3 +8919,69 @@ paths:
                 error: "Not Found"
                 message: "Not Found: member not found"
                 status_code: 404
+
+  # === MACHINE INFORMATION ENDPOINTS ===
+  /machine-information:
+    get:
+      tags:
+        - "Machine Information"
+      summary: "Obter informações da máquina"
+      description: |
+        Retorna métricas em tempo real do host onde a API está em execução: CPU (nome, arquitetura, núcleos, uso, temperatura), memória (total/disponível/uso), disco (espaço total/usado/livre), IP público externo e uptime do sistema em milissegundos.
+        A coleta de CPU usa duas amostragens com intervalo de 500ms, portanto a requisição leva aproximadamente esse tempo. O IP externo é consultado em api.ipify.org; em ambiente offline retorna `"Unable to obtain IP"` sem falhar a requisição.
+      operationId: "getMachineInformation"
+      security:
+        - bearerAuth: []
+          api_key: []
+      responses:
+        "200":
+          description: "Métricas coletadas com sucesso"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Operation successful"
+                  status:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: "#/components/schemas/MachineInformation"
+              example:
+                message: "Operation successful"
+                status: 200
+                data:
+                  cpu:
+                    name: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+                    architecture: "x86_64"
+                    physical_cores: 6
+                    logical_cores: 12
+                    percent: 12.5
+                    temperature: "45.20"
+                  memory:
+                    total_gb: 31.2
+                    available_gb: 18.5
+                    used_gb: 12.7
+                    percent: 40.71
+                    free_percent: 59.29
+                  disk:
+                    total_gb: 500.0
+                    used_gb: 320.0
+                    free_gb: 180.0
+                    percent: 64.0
+                    free_percent: 36.0
+                  network:
+                    ip: "203.0.113.45"
+                  uptime: 864000000
+        "401":
+          description: "Token JWT ausente, inválido ou expirado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Unauthorized"
+                message: "Unauthorized"
+                status_code: 401
