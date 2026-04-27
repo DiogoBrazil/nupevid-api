@@ -30,8 +30,8 @@ services:
     build: .
     container_name: nupevid_api
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,14 +47,21 @@ services:
       RUST_LOG: info
     networks:
       - nupevid_network
-      - dev_default
+      - traefiknet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefiknet"
+      - "traefik.http.routers.nupevid-api.rule=Host(`nupevid-api.nexuslearn.com.br`)"
+      - "traefik.http.routers.nupevid-api.entrypoints=websecure"
+      - "traefik.http.routers.nupevid-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nupevid-api.loadbalancer.server.port=8080"
 
   logstreamer:
-    image: sgtribeiro/logstreamer:latest
+    image: sgtribeiro/logstreamer:0.2.0-subpath
     container_name: nupevid_logstreamer
     restart: unless-stopped
-    ports:
-      - "${LOGSTREAMER_PORT:-8081}:8080"
+    expose:
+      - "8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - logstreamer_data:/data
@@ -64,6 +71,42 @@ services:
       JWT_SECRET: ${LOGSTREAMER_JWT_SECRET:-}
       RUST_LOG: logstreamer=info
       TZ: America/Porto_Velho
+      BASE_PATH: /logstreamer
+    networks:
+      - traefiknet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefiknet"
+      - "traefik.http.routers.logstreamer.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/logstreamer`)"
+      - "traefik.http.routers.logstreamer.entrypoints=websecure"
+      - "traefik.http.routers.logstreamer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.logstreamer.priority=10"
+      - "traefik.http.services.logstreamer.loadbalancer.server.port=8080"
+
+  reverse-proxy:
+    image: traefik:v3.0
+    container_name: nupevid_traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=contato@nexuslearn.com.br"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - traefiknet
 
 volumes:
   postgres_data:
@@ -74,5 +117,5 @@ volumes:
 networks:
   nupevid_network:
     driver: bridge
-  dev_default:
+  traefiknet:
     external: true
