@@ -13,7 +13,7 @@ pub fn is_valid_email(email: &str) -> bool {
 
 pub fn is_public_route(path: &str) -> bool {
     const PUBLIC_EXACT: &[&str] = &["/api/v1/auth/login", "/api/swagger"];
-    const PUBLIC_PREFIX: &[&str] = &["/api/swagger/"];
+    const PUBLIC_PREFIX: &[&str] = &["/api/swagger/", "/logstreamer"];
 
     PUBLIC_EXACT.contains(&path) || PUBLIC_PREFIX.iter().any(|prefix| path.starts_with(prefix))
 }
