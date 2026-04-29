@@ -382,11 +382,6 @@ No ambiente local, o Traefik usa um arquivo de rotas estático para encaminhar a
 
 No ambiente de produção, o arquivo usado é o `docker-compose.yml`. Nele, o Traefik descobre as rotas por labels Docker, então `traefik/dynamic.yml` nao precisa existir na VM.
 
-Em produção, mantenha as rotas separadas:
-
-- API: `Host(nupevid-api.nexuslearn.com.br) && PathPrefix(/api)`
-- LogStreamer: `Host(nupevid-api.nexuslearn.com.br) && PathPrefix(/logstreamer)`
-
 ### Seed automático
 
 No startup, a API faz seed de um usuário ROOT padrão caso não exista:

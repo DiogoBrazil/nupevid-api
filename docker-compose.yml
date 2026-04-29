@@ -36,7 +36,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}}
+      DATABASE_URL: postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}
       SERVER_ADDR: 0.0.0.0:8080
       JWT_SECRET: ${JWT_SECRET:-default_secret_key_change_me}
       JWT_ISSUER: ${JWT_ISSUER:-nupevid-api}
@@ -51,10 +51,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefiknet"
-      - "traefik.http.routers.nupevid-api.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.nupevid-api.rule=Host(`nupevid-api.nexuslearn.com.br`)"
       - "traefik.http.routers.nupevid-api.entrypoints=websecure"
       - "traefik.http.routers.nupevid-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.nupevid-api.priority=1"
       - "traefik.http.services.nupevid-api.loadbalancer.server.port=8080"
 
   logstreamer:
@@ -72,13 +71,13 @@ services:
       JWT_SECRET: ${LOGSTREAMER_JWT_SECRET:-}
       RUST_LOG: logstreamer=info
       TZ: America/Porto_Velho
-      BASE_PATH: ${LOGSTREAMER_BASE_PATH:-/logstreamer}
+      BASE_PATH: /logstreamer
     networks:
       - traefiknet
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefiknet"
-      - "traefik.http.routers.logstreamer.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`${LOGSTREAMER_BASE_PATH:-/logstreamer}`)"
+      - "traefik.http.routers.logstreamer.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/logstreamer`)"
       - "traefik.http.routers.logstreamer.entrypoints=websecure"
       - "traefik.http.routers.logstreamer.tls.certresolver=letsencrypt"
       - "traefik.http.routers.logstreamer.priority=100"
@@ -99,7 +98,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      - "--log.level=DEBUG"
     ports:
       - "80:80"
       - "443:443"
