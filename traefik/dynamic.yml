@@ -1,0 +1,26 @@
+http:
+  routers:
+    logstreamer:
+      entryPoints:
+        - web
+      rule: PathPrefix(`/logstreamer`)
+      priority: 10
+      service: logstreamer
+
+    api:
+      entryPoints:
+        - web
+      rule: PathPrefix(`/`)
+      priority: 1
+      service: api
+
+  services:
+    logstreamer:
+      loadBalancer:
+        servers:
+          - url: http://logstreamer:8080
+
+    api:
+      loadBalancer:
+        servers:
+          - url: http://api:8080
