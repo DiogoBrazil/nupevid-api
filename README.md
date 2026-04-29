@@ -309,6 +309,7 @@ Arquivo de referência: `.env.example`
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/database
+DOCKER_DATABASE_URL=postgresql://user:password@postgres:5432/database
 SERVER_ADDR=0.0.0.0:8080
 JWT_SECRET=your_jwt_secret_key_here
 JWT_ISSUER=nupevid-api
@@ -338,6 +339,7 @@ DB_PASSWORD=your_database_password
 ### Explicação
 
 - `DATABASE_URL`: conexão principal com PostgreSQL.
+- `DOCKER_DATABASE_URL`: conexão usada pela API quando executada dentro do `docker compose`; normalmente usa host `postgres` em vez de `localhost`.
 - `SERVER_ADDR`: bind HTTP da aplicação.
 - `JWT_SECRET`: segredo de assinatura/validação dos tokens JWT.
 - `JWT_ISSUER`: emissor esperado nos tokens JWT.
@@ -371,7 +373,19 @@ http://<SERVER_ADDR>/api/v1
 docker compose up --build
 ```
 
-Observação: o `docker-compose.yml` referencia `./scripts/init-db.sql`. Se esse arquivo não existir no ambiente, ajuste/remova esse bind mount antes de subir a stack.
+Isso sobe a stack local com o Traefik como porta de entrada em `http://localhost:8080`.
+
+- API: `http://localhost:8080/api/v1`
+- LogStreamer: `http://localhost:8080/logstreamer`
+ 
+No ambiente local, o Traefik usa um arquivo de rotas estático para encaminhar as requisições para `api` e `logstreamer` na rede Docker interna.
+
+No ambiente de produção, o arquivo usado é o `docker-compose.yml`. Nele, o Traefik descobre as rotas por labels Docker, então `traefik/dynamic.yml` nao precisa existir na VM.
+
+Em produção, mantenha as rotas separadas:
+
+- API: `Host(nupevid-api.nexuslearn.com.br) && PathPrefix(/api)`
+- LogStreamer: `Host(nupevid-api.nexuslearn.com.br) && PathPrefix(/logstreamer)`
 
 ### Seed automático
 
