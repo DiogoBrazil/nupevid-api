@@ -4,12 +4,15 @@ use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::commands::auth::Login;
-use crate::core::contracts::adapters::token_generator::TokenClaimsInput;
 use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::entities::auth::ClientMetadata;
 use crate::core::read_models::work_sessions::WorkSessionWithMemberDetails;
 use crate::core::responses::auth::LoginResponse;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
+use crate::usecases::auth::helpers::{
+    AccessTokenSubject, build_new_refresh_token, issue_access_token,
+};
 
 pub struct LoginUseCase {
     deps: AuthUseCaseDependencies,
@@ -20,7 +23,11 @@ impl LoginUseCase {
         Self { deps }
     }
 
-    pub async fn execute(&self, data: Login) -> Result<LoginResponse, AppError> {
+    pub async fn execute(
+        &self,
+        data: Login,
+        metadata: ClientMetadata,
+    ) -> Result<LoginResponse, AppError> {
         let normalized_email = data.email.trim().to_lowercase();
         info!(
             "[LoginUseCase] Starting login process with email: {}",
@@ -63,27 +70,38 @@ impl LoginUseCase {
             }
         }
 
-        let user_id = user.id.to_string();
-        let email = user.email.to_string();
-        let city_id = user.city_id.map(|id| id.to_string());
-        let token = self
-            .deps
-            .token_generator
-            .generate_token(
-                TokenClaimsInput {
-                    id: &user_id,
-                    rank: &user.rank,
-                    registration: &user.registration,
-                    full_name: &user.full_name,
-                    profile: &user.profile,
-                    email: &email,
-                    city_id: city_id.as_deref(),
-                    issuer: &self.deps.config.jwt_issuer,
-                    audience: &self.deps.config.jwt_audience,
-                },
-                &self.deps.config.jwt_secret,
-            )
-            .map_err(|_| AppError::InternalServerError)?;
+        let (access_token, expires_in) = issue_access_token(
+            &*self.deps.token_generator,
+            &self.deps.config,
+            AccessTokenSubject {
+                id: user.id,
+                rank: &user.rank,
+                registration: &user.registration,
+                full_name: &user.full_name,
+                profile: &user.profile,
+                email: &user.email,
+                city_id: user.city_id,
+            },
+        )?;
+
+        let (new_refresh, refresh_token) = build_new_refresh_token(
+            &*self.deps.password_hasher,
+            user.id,
+            self.deps.config.refresh_token_ttl_seconds,
+            &metadata,
+        )?;
+
+        self.deps
+            .refresh_token_repository
+            .create_refresh_token(new_refresh)
+            .await
+            .map_err(|error| {
+                error!(
+                    "[LoginUseCase] Failed to persist refresh token for {}: {:?}",
+                    user.id, error
+                );
+                AppError::InternalServerError
+            })?;
 
         let work_session = if data.auto_create_session {
             self.resolve_login_work_session(user.id, &user.profile, user.city_id)
@@ -93,7 +111,10 @@ impl LoginUseCase {
         };
 
         Ok(LoginResponse {
-            token,
+            access_token,
+            refresh_token,
+            token_type: "Bearer".to_string(),
+            expires_in,
             id: user.id,
             full_name: user.full_name,
             email: user.email,
