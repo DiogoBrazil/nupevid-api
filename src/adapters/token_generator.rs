@@ -31,7 +31,7 @@ impl TokenGeneratorPort for JwtTokenGenerator {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize
-            + 24 * 3600;
+            + claims.expires_in_seconds.max(0) as usize;
 
         let claims = UserClaims {
             id: claims.id.to_string(),
