@@ -7,7 +7,10 @@ use crate::core::value_objects::ranks::Rank;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
-    pub token: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
     pub id: Uuid,
     pub full_name: String,
     pub email: String,
@@ -15,4 +18,17 @@ pub struct LoginResponse {
     pub registration: String,
     pub profile: Profile,
     pub work_session: Option<WorkSessionWithMemberDetails>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RefreshResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LogoutResponse {
+    pub message: String,
 }
