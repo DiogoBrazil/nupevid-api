@@ -11,6 +11,8 @@ pub struct Config {
     pub api_key: String,
     pub db_max_connections: u32,
     pub enable_bootstrap_root: bool,
+    pub access_token_ttl_seconds: i64,
+    pub refresh_token_ttl_seconds: i64,
 }
 
 #[derive(Debug)]
@@ -71,6 +73,15 @@ impl Config {
             .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
 
+        let access_token_ttl_seconds = env::var("ACCESS_TOKEN_TTL_SECONDS")
+            .unwrap_or_else(|_| "900".to_string())
+            .parse::<i64>()
+            .unwrap_or(900);
+        let refresh_token_ttl_seconds = env::var("REFRESH_TOKEN_TTL_SECONDS")
+            .unwrap_or_else(|_| "604800".to_string())
+            .parse::<i64>()
+            .unwrap_or(604800);
+
         Ok(Self {
             database_url,
             server_addr,
@@ -80,6 +91,8 @@ impl Config {
             api_key,
             db_max_connections,
             enable_bootstrap_root,
+            access_token_ttl_seconds,
+            refresh_token_ttl_seconds,
         })
     }
 }
