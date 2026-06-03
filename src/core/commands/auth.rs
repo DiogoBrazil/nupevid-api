@@ -12,3 +12,15 @@ pub struct Login {
 fn default_auto_create_session() -> bool {
     true
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LogoutRequest {
+    pub refresh_token: String,
+}
