@@ -4,6 +4,7 @@ pub mod attendance_offenders_integration_test;
 pub mod attendance_victims_integration_test;
 pub mod attendance_victims_validation_test;
 pub mod auth_login_test;
+pub mod auth_refresh_test;
 pub mod auth_validation_test;
 pub mod bug_fixes_regression_test;
 pub mod cities_integration_test;

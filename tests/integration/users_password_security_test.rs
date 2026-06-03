@@ -83,7 +83,7 @@ async fn city_admin_cannot_change_other_city_admin_password(pool: PgPool) {
 
     let login_resp_a = test::call_service(&app, login_req_a).await;
     let login_body_a: serde_json::Value = test::read_body_json(login_resp_a).await;
-    let admin_a_token = login_body_a["data"]["token"].as_str().unwrap();
+    let admin_a_token = login_body_a["data"]["access_token"].as_str().unwrap();
 
     // Admin A tries to change Admin B's password (knowing Admin B's current password)
     let change_password_payload = serde_json::json!({
@@ -198,7 +198,7 @@ async fn city_user_cannot_change_other_city_user_password(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user1_token = login_body["data"]["token"].as_str().unwrap();
+    let user1_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // User 1 tries to change User 2's password
     let change_password_payload = serde_json::json!({
@@ -288,7 +288,7 @@ async fn user_can_change_own_password(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // User changes their OWN password (should work)
     let change_password_payload = serde_json::json!({
@@ -517,7 +517,7 @@ async fn city_admin_can_reset_password_for_user_in_same_city(pool: PgPool) {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let admin_token = login_body["data"]["token"].as_str().unwrap();
+    let admin_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
@@ -545,7 +545,7 @@ async fn city_admin_can_reset_password_for_user_in_same_city(pool: PgPool) {
     let temp_login_body: serde_json::Value = test::read_body_json(temp_login_resp).await;
     assert_eq!(temp_login_body["data"]["id"].as_str().unwrap(), user_id);
     assert!(
-        !temp_login_body["data"]["token"]
+        !temp_login_body["data"]["access_token"]
             .as_str()
             .unwrap()
             .is_empty()
@@ -622,7 +622,7 @@ async fn city_admin_cannot_reset_password_for_user_in_other_city(pool: PgPool) {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let admin_token = login_body["data"]["token"].as_str().unwrap();
+    let admin_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
@@ -705,7 +705,7 @@ async fn city_user_cannot_reset_passwords(pool: PgPool) {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let actor_token = login_body["data"]["token"].as_str().unwrap();
+    let actor_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", target_user_id)),

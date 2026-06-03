@@ -433,7 +433,7 @@ async fn update_password_with_empty_current_password_fails(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Try to update password with empty current_password
     let password_payload = serde_json::json!({
@@ -514,7 +514,7 @@ async fn update_password_with_empty_new_password_fails(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let password_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()

@@ -38,7 +38,7 @@ async fn test_update_password_success(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Update password
     let password_data = fixtures::valid_update_password();
@@ -107,7 +107,7 @@ async fn test_update_password_incorrect_current(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Try to update password with INCORRECT current password
     let password_data = fixtures::invalid_update_password();
@@ -178,7 +178,7 @@ async fn test_update_password_does_not_affect_other_users(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let password_data = fixtures::valid_update_password();
     let req = test_helpers::with_auth_headers(
@@ -248,7 +248,7 @@ async fn test_update_password_empty_fields(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
@@ -320,7 +320,7 @@ async fn test_non_root_must_provide_current_password(pool: PgPool) {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Try to update password WITHOUT providing current_password
     let password_data = serde_json::json!({

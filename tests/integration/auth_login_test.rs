@@ -53,7 +53,7 @@ async fn login_success_root_user(pool: PgPool) {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(body["data"]["id"].as_str().is_some());
     assert_eq!(body["data"]["email"].as_str().unwrap(), email);
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Test User");
@@ -154,7 +154,7 @@ async fn login_with_auto_create_session_true_creates_work_session(pool: PgPool) 
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_object(),
         "work_session should be an object"
@@ -255,7 +255,7 @@ async fn login_with_auto_create_session_false_does_not_create_session(pool: PgPo
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_null(),
         "work_session should be null when auto_create_session is false"
@@ -309,7 +309,7 @@ async fn login_with_auto_create_session_returns_existing_active_session(pool: Pg
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_object(),
         "work_session should be an object"
