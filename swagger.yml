@@ -2024,7 +2024,6 @@ components:
         - attendance_time
         - is_remote
         - assaults_children
-        - violence_aggravator
       properties:
         protective_measure_id:
           type: string
@@ -2036,7 +2035,7 @@ components:
         attendance_date:
           type: string
           format: date
-          description: "Data do atendimento"
+          description: "Data do atendimento. Não pode ser uma data futura."
           example: "2025-01-15"
         attendance_time:
           type: string
@@ -2054,12 +2053,14 @@ components:
           type: boolean
           description: "Indica se o agressor agride os filhos"
         violence_aggravator:
-          $ref: "#/components/schemas/ViolenceAggravator"
-          description: "Agravante da violência identificado"
+          allOf:
+            - $ref: "#/components/schemas/ViolenceAggravator"
+          nullable: true
+          description: "Agravante da violência identificado. Opcional."
         violence_aggravator_other:
           type: string
           nullable: true
-          description: "Descrição do agravante quando é 'Other'"
+          description: "Descrição livre do agravante. Obrigatório quando violence_aggravator é 'Other'; deve ser nulo/omitido caso contrário (envio incoerente retorna 400)."
         description:
           type: string
           nullable: true
@@ -2075,7 +2076,6 @@ components:
         - attendance_time
         - is_remote
         - assaults_children
-        - violence_aggravator
       properties:
         protective_measure_id:
           type: string
@@ -2087,7 +2087,7 @@ components:
         attendance_date:
           type: string
           format: date
-          description: "Data do atendimento"
+          description: "Data do atendimento. Não pode ser uma data futura."
         attendance_time:
           type: string
           format: time
@@ -2103,12 +2103,14 @@ components:
           type: boolean
           description: "Indica se o agressor agride os filhos"
         violence_aggravator:
-          $ref: "#/components/schemas/ViolenceAggravator"
-          description: "Agravante da violência identificado"
+          allOf:
+            - $ref: "#/components/schemas/ViolenceAggravator"
+          nullable: true
+          description: "Agravante da violência identificado. Opcional."
         violence_aggravator_other:
           type: string
           nullable: true
-          description: "Descrição do agravante quando é 'Other'"
+          description: "Descrição livre do agravante. Obrigatório quando violence_aggravator é 'Other'; deve ser nulo/omitido caso contrário (envio incoerente retorna 400)."
         description:
           type: string
           nullable: true
@@ -2133,7 +2135,6 @@ components:
         protective_measure_id:
           type: string
           format: uuid
-          nullable: true
           description: "ID da medida protetiva relacionada"
         was_offender_present:
           type: boolean
@@ -2153,12 +2154,14 @@ components:
           type: boolean
           description: "Indica se o agressor agride os filhos"
         violence_aggravator:
-          $ref: "#/components/schemas/ViolenceAggravator"
-          description: "Agravante da violência identificado"
+          allOf:
+            - $ref: "#/components/schemas/ViolenceAggravator"
+          nullable: true
+          description: "Agravante da violência identificado. Opcional."
         violence_aggravator_other:
           type: string
           nullable: true
-          description: "Descrição do agravante quando é 'Other'"
+          description: "Descrição livre do agravante, presente quando violence_aggravator é 'Other'"
         description:
           type: string
           nullable: true
