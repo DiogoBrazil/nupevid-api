@@ -12,6 +12,7 @@ pub struct TokenClaimsInput<'a> {
     pub city_id: Option<&'a str>,
     pub issuer: &'a str,
     pub audience: &'a str,
+    pub expires_in_seconds: i64,
 }
 
 pub trait TokenGeneratorPort: Send + Sync {

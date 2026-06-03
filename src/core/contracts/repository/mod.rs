@@ -6,6 +6,7 @@ pub mod cities;
 pub mod error;
 pub mod offenders;
 pub mod protective_measures;
+pub mod refresh_tokens;
 pub mod users;
 pub mod victims;
 pub mod work_sessions;
