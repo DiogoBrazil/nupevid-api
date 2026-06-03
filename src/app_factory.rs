@@ -25,6 +25,7 @@ use crate::core::contracts::repository::offenders::{
 use crate::core::contracts::repository::protective_measures::{
     ProtectiveMeasureReadRepository, ProtectiveMeasureWriteRepository,
 };
+use crate::core::contracts::repository::refresh_tokens::RefreshTokenRepository;
 use crate::core::contracts::repository::users::UserRepository;
 use crate::core::contracts::repository::victims::{VictimReadRepository, VictimWriteRepository};
 use crate::core::contracts::repository::work_sessions::{
@@ -37,7 +38,8 @@ use crate::repositories::{
     attendance_offenders::PgAttendanceOffenderRepository,
     attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
     cities::PgCityRepository, offenders::PgOffenderRepository,
-    protective_measures::PgProtectiveMeasureRepository, users::PgUserRepository,
+    protective_measures::PgProtectiveMeasureRepository,
+    refresh_tokens::PgRefreshTokenRepository, users::PgUserRepository,
     victims::PgVictimRepository, work_sessions::PgWorkSessionRepository,
 };
 use crate::routes::api_router::configure_routes;
@@ -56,7 +58,9 @@ use crate::usecases::attendance_victims::{
     GetAttendanceVictimsByVictimUseCase, RemoveAttendanceMemberUseCase,
     UpdateAttendanceVictimUseCase,
 };
-use crate::usecases::auth::{AuthUseCaseDependencies, LoginUseCase};
+use crate::usecases::auth::{
+    AuthUseCaseDependencies, LoginUseCase, LogoutUseCase, RefreshTokenUseCase,
+};
 use crate::usecases::cities::{
     CityUseCaseDependencies, CreateCityUseCase, DeleteCityByIdUseCase, GetAllCitiesUseCase,
     GetCityByIdUseCase, UpdateCityByIdUseCase,
@@ -153,6 +157,8 @@ impl AppDependencies {
             Arc::new(PgUserRepository::new(pool.clone()));
         let auth_repository: Arc<dyn AuthRepository> =
             Arc::new(PgAuthRepository::new(pool.clone()));
+        let refresh_token_repository: Arc<dyn RefreshTokenRepository> =
+            Arc::new(PgRefreshTokenRepository::new(pool.clone()));
         let city_repository: Arc<dyn CityRepository> =
             Arc::new(PgCityRepository::new(pool.clone()));
         let victim_repository = Arc::new(PgVictimRepository::new(pool.clone()));
@@ -201,6 +207,8 @@ impl AppDependencies {
         );
         let auth_usecase_deps = AuthUseCaseDependencies::new(
             Arc::clone(&auth_repository),
+            Arc::clone(&user_repository),
+            Arc::clone(&refresh_token_repository),
             Arc::clone(&work_session_read_repository),
             Arc::clone(&work_session_write_repository),
             Arc::clone(&config_arc),
@@ -286,7 +294,9 @@ impl AppDependencies {
         register!(DeleteCityByIdUseCase::new(city_usecase_deps.clone()));
 
         // Auth
-        register!(LoginUseCase::new(auth_usecase_deps));
+        register!(LoginUseCase::new(auth_usecase_deps.clone()));
+        register!(RefreshTokenUseCase::new(auth_usecase_deps.clone()));
+        register!(LogoutUseCase::new(auth_usecase_deps));
 
         // Machine information
         register!(GetMachineInformationUseCase::new(
