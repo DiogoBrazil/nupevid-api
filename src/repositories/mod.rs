@@ -8,6 +8,7 @@ pub mod models;
 pub mod offenders;
 pub mod protective_measures;
 pub mod queries;
+pub mod refresh_tokens;
 pub mod sqlx_types;
 pub mod users;
 pub mod victims;
