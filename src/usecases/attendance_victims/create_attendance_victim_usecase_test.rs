@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
@@ -186,4 +187,40 @@ async fn create_fails_when_policy_missing() {
         .await;
 
     assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+}
+
+#[tokio::test]
+async fn create_rejects_future_attendance_date() {
+    let city_id = Uuid::new_v4();
+    let requester_id = Uuid::new_v4();
+    let victim_id = Uuid::new_v4();
+    let offender_id = Uuid::new_v4();
+    let pm_id = Uuid::new_v4();
+
+    let (d, _) = deps(
+        FakeAttendanceVictimReadRepo { attendance: None },
+        FakeAttendanceVictimWriteRepo::internal(),
+        victim_repo_ok(victim_id, city_id),
+        FakePmReadRepo {
+            measure: Some(protective_measure(pm_id, victim_id, offender_id)),
+        },
+        user_repo_with_policy(city_id, Policy::CreateAttendances),
+        FakeWorkSessionReadRepo::without_session(),
+        FakeMemberRepo::idle(),
+    );
+    let usecase = CreateAttendanceVictimUseCase::new(d);
+
+    let mut command = create_command(pm_id);
+    command.attendance_date = NaiveDate::from_ymd_opt(2999, 1, 1).unwrap();
+
+    let result = usecase
+        .execute(
+            command,
+            &claims(Profile::CityAdmin, requester_id, Some(city_id)),
+        )
+        .await;
+
+    assert!(
+        matches!(result.unwrap_err(), AppError::BadRequest(msg) if msg.contains("attendance_date"))
+    );
 }

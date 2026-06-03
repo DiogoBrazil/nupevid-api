@@ -1,3 +1,4 @@
+pub mod attendance_validator;
 pub mod city_validator;
 pub mod common;
 pub mod cpf_validator;

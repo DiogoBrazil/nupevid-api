@@ -1,6 +1,8 @@
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::entities::attendance_offenders::ViolenceAggravator;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::attendance_offenders::CreateAttendanceOffenderUseCase;
@@ -167,4 +169,162 @@ async fn create_fails_when_policy_missing() {
         .await;
 
     assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+}
+
+#[tokio::test]
+async fn create_rejects_future_attendance_date() {
+    let city_id = Uuid::new_v4();
+    let requester_id = Uuid::new_v4();
+    let victim_id = Uuid::new_v4();
+    let offender_id = Uuid::new_v4();
+    let pm_id = Uuid::new_v4();
+
+    let (d, _) = deps(
+        FakeAttendanceOffenderReadRepo { attendance: None },
+        FakeAttendanceOffenderWriteRepo::internal(),
+        FakeOffenderReadRepo::found(offender_with_details(offender_id, city_id)),
+        victim_repo_ok(victim_id, city_id),
+        FakePmReadRepo {
+            measure: Some(protective_measure(pm_id, victim_id, offender_id)),
+        },
+        user_repo_with_policy(city_id, Policy::CreateAttendances),
+        FakeWorkSessionReadRepo::without_session(),
+        FakeMemberRepo::idle(),
+    );
+    let usecase = CreateAttendanceOffenderUseCase::new(d);
+
+    let mut command = create_command(pm_id);
+    command.attendance_date = NaiveDate::from_ymd_opt(2999, 1, 1).unwrap();
+
+    let result = usecase
+        .execute(
+            command,
+            &claims(Profile::CityAdmin, requester_id, Some(city_id)),
+        )
+        .await;
+
+    assert!(
+        matches!(result.unwrap_err(), AppError::BadRequest(msg) if msg.contains("attendance_date"))
+    );
+}
+
+#[tokio::test]
+async fn create_rejects_other_aggravator_without_text() {
+    let city_id = Uuid::new_v4();
+    let requester_id = Uuid::new_v4();
+    let victim_id = Uuid::new_v4();
+    let offender_id = Uuid::new_v4();
+    let pm_id = Uuid::new_v4();
+
+    let (d, _) = deps(
+        FakeAttendanceOffenderReadRepo { attendance: None },
+        FakeAttendanceOffenderWriteRepo::internal(),
+        FakeOffenderReadRepo::found(offender_with_details(offender_id, city_id)),
+        victim_repo_ok(victim_id, city_id),
+        FakePmReadRepo {
+            measure: Some(protective_measure(pm_id, victim_id, offender_id)),
+        },
+        user_repo_with_policy(city_id, Policy::CreateAttendances),
+        FakeWorkSessionReadRepo::without_session(),
+        FakeMemberRepo::idle(),
+    );
+    let usecase = CreateAttendanceOffenderUseCase::new(d);
+
+    let mut command = create_command(pm_id);
+    command.violence_aggravator = Some(ViolenceAggravator::Other);
+    command.violence_aggravator_other = None;
+
+    let result = usecase
+        .execute(
+            command,
+            &claims(Profile::CityAdmin, requester_id, Some(city_id)),
+        )
+        .await;
+
+    assert!(
+        matches!(result.unwrap_err(), AppError::BadRequest(msg) if msg.contains("is required"))
+    );
+}
+
+#[tokio::test]
+async fn create_rejects_other_text_without_other_aggravator() {
+    let city_id = Uuid::new_v4();
+    let requester_id = Uuid::new_v4();
+    let victim_id = Uuid::new_v4();
+    let offender_id = Uuid::new_v4();
+    let pm_id = Uuid::new_v4();
+
+    let (d, _) = deps(
+        FakeAttendanceOffenderReadRepo { attendance: None },
+        FakeAttendanceOffenderWriteRepo::internal(),
+        FakeOffenderReadRepo::found(offender_with_details(offender_id, city_id)),
+        victim_repo_ok(victim_id, city_id),
+        FakePmReadRepo {
+            measure: Some(protective_measure(pm_id, victim_id, offender_id)),
+        },
+        user_repo_with_policy(city_id, Policy::CreateAttendances),
+        FakeWorkSessionReadRepo::without_session(),
+        FakeMemberRepo::idle(),
+    );
+    let usecase = CreateAttendanceOffenderUseCase::new(d);
+
+    let mut command = create_command(pm_id);
+    command.violence_aggravator = Some(ViolenceAggravator::AlcoholUse);
+    command.violence_aggravator_other = Some("texto indevido".to_string());
+
+    let result = usecase
+        .execute(
+            command,
+            &claims(Profile::CityAdmin, requester_id, Some(city_id)),
+        )
+        .await;
+
+    assert!(
+        matches!(result.unwrap_err(), AppError::BadRequest(msg) if msg.contains("is only allowed"))
+    );
+}
+
+#[tokio::test]
+async fn create_succeeds_with_no_aggravator() {
+    let city_id = Uuid::new_v4();
+    let requester_id = Uuid::new_v4();
+    let victim_id = Uuid::new_v4();
+    let offender_id = Uuid::new_v4();
+    let pm_id = Uuid::new_v4();
+    let att_id = Uuid::new_v4();
+    let session_id = Uuid::new_v4();
+
+    let (d, _) = deps(
+        FakeAttendanceOffenderReadRepo { attendance: None },
+        FakeAttendanceOffenderWriteRepo::success(attendance_offender_entity(
+            att_id,
+            offender_id,
+            victim_id,
+        )),
+        FakeOffenderReadRepo::found(offender_with_details(offender_id, city_id)),
+        victim_repo_ok(victim_id, city_id),
+        FakePmReadRepo {
+            measure: Some(protective_measure(pm_id, victim_id, offender_id)),
+        },
+        user_repo_with_policy(city_id, Policy::CreateAttendances),
+        FakeWorkSessionReadRepo::with_session(
+            work_session_active(session_id, requester_id),
+            vec![session_member_entity(session_id, requester_id)],
+        ),
+        FakeMemberRepo::idle(),
+    );
+    let usecase = CreateAttendanceOffenderUseCase::new(d);
+
+    let mut command = create_command(pm_id);
+    command.violence_aggravator = None;
+    command.violence_aggravator_other = None;
+
+    let result = usecase
+        .execute(
+            command,
+            &claims(Profile::CityAdmin, requester_id, Some(city_id)),
+        )
+        .await;
+
+    assert!(result.is_ok());
 }

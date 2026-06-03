@@ -15,7 +15,7 @@ pub struct CreateAttendanceOffender {
     pub address: Option<AttendanceAddressData>,
     pub is_remote: bool,
     pub assaults_children: bool,
-    pub violence_aggravator: ViolenceAggravator,
+    pub violence_aggravator: Option<ViolenceAggravator>,
     pub violence_aggravator_other: Option<String>,
     pub description: Option<String>,
 }
@@ -30,7 +30,7 @@ pub struct UpdateAttendanceOffender {
     pub address: Option<AttendanceAddressData>,
     pub is_remote: bool,
     pub assaults_children: bool,
-    pub violence_aggravator: ViolenceAggravator,
+    pub violence_aggravator: Option<ViolenceAggravator>,
     pub violence_aggravator_other: Option<String>,
     pub description: Option<String>,
 }

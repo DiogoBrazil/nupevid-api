@@ -1,3 +1,4 @@
+use chrono::Local;
 use log::{error, info};
 
 use crate::core::application_error::ApplicationError as AppError;
@@ -12,6 +13,7 @@ use crate::usecases::attendance_victims::helpers::get_active_session_members;
 use crate::usecases::helpers_common::{
     get_protective_measure_or_not_found, get_victim_or_not_found,
 };
+use crate::validators::attendance_validator::AttendanceValidator;
 
 pub struct CreateAttendanceVictimUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -28,6 +30,11 @@ impl CreateAttendanceVictimUseCase {
         claims: &UserClaims,
     ) -> Result<AttendanceVictimWithAddress, AppError> {
         info!("[CreateAttendanceVictimUseCase] Creating attendance victim");
+
+        AttendanceValidator::validate_attendance_date_not_future(
+            attendance.attendance_date,
+            Local::now().date_naive(),
+        )?;
 
         let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,

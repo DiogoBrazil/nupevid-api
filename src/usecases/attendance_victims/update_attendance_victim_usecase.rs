@@ -1,3 +1,4 @@
+use chrono::Local;
 use log::error;
 use uuid::Uuid;
 
@@ -13,6 +14,7 @@ use crate::usecases::helpers_common::{
     get_attendance_victim_or_not_found, get_protective_measure_or_not_found,
     get_victim_or_not_found,
 };
+use crate::validators::attendance_validator::AttendanceValidator;
 
 pub struct UpdateAttendanceVictimUseCase {
     deps: AttendanceVictimUseCaseDependencies,
@@ -33,6 +35,11 @@ impl UpdateAttendanceVictimUseCase {
             "[UpdateAttendanceVictimUseCase] Updating attendance victim with ID: {}",
             id
         );
+
+        AttendanceValidator::validate_attendance_date_not_future(
+            data.attendance_date,
+            Local::now().date_naive(),
+        )?;
 
         let existing =
             get_attendance_victim_or_not_found(&*self.deps.attendance_victim_read_repository, id)
