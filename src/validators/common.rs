@@ -12,7 +12,12 @@ pub fn is_valid_email(email: &str) -> bool {
 }
 
 pub fn is_public_route(path: &str) -> bool {
-    const PUBLIC_EXACT: &[&str] = &["/api/v1/auth/login", "/api/swagger"];
+    const PUBLIC_EXACT: &[&str] = &[
+        "/api/v1/auth/login",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/logout",
+        "/api/swagger",
+    ];
     const PUBLIC_PREFIX: &[&str] = &["/api/swagger/", "/logstreamer"];
 
     PUBLIC_EXACT.contains(&path) || PUBLIC_PREFIX.iter().any(|prefix| path.starts_with(prefix))
@@ -85,6 +90,16 @@ mod tests {
     #[test]
     fn is_public_route_returns_true_for_swagger_exact() {
         assert!(is_public_route("/api/swagger"));
+    }
+
+    #[test]
+    fn is_public_route_returns_true_for_refresh_exact() {
+        assert!(is_public_route("/api/v1/auth/refresh"));
+    }
+
+    #[test]
+    fn is_public_route_returns_true_for_logout_exact() {
+        assert!(is_public_route("/api/v1/auth/logout"));
     }
 
     #[test]
