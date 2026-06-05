@@ -5689,6 +5689,20 @@ paths:
             type: boolean
             example: false
           description: "Quando true, retorna ProtectiveMeasureWithRelations (com victim, offender, court_district). Quando false/omitido, retorna ProtectiveMeasure."
+        - name: "victim_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtra as medidas protetivas pela vítima informada. Aplicado por cima do escopo de cidades permitidas."
+        - name: "offender_id"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Filtra as medidas protetivas pelo agressor informado. Combinável com victim_id (AND)."
       responses:
         "200":
           description: "Lista de medidas protetivas retornada com sucesso"
