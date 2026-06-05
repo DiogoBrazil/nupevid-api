@@ -17,12 +17,16 @@ pub trait ProtectiveMeasureReadRepository: Send + Sync {
     async fn get_protective_measures_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,
+        victim_id: Option<Uuid>,
+        offender_id: Option<Uuid>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<ProtectiveMeasure>, RepositoryError>;
     async fn count_protective_measures(
         &self,
         allowed_cities: Option<&[Uuid]>,
+        victim_id: Option<Uuid>,
+        offender_id: Option<Uuid>,
     ) -> Result<i64, RepositoryError>;
     async fn get_protective_measures_by_victim(
         &self,
