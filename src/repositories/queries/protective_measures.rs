@@ -28,8 +28,10 @@ impl ProtectiveMeasuresQueries {
         SELECT id, process_number, sei_process_number, occurrence_report_number, issued_at, judicial_authority, court_district_id, distance_meters, status, violence_types, relationship_to_victim, assaults_children, was_drunk_during_assault, victim_id, offender_id, created_at, updated_at, is_deleted
         FROM protective_measures
         WHERE is_deleted = false
+        AND ($1::uuid IS NULL OR victim_id = $1)
+        AND ($2::uuid IS NULL OR offender_id = $2)
         ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
+        LIMIT $3 OFFSET $4
     "#;
 
     pub const GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES: &'static str = r#"
@@ -38,14 +40,18 @@ impl ProtectiveMeasuresQueries {
         JOIN victims v ON v.id = pm.victim_id
         WHERE pm.is_deleted = false
         AND v.city_id = ANY($1)
+        AND ($2::uuid IS NULL OR pm.victim_id = $2)
+        AND ($3::uuid IS NULL OR pm.offender_id = $3)
         ORDER BY pm.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $4 OFFSET $5
     "#;
 
     pub const COUNT_PROTECTIVE_MEASURES: &'static str = r#"
         SELECT COUNT(1)
         FROM protective_measures
         WHERE is_deleted = false
+        AND ($1::uuid IS NULL OR victim_id = $1)
+        AND ($2::uuid IS NULL OR offender_id = $2)
     "#;
 
     pub const COUNT_PROTECTIVE_MEASURES_BY_CITIES: &'static str = r#"
@@ -54,6 +60,8 @@ impl ProtectiveMeasuresQueries {
         JOIN victims v ON v.id = pm.victim_id
         WHERE pm.is_deleted = false
         AND v.city_id = ANY($1)
+        AND ($2::uuid IS NULL OR pm.victim_id = $2)
+        AND ($3::uuid IS NULL OR pm.offender_id = $3)
     "#;
 
     pub const GET_PROTECTIVE_MEASURES_BY_VICTIM: &'static str = r#"

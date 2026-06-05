@@ -104,6 +104,8 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
     async fn get_protective_measures_paginated(
         &self,
         allowed_cities: Option<&[Uuid]>,
+        victim_id: Option<Uuid>,
+        offender_id: Option<Uuid>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
@@ -114,6 +116,8 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
                 ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED_BY_CITIES,
             )
             .bind(city_ids)
+            .bind(victim_id)
+            .bind(offender_id)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -122,6 +126,8 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
             None => sqlx::query_as::<_, ProtectiveMeasureRow>(
                 ProtectiveMeasuresQueries::GET_PROTECTIVE_MEASURES_PAGED,
             )
+            .bind(victim_id)
+            .bind(offender_id)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -141,16 +147,22 @@ impl ProtectiveMeasureReadRepository for PgProtectiveMeasureRepository {
     async fn count_protective_measures(
         &self,
         allowed_cities: Option<&[Uuid]>,
+        victim_id: Option<Uuid>,
+        offender_id: Option<Uuid>,
     ) -> Result<i64, RepositoryError> {
         let count: i64 = match allowed_cities {
             Some(city_ids) => {
                 sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES_BY_CITIES)
                     .bind(city_ids)
+                    .bind(victim_id)
+                    .bind(offender_id)
                     .fetch_one(&self.pool)
                     .await
                     .map_err(map_protective_measure_error)?
             }
             None => sqlx::query_scalar(ProtectiveMeasuresQueries::COUNT_PROTECTIVE_MEASURES)
+                .bind(victim_id)
+                .bind(offender_id)
                 .fetch_one(&self.pool)
                 .await
                 .map_err(map_protective_measure_error)?,
