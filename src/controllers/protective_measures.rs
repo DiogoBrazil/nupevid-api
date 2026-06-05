@@ -66,7 +66,9 @@ pub async fn get_all_protective_measures(
     let include = query.include_related_entities.unwrap_or(false);
     let claims = request_claims(&req)?;
     let pagination = request_pagination_from_parts(query.page, query.page_size);
-    let result = usecase.execute(pagination, &claims).await?;
+    let result = usecase
+        .execute(pagination, query.victim_id, query.offender_id, &claims)
+        .await?;
     let response = presenter
         .build_responses(
             result.items,
