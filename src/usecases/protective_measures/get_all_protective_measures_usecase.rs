@@ -1,4 +1,5 @@
 use log::info;
+use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_context::AuthContext;
@@ -21,6 +22,8 @@ impl GetAllProtectiveMeasuresUseCase {
     pub async fn execute(
         &self,
         pagination: Pagination,
+        victim_id: Option<Uuid>,
+        offender_id: Option<Uuid>,
         claims: &UserClaims,
     ) -> Result<PaginatedResult<ProtectiveMeasure>, AppError> {
         info!("[GetAllProtectiveMeasuresUseCase] Getting all protective measures");
@@ -31,7 +34,7 @@ impl GetAllProtectiveMeasuresUseCase {
         let total_items = self
             .deps
             .measure_read_repository
-            .count_protective_measures(allowed_cities.as_deref())
+            .count_protective_measures(allowed_cities.as_deref(), victim_id, offender_id)
             .await
             .map_err(|_| AppError::InternalServerError)?;
 
@@ -40,6 +43,8 @@ impl GetAllProtectiveMeasuresUseCase {
             .measure_read_repository
             .get_protective_measures_paginated(
                 allowed_cities.as_deref(),
+                victim_id,
+                offender_id,
                 pagination.page_size,
                 pagination.offset,
             )

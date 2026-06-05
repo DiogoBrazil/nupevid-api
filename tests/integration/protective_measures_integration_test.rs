@@ -467,3 +467,138 @@ async fn delete_protective_measure_soft_delete(pool: PgPool) {
     let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 }
+
+/// Seeds three measures in one city and returns the ids of the created entities:
+/// (victim_a, victim_b, offender_x, offender_y, m1, m2, m3) where
+/// m1=(victim_a, offender_x, Valid), m2=(victim_a, offender_y, Revoked), m3=(victim_b, offender_x, Valid).
+async fn seed_filter_data(pool: &PgPool) -> (Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
+    let city = db_fixtures::insert_city(pool, "Cidade Filtro Medidas").await;
+    let victim_a = db_fixtures::insert_victim(pool, "Vitima Filtro A", city).await;
+    let victim_b = db_fixtures::insert_victim(pool, "Vitima Filtro B", city).await;
+    let offender_x = db_fixtures::insert_offender(pool, "Agressor Filtro X", city).await;
+    let offender_y = db_fixtures::insert_offender(pool, "Agressor Filtro Y", city).await;
+
+    let m1 = db_fixtures::insert_protective_measure(pool, victim_a, offender_x, city, "Valid").await;
+    let m2 =
+        db_fixtures::insert_protective_measure(pool, victim_a, offender_y, city, "Revoked").await;
+    let m3 = db_fixtures::insert_protective_measure(pool, victim_b, offender_x, city, "Valid").await;
+
+    (victim_a, victim_b, offender_x, offender_y, m1, m2, m3)
+}
+
+fn response_ids(body: &serde_json::Value) -> Vec<String> {
+    body["data"]
+        .as_array()
+        .expect("data array")
+        .iter()
+        .map(|m| m["id"].as_str().expect("id").to_string())
+        .collect()
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_victim_id(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (victim_a, _victim_b, _offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get()
+            .uri(&format!("/api/v1/protective-measures?victim_id={}", victim_a)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m2.to_string()));
+    assert!(!ids.contains(&m3.to_string()));
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_offender_id(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (_victim_a, _victim_b, offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures?offender_id={}",
+            offender_x
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m3.to_string()));
+    assert!(!ids.contains(&m2.to_string()));
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_victim_and_offender(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (victim_a, _victim_b, offender_x, _offender_y, m1, _m2, _m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures?victim_id={}&offender_id={}",
+            victim_a, offender_x
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids, vec![m1.to_string()]);
+}
+
+#[sqlx::test]
+async fn list_protective_measures_without_filters_returns_all(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (_victim_a, _victim_b, _offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/protective-measures"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 3);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m2.to_string()));
+    assert!(ids.contains(&m3.to_string()));
+}

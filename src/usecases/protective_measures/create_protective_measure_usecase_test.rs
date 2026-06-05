@@ -199,6 +199,8 @@ impl ProtectiveMeasureReadRepository for FakeMeasureReadRepo {
     async fn get_protective_measures_paginated(
         &self,
         _allowed_cities: Option<&[Uuid]>,
+        _victim_id: Option<Uuid>,
+        _offender_id: Option<Uuid>,
         _limit: i64,
         _offset: i64,
     ) -> Result<Vec<ProtectiveMeasure>, RepositoryError> {
@@ -208,6 +210,8 @@ impl ProtectiveMeasureReadRepository for FakeMeasureReadRepo {
     async fn count_protective_measures(
         &self,
         _allowed_cities: Option<&[Uuid]>,
+        _victim_id: Option<Uuid>,
+        _offender_id: Option<Uuid>,
     ) -> Result<i64, RepositoryError> {
         unimplemented!()
     }
