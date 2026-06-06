@@ -245,10 +245,8 @@ components:
           example: 200
         data:
           type: object
-          properties:
-            message:
-              type: string
-              example: "Logged out"
+          nullable: true
+          example: null
 
     # --- Work Sessions Schemas ---
     TeamMemberFunction:
@@ -2622,8 +2620,7 @@ paths:
               example:
                 message: "Operation successful"
                 status: 200
-                data:
-                  message: "Logged out"
+                data: null
         "401":
           description: "Refresh token inválido"
           content:
@@ -8518,12 +8515,13 @@ paths:
                     type: integer
                     example: 200
                   data:
-                    type: string
-                    example: "Work session ended successfully"
+                    type: object
+                    nullable: true
+                    example: null
               example:
                 message: "Operation successful"
                 status: 200
-                data: "Work session ended successfully"
+                data: null
         "401":
           description: "Token JWT ausente, inválido ou expirado"
           content:
