@@ -57,6 +57,6 @@ pub async fn logout(
     usecase: web::Data<LogoutUseCase>,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to logout");
-    let response = usecase.execute(data.into_inner().refresh_token).await?;
-    Ok(success(response))
+    usecase.execute(data.into_inner().refresh_token).await?;
+    Ok(success(()))
 }

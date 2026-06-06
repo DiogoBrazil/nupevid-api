@@ -2,7 +2,6 @@ use log::{error, info};
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
-use crate::core::responses::auth::LogoutResponse;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
 use crate::usecases::auth::helpers::parse_refresh_token;
 
@@ -15,7 +14,7 @@ impl LogoutUseCase {
         Self { deps }
     }
 
-    pub async fn execute(&self, refresh_token: String) -> Result<LogoutResponse, AppError> {
+    pub async fn execute(&self, refresh_token: String) -> Result<(), AppError> {
         info!("[LogoutUseCase] Processing logout / refresh token revocation");
 
         let (token_id, secret) = parse_refresh_token(&refresh_token)?;
@@ -66,8 +65,6 @@ impl LogoutUseCase {
             stored.id, stored.user_id
         );
 
-        Ok(LogoutResponse {
-            message: "Logged out".to_string(),
-        })
+        Ok(())
     }
 }

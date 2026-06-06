@@ -27,8 +27,3 @@ pub struct RefreshResponse {
     pub token_type: String,
     pub expires_in: i64,
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct LogoutResponse {
-    pub message: String,
-}
