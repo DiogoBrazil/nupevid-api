@@ -44,6 +44,7 @@ services:
       API_KEY: ${API_KEY:-default_api_key_change_me}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
       ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
       RUST_LOG: info
     networks:
       - nupevid_network
