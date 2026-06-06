@@ -279,9 +279,15 @@ Opção B: com Docker
 docker compose up -d postgres
 ```
 
-### 4) Rodar migrações (obrigatório)
+### 4) Rodar migrações
 
-A aplicação **não** executa migrações automaticamente em runtime. Execute antes de iniciar a API.
+Por padrão, a aplicação **executa as migrações pendentes automaticamente no startup**
+(`RUN_MIGRATIONS_ON_STARTUP=true`). As migrations são embutidas no binário em tempo de compilação
+(`sqlx::migrate!`), então nada além do banco acessível é necessário — inclusive no container Docker.
+A execução é idempotente (controlada pela tabela `_sqlx_migrations`).
+
+Para gerenciar as migrações externamente, defina `RUN_MIGRATIONS_ON_STARTUP=false` e aplique-as
+manualmente **antes** de iniciar a API.
 
 Com `sqlx-cli`:
 
@@ -349,6 +355,7 @@ DB_PASSWORD=your_database_password
 - `RUST_LOG`: nível de log.
 - `DB_MAX_CONNECTIONS`: tamanho máximo do pool de conexões com o banco.
 - `ENABLE_BOOTSTRAP_ROOT`: quando `true`, cria/atualiza o usuário administrador inicial no boot.
+- `RUN_MIGRATIONS_ON_STARTUP`: quando `true` (padrão), aplica as migrações pendentes no startup; `false` para gerenciá-las externamente.
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`: úteis em docker-compose/interpolação.
 
 ---
