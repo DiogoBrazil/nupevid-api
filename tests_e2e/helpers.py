@@ -7,7 +7,7 @@ import requests
 
 
 BASE = os.environ.get("NUPEVID_E2E_BASE", "http://localhost:8080/api/v1")
-API_KEY = os.environ.get("NUPEVID_E2E_API_KEY", "0eaccfd1...")
+API_KEY = os.environ.get("NUPEVID_E2E_API_KEY", "0eaccfd1fca...")
 
 # Run ID para evitar conflitos de dados entre execucoes.
 RUN_ID = str(time.time()).replace(".", "")[-6:]
