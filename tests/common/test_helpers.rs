@@ -30,6 +30,7 @@ pub fn build_test_config() -> Config {
         jwt_audience,
         db_max_connections: 5,
         enable_bootstrap_root: false,
+        run_migrations_on_startup: false,
         access_token_ttl_seconds: 900,
         refresh_token_ttl_seconds: 604800,
     }
