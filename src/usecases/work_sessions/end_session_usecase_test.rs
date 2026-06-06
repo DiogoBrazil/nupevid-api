@@ -30,12 +30,10 @@ async fn end_succeeds_when_caller_is_creator() {
         user_repo_with_policy(city_id, Policy::EndWorkSessions),
     ));
 
-    let msg = usecase
+    usecase
         .execute(&claims(Profile::CityAdmin, user_id, Some(city_id)))
         .await
         .unwrap();
-
-    assert!(msg.contains("ended"));
 }
 
 #[tokio::test]
@@ -62,12 +60,10 @@ async fn end_succeeds_when_caller_is_commander() {
         user_repo_with_policy(city_id, Policy::EndWorkSessions),
     ));
 
-    let msg = usecase
+    usecase
         .execute(&claims(Profile::CityAdmin, commander_id, Some(city_id)))
         .await
         .unwrap();
-
-    assert!(msg.contains("ended"));
 }
 
 #[tokio::test]

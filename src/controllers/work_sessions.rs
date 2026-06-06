@@ -107,8 +107,8 @@ pub async fn end_session(
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to end work session");
     let claims = request_claims(&req)?;
-    let message = usecase.execute(&claims).await?;
-    Ok(success(message))
+    usecase.execute(&claims).await?;
+    Ok(success(()))
 }
 
 #[derive(Deserialize)]

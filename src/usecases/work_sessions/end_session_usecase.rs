@@ -18,7 +18,7 @@ impl EndSessionUseCase {
         Self { deps }
     }
 
-    pub async fn execute(&self, claims: &UserClaims) -> Result<String, AppError> {
+    pub async fn execute(&self, claims: &UserClaims) -> Result<(), AppError> {
         info!("[EndSessionUseCase] Ending session");
 
         let user_id = claims_user_id(claims)?;
@@ -58,6 +58,6 @@ impl EndSessionUseCase {
                 AppError::InternalServerError
             })?;
 
-        Ok("Work session ended successfully".to_string())
+        Ok(())
     }
 }
