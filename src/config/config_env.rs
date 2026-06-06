@@ -11,6 +11,7 @@ pub struct Config {
     pub api_key: String,
     pub db_max_connections: u32,
     pub enable_bootstrap_root: bool,
+    pub run_migrations_on_startup: bool,
     pub access_token_ttl_seconds: i64,
     pub refresh_token_ttl_seconds: i64,
 }
@@ -72,6 +73,9 @@ impl Config {
         let enable_bootstrap_root = env::var("ENABLE_BOOTSTRAP_ROOT")
             .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
+        let run_migrations_on_startup = env::var("RUN_MIGRATIONS_ON_STARTUP")
+            .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(true);
 
         let access_token_ttl_seconds = env::var("ACCESS_TOKEN_TTL_SECONDS")
             .unwrap_or_else(|_| "900".to_string())
@@ -91,6 +95,7 @@ impl Config {
             api_key,
             db_max_connections,
             enable_bootstrap_root,
+            run_migrations_on_startup,
             access_token_ttl_seconds,
             refresh_token_ttl_seconds,
         })

@@ -36,6 +36,15 @@ async fn main() -> std::io::Result<()> {
     let pool = init_database(&config.database_url, config.db_max_connections).await;
     info!("Database connection established");
 
+    if config.run_migrations_on_startup {
+        info!("Running database migrations...");
+        if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+            eprintln!("Migration error: {}", e);
+            std::process::exit(1);
+        }
+        info!("Database migrations applied");
+    }
+
     let deps = Arc::new(AppDependencies::new(pool.clone(), config.clone()));
     info!("Dependencies created");
 
