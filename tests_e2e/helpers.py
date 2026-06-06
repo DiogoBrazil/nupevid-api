@@ -7,7 +7,7 @@ import requests
 
 
 BASE = os.environ.get("NUPEVID_E2E_BASE", "http://localhost:8080/api/v1")
-API_KEY = os.environ.get("NUPEVID_E2E_API_KEY", "0eaccfd1fca....")
+API_KEY = os.environ.get("NUPEVID_E2E_API_KEY", "0eaccfd1...")
 
 # Run ID para evitar conflitos de dados entre execucoes.
 RUN_ID = str(time.time()).replace(".", "")[-6:]
@@ -28,10 +28,10 @@ def headers_api_key(api_key: Optional[str] = None):
     return {"api_key": api_key or API_KEY, "Content-Type": "application/json"}
 
 
-def headers_auth(token: str, api_key: Optional[str] = None):
+def headers_auth(access_token: str, api_key: Optional[str] = None):
     return {
         "api_key": api_key or API_KEY,
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
     }
 
@@ -75,9 +75,9 @@ def _body_preview(response):
         return response.text[:240]
 
 
-def do(method, path, token=None, json_data=None, params=None, expected=None, label=""):
+def do(method, path, access_token=None, json_data=None, params=None, expected=None, label=""):
     """Make a request and optionally assert status code."""
-    headers = headers_auth(token) if token else headers_api_key()
+    headers = headers_auth(access_token) if access_token else headers_api_key()
     return do_raw(method, path, headers=headers, json_data=json_data, params=params, expected=expected, label=label)
 
 
@@ -280,7 +280,7 @@ def login(email, password, auto_session=False, expected=None):
     )
     if response and response.status_code == 200:
         payload = data(response, f"login data for {email}") or {}
-        return payload.get("token"), payload.get("id"), payload
+        return payload.get("access_token"), payload.get("id"), payload
     if response:
         print(f"    login failed for {email}: {response.status_code} - {_body_preview(response)}")
     return None, None, None

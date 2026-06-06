@@ -73,7 +73,7 @@ def test_auth():
         label="login ROOT ok",
     )
     payload = data(response, "ROOT login payload") or {}
-    token = payload.get("token")
+    token = payload.get("access_token")
     root_id = payload.get("id")
     require_id(token, "ROOT login returns token")
     require_id(root_id, "ROOT login returns id")
@@ -103,8 +103,25 @@ def test_auth():
     return token, root_id
 
 
+def _purge_city(token, name):
+    """Soft-delete any leftover ACTIVE city with this fixed name (re-run safety).
+
+    City names come from a fixed allowlist (cannot use RUN_ID), so an aborted run
+    that left ARIQUEMES/PORTO VELHO active would block recreation with 400. Uses
+    `do(...)` without `expected`, so the purge does not record pass/fail in stats.
+    """
+    resp = do("GET", "cities", token, params={"page": 1, "page_size": 200})
+    body = resp.json() if resp is not None else {}
+    for city in body.get("data", []) or []:
+        if isinstance(city, dict) and city.get("name") == name and city.get("id"):
+            do("DELETE", f"cities/{city['id']}", token)  # sem expected -> não conta em stats
+
+
 def test_cities(token):
     section("CITIES (ROOT)")
+
+    _purge_city(token, "ARIQUEMES")
+    _purge_city(token, "PORTO VELHO")
 
     response = do(
         "POST",
