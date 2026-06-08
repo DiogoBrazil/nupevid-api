@@ -57,32 +57,32 @@ services:
       - "traefik.http.routers.nupevid-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.nupevid-api.loadbalancer.server.port=8080"
 
-  logstreamer:
-    image: sgtribeiro/logstreamer:0.2.0-subpath
-    container_name: nupevid_logstreamer
+  logdock:
+    image: sgtribeiro/logdock:0.1.0-subpath
+    container_name: nupevid_logdock
     restart: unless-stopped
     expose:
       - "8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - logstreamer_data:/data
+      - logdock_data:/data
     environment:
-      ADMIN_USERNAME: ${LOGSTREAMER_ADMIN:-admin}
-      ADMIN_PASSWORD: ${LOGSTREAMER_PASSWORD:?set LOGSTREAMER_PASSWORD in .env}
-      JWT_SECRET: ${LOGSTREAMER_JWT_SECRET:-}
-      RUST_LOG: logstreamer=info
+      ADMIN_USERNAME: ${LOGDOCK_ADMIN:-admin}
+      ADMIN_PASSWORD: ${LOGDOCK_PASSWORD:?set LOGDOCK_PASSWORD in .env}
+      JWT_SECRET: ${LOGDOCK_JWT_SECRET:-}
+      RUST_LOG: logdock=info
       TZ: America/Porto_Velho
-      BASE_PATH: /logstreamer
+      BASE_PATH: /logdock
     networks:
       - traefiknet
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefiknet"
-      - "traefik.http.routers.logstreamer.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/logstreamer`)"
-      - "traefik.http.routers.logstreamer.entrypoints=websecure"
-      - "traefik.http.routers.logstreamer.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.logstreamer.priority=100"
-      - "traefik.http.services.logstreamer.loadbalancer.server.port=8080"
+      - "traefik.http.routers.logdock.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/logdock`)"
+      - "traefik.http.routers.logdock.entrypoints=websecure"
+      - "traefik.http.routers.logdock.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.logdock.priority=100"
+      - "traefik.http.services.logdock.loadbalancer.server.port=8080"
 
   reverse-proxy:
     image: traefik:v3.0
@@ -112,7 +112,7 @@ services:
 volumes:
   postgres_data:
     driver: local
-  logstreamer_data:
+  logdock_data:
     driver: local
 
 networks:

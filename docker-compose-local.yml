@@ -49,22 +49,22 @@ services:
       - nupevid_network
       - traefiknet
 
-  logstreamer:
-    image: sgtribeiro/logstreamer:0.2.0-subpath
-    container_name: nupevid_logstreamer
+  logdock:
+    image: sgtribeiro/logdock:0.1.0-subpath
+    container_name: nupevid_logdock
     restart: unless-stopped
     expose:
       - "8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - logstreamer_data:/data
+      - logdock_data:/data
     environment:
-      ADMIN_USERNAME: ${LOGSTREAMER_ADMIN:-admin}
-      ADMIN_PASSWORD: ${LOGSTREAMER_PASSWORD:?set LOGSTREAMER_PASSWORD in .env}
-      JWT_SECRET: ${LOGSTREAMER_JWT_SECRET:-}
-      RUST_LOG: logstreamer=info
+      ADMIN_USERNAME: ${LOGDOCK_ADMIN:-admin}
+      ADMIN_PASSWORD: ${LOGDOCK_PASSWORD:?set LOGDOCK_PASSWORD in .env}
+      JWT_SECRET: ${LOGDOCK_JWT_SECRET:-}
+      RUST_LOG: logdock=info
       TZ: America/Porto_Velho
-      BASE_PATH: /logstreamer
+      BASE_PATH: /logdock
     networks:
       - traefiknet
 
@@ -87,7 +87,7 @@ services:
 volumes:
   postgres_data:
     driver: local
-  logstreamer_data:
+  logdock_data:
     driver: local
 
 networks:
