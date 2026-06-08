@@ -17,7 +17,11 @@ services:
     networks:
       - nupevid_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nupevid_user} -d ${DB_NAME:-nupevid}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-nupevid_user} -d ${DB_NAME:-nupevid}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,8 +30,8 @@ services:
     build: .
     container_name: nupevid_api
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,15 +39,84 @@ services:
       DATABASE_URL: postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}
       SERVER_ADDR: 0.0.0.0:8080
       JWT_SECRET: ${JWT_SECRET:-default_secret_key_change_me}
+      JWT_ISSUER: ${JWT_ISSUER:-nupevid-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-nupevid-api}
       API_KEY: ${API_KEY:-default_api_key_change_me}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
+      ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
       RUST_LOG: info
     networks:
       - nupevid_network
+      - traefiknet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefiknet"
+      - "traefik.http.routers.nupevid-api.rule=Host(`nupevid-api.nexuslearn.com.br`)"
+      - "traefik.http.routers.nupevid-api.entrypoints=websecure"
+      - "traefik.http.routers.nupevid-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nupevid-api.loadbalancer.server.port=8080"
+
+  logdock:
+    image: sgtribeiro/logdock:0.1.0-subpath
+    container_name: nupevid_logdock
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - logdock_data:/data
+    environment:
+      ADMIN_USERNAME: ${LOGDOCK_ADMIN:-admin}
+      ADMIN_PASSWORD: ${LOGDOCK_PASSWORD:?set LOGDOCK_PASSWORD in .env}
+      JWT_SECRET: ${LOGDOCK_JWT_SECRET:-}
+      RUST_LOG: logdock=info
+      TZ: America/Porto_Velho
+      BASE_PATH: /logdock
+    networks:
+      - traefiknet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefiknet"
+      - "traefik.http.routers.logdock.rule=Host(`nupevid-api.nexuslearn.com.br`) && PathPrefix(`/logdock`)"
+      - "traefik.http.routers.logdock.entrypoints=websecure"
+      - "traefik.http.routers.logdock.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.logdock.priority=100"
+      - "traefik.http.services.logdock.loadbalancer.server.port=8080"
+
+  reverse-proxy:
+    image: traefik:v3.0
+    container_name: nupevid_traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=contato@nexuslearn.com.br"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - traefiknet
 
 volumes:
   postgres_data:
+    driver: local
+  logdock_data:
     driver: local
 
 networks:
   nupevid_network:
     driver: bridge
+  traefiknet:
+    external: true

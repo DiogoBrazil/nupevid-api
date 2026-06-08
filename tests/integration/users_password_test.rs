@@ -1,10 +1,9 @@
 use crate::common::{fixtures, test_helpers};
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
-#[actix_rt::test]
-async fn test_update_password_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -39,7 +38,7 @@ async fn test_update_password_success() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Update password
     let password_data = fixtures::valid_update_password();
@@ -60,10 +59,8 @@ async fn test_update_password_success() {
     assert_eq!(update_body["data"]["id"].as_str().unwrap(), user_id);
 }
 
-#[actix_rt::test]
-async fn test_update_password_incorrect_current() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_incorrect_current(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -110,7 +107,7 @@ async fn test_update_password_incorrect_current() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Try to update password with INCORRECT current password
     let password_data = fixtures::invalid_update_password();
@@ -136,10 +133,8 @@ async fn test_update_password_incorrect_current() {
     );
 }
 
-#[actix_rt::test]
-async fn test_update_password_does_not_affect_other_users() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_does_not_affect_other_users(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -183,7 +178,7 @@ async fn test_update_password_does_not_affect_other_users() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let password_data = fixtures::valid_update_password();
     let req = test_helpers::with_auth_headers(
@@ -213,10 +208,8 @@ async fn test_update_password_does_not_affect_other_users() {
     assert_eq!(other_login_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn test_update_password_empty_fields() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_update_password_empty_fields(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -255,7 +248,7 @@ async fn test_update_password_empty_fields() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::patch()
@@ -279,10 +272,8 @@ async fn test_update_password_empty_fields() {
     );
 }
 
-#[actix_rt::test]
-async fn test_non_root_must_provide_current_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_non_root_must_provide_current_password(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -329,7 +320,7 @@ async fn test_non_root_must_provide_current_password() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // Try to update password WITHOUT providing current_password
     let password_data = serde_json::json!({

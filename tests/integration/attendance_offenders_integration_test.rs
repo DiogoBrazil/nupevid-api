@@ -1,14 +1,13 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-fn build_attendance_offender_payload(offender_id: Uuid, victim_id: Uuid) -> serde_json::Value {
+fn build_attendance_offender_payload(pm_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -21,15 +20,9 @@ fn build_attendance_offender_payload(offender_id: Uuid, victim_id: Uuid) -> serd
     })
 }
 
-fn build_attendance_offender_payload_with_address(
-    offender_id: Uuid,
-    victim_id: Uuid,
-    city_id: Uuid,
-) -> serde_json::Value {
+fn build_attendance_offender_payload_with_address(pm_id: Uuid, city_id: Uuid) -> serde_json::Value {
     serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
@@ -49,10 +42,8 @@ fn build_attendance_offender_payload_with_address(
     })
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_success_for_offender_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_success_for_offender_in_own_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -60,6 +51,8 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -70,7 +63,7 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let payload = build_attendance_offender_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -100,10 +93,8 @@ async fn create_attendance_offender_success_for_offender_in_own_city() {
     );
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_with_address() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_with_address(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -111,6 +102,8 @@ async fn create_attendance_offender_with_address() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -122,7 +115,7 @@ async fn create_attendance_offender_with_address() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload_with_address(offender_id, victim_id, city);
+    let payload = build_attendance_offender_payload_with_address(pm_id, city);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -152,10 +145,8 @@ async fn create_attendance_offender_with_address() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_attendance_offender_for_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_attendance_offender_for_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -164,11 +155,13 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city() {
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_b, victim_b);
+    let payload = build_attendance_offender_payload(pm_b);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -182,10 +175,8 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn list_attendance_offenders_filtered_by_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_attendance_offenders_filtered_by_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -196,6 +187,10 @@ async fn list_attendance_offenders_filtered_by_city() {
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
     let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_a =
+        db_fixtures::insert_protective_measure(&pool, victim_a, offender_a, city_a, "Valid").await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     // Create ROOT user with work session
     let root_user_id =
@@ -207,8 +202,8 @@ async fn list_attendance_offenders_filtered_by_city() {
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
     // Create attendance for both offenders as ROOT
-    for (offender_id, victim_id) in [(offender_a, victim_a), (offender_b, victim_b)] {
-        let payload = build_attendance_offender_payload(offender_id, victim_id);
+    for pm_id in [pm_a, pm_b] {
+        let payload = build_attendance_offender_payload(pm_id);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -243,10 +238,8 @@ async fn list_attendance_offenders_filtered_by_city() {
     );
 }
 
-#[actix_rt::test]
-async fn get_attendance_offender_by_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offender_by_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -254,6 +247,8 @@ async fn get_attendance_offender_by_id() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -265,7 +260,7 @@ async fn get_attendance_offender_by_id() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let payload = build_attendance_offender_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -298,10 +293,8 @@ async fn get_attendance_offender_by_id() {
     );
 }
 
-#[actix_rt::test]
-async fn update_attendance_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_attendance_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -309,6 +302,8 @@ async fn update_attendance_offender() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -320,7 +315,7 @@ async fn update_attendance_offender() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let payload = build_attendance_offender_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -335,7 +330,7 @@ async fn update_attendance_offender() {
     let attendance_id = body["data"]["id"].as_str().unwrap();
 
     // Update
-    let mut update_payload = build_attendance_offender_payload(offender_id, victim_id);
+    let mut update_payload = build_attendance_offender_payload(pm_id);
     update_payload["description"] = serde_json::Value::String("Descrição atualizada".to_string());
     update_payload["assaults_children"] = serde_json::Value::Bool(false);
 
@@ -359,10 +354,8 @@ async fn update_attendance_offender() {
     assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), false);
 }
 
-#[actix_rt::test]
-async fn update_attendance_offender_change_victim_requires_permission_on_new_victim_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_attendance_offender_change_victim_requires_permission_on_new_victim_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -372,6 +365,11 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+    let pm_a =
+        db_fixtures::insert_protective_measure(&pool, victim_a, offender_a, city_a, "Valid").await;
+    // PM linking offender_a (city_a) to victim_b (city_b) — court_district set to city_b
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_a, city_b, "Valid").await;
 
     let root_user_id =
         db_fixtures::insert_user(&pool, "100050001", "root.attendance@test.com", "ROOT", None)
@@ -382,7 +380,7 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     root_claims.id = root_user_id.to_string();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    let create_payload = build_attendance_offender_payload(offender_a, victim_a);
+    let create_payload = build_attendance_offender_payload(pm_a);
     let create_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -410,7 +408,7 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     admin_claims.id = acting_admin_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let update_payload = build_attendance_offender_payload(offender_a, victim_b);
+    let update_payload = build_attendance_offender_payload(pm_b);
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
             .uri(&format!("/api/v1/attendance-offenders/{}", attendance_id))
@@ -424,10 +422,8 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn delete_attendance_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_attendance_offender(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -435,6 +431,8 @@ async fn delete_attendance_offender() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -446,7 +444,7 @@ async fn delete_attendance_offender() {
     admin_claims.id = user_id.to_string();
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let payload = build_attendance_offender_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")
@@ -483,10 +481,8 @@ async fn delete_attendance_offender() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn get_attendance_offenders_by_offender_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offenders_by_offender_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -494,6 +490,8 @@ async fn get_attendance_offenders_by_offender_id() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -507,7 +505,7 @@ async fn get_attendance_offenders_by_offender_id() {
 
     // Create 2 attendances for the same offender
     for _ in 0..2 {
-        let payload = build_attendance_offender_payload(offender_id, victim_id);
+        let payload = build_attendance_offender_payload(pm_id);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -538,10 +536,8 @@ async fn get_attendance_offenders_by_offender_id() {
     assert_eq!(data.len(), 2);
 }
 
-#[actix_rt::test]
-async fn get_attendance_offenders_by_victim_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_attendance_offenders_by_victim_id(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -549,6 +545,8 @@ async fn get_attendance_offenders_by_victim_id() {
     let city = db_fixtures::insert_city(&pool, "Cidade A").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create user with work session
     let user_id =
@@ -562,7 +560,7 @@ async fn get_attendance_offenders_by_victim_id() {
 
     // Create 3 attendances for the same victim
     for _ in 0..3 {
-        let payload = build_attendance_offender_payload(offender_id, victim_id);
+        let payload = build_attendance_offender_payload(pm_id);
         let req = test_helpers::with_auth_headers(
             test::TestRequest::post()
                 .uri("/api/v1/attendance-offenders")
@@ -593,10 +591,8 @@ async fn get_attendance_offenders_by_victim_id() {
     assert_eq!(data.len(), 3);
 }
 
-#[actix_rt::test]
-async fn create_attendance_offender_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_offender_without_active_session_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -604,6 +600,9 @@ async fn create_attendance_offender_without_active_session_fails() {
     let city_id = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create CITY_ADMIN user WITHOUT creating work session (this is the key difference)
     // CITY_ADMIN has the necessary policies, so we can test the work session requirement
@@ -623,7 +622,7 @@ async fn create_attendance_offender_without_active_session_fails() {
     claims.id = user_id.to_string();
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
-    let payload = build_attendance_offender_payload(offender_id, victim_id);
+    let payload = build_attendance_offender_payload(pm_id);
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/attendance-offenders")

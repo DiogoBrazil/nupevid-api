@@ -1,11 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{fixtures, test_helpers};
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 
-#[actix_rt::test]
-async fn test_create_user_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -33,10 +34,8 @@ async fn test_create_user_success() {
     assert!(body["data"]["password"].is_null()); // Password should not be returned
 }
 
-#[actix_rt::test]
-async fn test_create_user_duplicate_email() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_duplicate_email(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -75,10 +74,8 @@ async fn test_create_user_duplicate_email() {
     assert!(body["message"].as_str().unwrap().contains("already exists"));
 }
 
-#[actix_rt::test]
-async fn test_create_user_duplicate_registration() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_duplicate_registration(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -119,10 +116,8 @@ async fn test_create_user_duplicate_registration() {
     assert!(body["message"].as_str().unwrap().contains("already exists"));
 }
 
-#[actix_rt::test]
-async fn test_create_user_invalid_email() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_invalid_email(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -152,10 +147,8 @@ async fn test_create_user_invalid_email() {
     );
 }
 
-#[actix_rt::test]
-async fn test_create_user_invalid_registration() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_invalid_registration(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -186,10 +179,8 @@ async fn test_create_user_invalid_registration() {
     assert!(body["message"].as_str().unwrap().contains("1000"));
 }
 
-#[actix_rt::test]
-async fn test_create_user_empty_fields() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_empty_fields(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -219,10 +210,8 @@ async fn test_create_user_empty_fields() {
     );
 }
 
-#[actix_rt::test]
-async fn test_create_user_unauthorized_without_token() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_create_user_unauthorized_without_token(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -238,10 +227,8 @@ async fn test_create_user_unauthorized_without_token() {
     assert!(result.is_err(), "Expected unauthorized error");
 }
 
-#[actix_rt::test]
-async fn test_city_user_cannot_create_users() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_city_user_cannot_create_users(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -267,17 +254,19 @@ async fn test_city_user_cannot_create_users() {
     let city_id: uuid::Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create CITY_USER claims
-    let city_user_claims = nupevid_api::core::entities::auth::ClaimsToUserToken {
+    let city_user_claims = nupevid_api::core::entities::auth::UserClaims {
         id: uuid::Uuid::new_v4().to_string(),
         exp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize
             + 3600,
-        rank: "SD PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::SdPm,
         registration: "100022000".to_string(),
         full_name: "City User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "city.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };
@@ -310,10 +299,8 @@ async fn test_city_user_cannot_create_users() {
     assert!(body["message"].as_str().unwrap().contains("CITY_USER"));
 }
 
-#[actix_rt::test]
-async fn test_city_admin_cannot_create_root() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_city_admin_cannot_create_root(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -368,10 +355,8 @@ async fn test_city_admin_cannot_create_root() {
     assert!(body["message"].as_str().unwrap().contains("ROOT"));
 }
 
-#[actix_rt::test]
-async fn test_city_admin_cannot_create_city_admin() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_city_admin_cannot_create_city_admin(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -427,10 +412,8 @@ async fn test_city_admin_cannot_create_city_admin() {
     assert!(body["message"].as_str().unwrap().contains("CITY_ADMIN"));
 }
 
-#[actix_rt::test]
-async fn test_city_admin_city_id_in_body_is_ignored() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_city_admin_city_id_in_body_is_ignored(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -503,10 +486,8 @@ async fn test_city_admin_city_id_in_body_is_ignored() {
     );
 }
 
-#[actix_rt::test]
-async fn test_city_admin_can_create_city_user_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_city_admin_can_create_city_user_in_own_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

@@ -1,19 +1,20 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 1 - Test 1: Create victim attendance without active session should fail
-#[actix_rt::test]
-async fn create_victim_attendance_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_victim_attendance_without_active_session_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
     let user_id =
         db_fixtures::insert_user(&pool, "100001", "user@test.com", "CITY_USER", Some(city)).await;
 
@@ -23,7 +24,7 @@ async fn create_victim_attendance_without_active_session_fails() {
     let user_token = test_helpers::generate_jwt(&user_claims, &config.jwt_secret);
 
     let payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -31,8 +32,6 @@ async fn create_victim_attendance_without_active_session_fails() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -58,17 +57,16 @@ async fn create_victim_attendance_without_active_session_fails() {
 }
 
 /// Phase 1 - Test 2: Create offender attendance without active session should fail
-#[actix_rt::test]
-async fn create_offender_attendance_without_active_session_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_offender_attendance_without_active_session_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Offender", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
     let user_id =
         db_fixtures::insert_user(&pool, "100002", "user2@test.com", "CITY_USER", Some(city)).await;
 
@@ -78,9 +76,7 @@ async fn create_offender_attendance_without_active_session_fails() {
     let user_token = test_helpers::generate_jwt(&user_claims, &config.jwt_secret);
 
     let payload = serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -107,16 +103,16 @@ async fn create_offender_attendance_without_active_session_fails() {
 }
 
 /// Phase 1 - Test 3: Verify attendance members are tracked correctly
-#[actix_rt::test]
-async fn attendance_tracks_all_session_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn attendance_tracks_all_session_members(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     // Create 3 users (use CITY_ADMIN for commander to have create_attendances permission)
     let commander_id = db_fixtures::insert_user(
@@ -184,7 +180,7 @@ async fn attendance_tracks_all_session_members() {
 
     // Create victim attendance
     let attendance_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -192,8 +188,6 @@ async fn attendance_tracks_all_session_members() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,

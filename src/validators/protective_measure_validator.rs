@@ -1,4 +1,6 @@
-use crate::utils::errors::AppError;
+use chrono::NaiveDate;
+
+use crate::core::application_error::ApplicationError as AppError;
 use crate::validators::common::validate_required_fields;
 
 pub struct ProtectiveMeasureValidator;
@@ -18,6 +20,18 @@ impl ProtectiveMeasureValidator {
             ],
             error_context,
         )
+    }
+
+    pub fn validate_issued_at_not_future(
+        issued_at: NaiveDate,
+        today: NaiveDate,
+    ) -> Result<(), AppError> {
+        if issued_at > today {
+            return Err(AppError::BadRequest(
+                "'issued_at' cannot be in the future".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 

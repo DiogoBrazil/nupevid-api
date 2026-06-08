@@ -1,13 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// User should NOT be able to change another user's password
 /// even if they know the current password
-#[actix_rt::test]
-async fn city_admin_cannot_change_other_city_admin_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_change_other_city_admin_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -84,7 +83,7 @@ async fn city_admin_cannot_change_other_city_admin_password() {
 
     let login_resp_a = test::call_service(&app, login_req_a).await;
     let login_body_a: serde_json::Value = test::read_body_json(login_resp_a).await;
-    let admin_a_token = login_body_a["data"]["token"].as_str().unwrap();
+    let admin_a_token = login_body_a["data"]["access_token"].as_str().unwrap();
 
     // Admin A tries to change Admin B's password (knowing Admin B's current password)
     let change_password_payload = serde_json::json!({
@@ -124,10 +123,8 @@ async fn city_admin_cannot_change_other_city_admin_password() {
     assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_change_other_city_user_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_change_other_city_user_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -201,7 +198,7 @@ async fn city_user_cannot_change_other_city_user_password() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user1_token = login_body["data"]["token"].as_str().unwrap();
+    let user1_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // User 1 tries to change User 2's password
     let change_password_payload = serde_json::json!({
@@ -241,10 +238,8 @@ async fn city_user_cannot_change_other_city_user_password() {
     assert_eq!(login_resp_b.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn user_can_change_own_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn user_can_change_own_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -293,7 +288,7 @@ async fn user_can_change_own_password() {
 
     let login_resp = test::call_service(&app, login_req).await;
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let user_token = login_body["data"]["token"].as_str().unwrap();
+    let user_token = login_body["data"]["access_token"].as_str().unwrap();
 
     // User changes their OWN password (should work)
     let change_password_payload = serde_json::json!({
@@ -331,10 +326,8 @@ async fn user_can_change_own_password() {
     assert_eq!(login2_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn root_can_change_any_user_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_can_change_any_user_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -390,10 +383,8 @@ async fn root_can_change_any_user_password() {
     );
 }
 
-#[actix_rt::test]
-async fn root_reset_password_allows_login_with_temporary_password() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_reset_password_allows_login_with_temporary_password(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -457,10 +448,8 @@ async fn root_reset_password_allows_login_with_temporary_password() {
     assert_eq!(login_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn city_admin_can_reset_password_for_user_in_same_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_can_reset_password_for_user_in_same_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -528,7 +517,7 @@ async fn city_admin_can_reset_password_for_user_in_same_city() {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let admin_token = login_body["data"]["token"].as_str().unwrap();
+    let admin_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
@@ -556,7 +545,7 @@ async fn city_admin_can_reset_password_for_user_in_same_city() {
     let temp_login_body: serde_json::Value = test::read_body_json(temp_login_resp).await;
     assert_eq!(temp_login_body["data"]["id"].as_str().unwrap(), user_id);
     assert!(
-        !temp_login_body["data"]["token"]
+        !temp_login_body["data"]["access_token"]
             .as_str()
             .unwrap()
             .is_empty()
@@ -565,10 +554,8 @@ async fn city_admin_can_reset_password_for_user_in_same_city() {
     assert_ne!(admin_id, user_id);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_reset_password_for_user_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_reset_password_for_user_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -635,7 +622,7 @@ async fn city_admin_cannot_reset_password_for_user_in_other_city() {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let admin_token = login_body["data"]["token"].as_str().unwrap();
+    let admin_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", user_id)),
@@ -652,10 +639,8 @@ async fn city_admin_cannot_reset_password_for_user_in_other_city() {
     );
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_reset_passwords() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_reset_passwords(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -720,7 +705,7 @@ async fn city_user_cannot_reset_passwords() {
     let login_resp = test::call_service(&app, login_req).await;
     assert_eq!(login_resp.status(), StatusCode::OK);
     let login_body: serde_json::Value = test::read_body_json(login_resp).await;
-    let actor_token = login_body["data"]["token"].as_str().unwrap();
+    let actor_token = login_body["data"]["access_token"].as_str().unwrap();
 
     let reset_req = test_helpers::with_auth_headers(
         test::TestRequest::post().uri(&format!("/api/v1/users/{}/password/reset", target_user_id)),

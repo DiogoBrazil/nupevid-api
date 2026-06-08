@@ -1,5 +1,8 @@
-use crate::utils::errors::AppError;
-use crate::validators::common::*;
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::value_objects::battalions::{VALID_BATTALIONS, is_valid_battalion};
+use crate::core::value_objects::cities::{VALID_CITIES, is_valid_city_name};
+use crate::core::value_objects::states::{VALID_STATES, is_valid_state};
+use crate::validators::common::validate_required_fields;
 
 pub struct CityValidator;
 

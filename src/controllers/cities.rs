@@ -2,23 +2,31 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 use uuid::Uuid;
 
-use crate::core::entities::cities::{CreateCity, UpdateCity};
-use crate::services::cities::CityService;
-use crate::utils::errors::AppError;
+use crate::core::application_error::ApplicationError as AppError;
+use crate::core::commands::cities::{CreateCity, UpdateCity};
+use crate::usecases::cities::{
+    CreateCityUseCase, DeleteCityByIdUseCase, GetAllCitiesUseCase, GetCityByIdUseCase,
+    UpdateCityByIdUseCase,
+};
+use crate::utils::controller_helpers::{
+    created, paginated, request_claims, request_pagination, success,
+};
 use crate::utils::pagination::PaginationParams;
 
 pub async fn create_city(
     city_data: web::Json<CreateCity>,
-    city_service: web::Data<CityService>,
+    usecase: web::Data<CreateCityUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to create city");
-    city_service.create_city(city_data.into_inner(), req).await
+    let claims = request_claims(&req)?;
+    let city = usecase.execute(city_data.into_inner(), &claims).await?;
+    Ok(created(city))
 }
 
 pub async fn get_city_by_id(
     path: web::Path<Uuid>,
-    city_service: web::Data<CityService>,
+    usecase: web::Data<GetCityByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
@@ -26,22 +34,27 @@ pub async fn get_city_by_id(
         "[Controller] Received request to get city with id: {}",
         city_id
     );
-    city_service.get_city_by_id(city_id, req).await
+    let claims = request_claims(&req)?;
+    let city = usecase.execute(city_id, &claims).await?;
+    Ok(success(city))
 }
 
 pub async fn get_all_cities(
     query: web::Query<PaginationParams>,
-    city_service: web::Data<CityService>,
+    usecase: web::Data<GetAllCitiesUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get all cities");
-    city_service.get_all_cities(query.into_inner(), req).await
+    let claims = request_claims(&req)?;
+    let pagination = request_pagination(&query.into_inner());
+    let result = usecase.execute(pagination, &claims).await?;
+    Ok(paginated(result))
 }
 
 pub async fn update_city_by_id(
     path: web::Path<Uuid>,
     city_data: web::Json<UpdateCity>,
-    city_service: web::Data<CityService>,
+    usecase: web::Data<UpdateCityByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
@@ -49,14 +62,16 @@ pub async fn update_city_by_id(
         "[Controller] Received request to update city with id: {}",
         city_id
     );
-    city_service
-        .update_city_by_id(city_data.into_inner(), city_id, req)
-        .await
+    let claims = request_claims(&req)?;
+    let city = usecase
+        .execute(city_data.into_inner(), city_id, &claims)
+        .await?;
+    Ok(success(city))
 }
 
 pub async fn delete_city_by_id(
     path: web::Path<Uuid>,
-    city_service: web::Data<CityService>,
+    usecase: web::Data<DeleteCityByIdUseCase>,
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     let city_id = path.into_inner();
@@ -64,5 +79,7 @@ pub async fn delete_city_by_id(
         "[Controller] Received request to delete city with id: {}",
         city_id
     );
-    city_service.delete_city_by_id(city_id, req).await
+    let claims = request_claims(&req)?;
+    let city = usecase.execute(city_id, &claims).await?;
+    Ok(success(city))
 }

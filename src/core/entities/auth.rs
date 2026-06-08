@@ -1,29 +1,17 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use super::work_sessions::WorkSessionWithMembers;
+use crate::core::value_objects::profiles::Profile;
+use crate::core::value_objects::ranks::Rank;
 
-#[derive(Serialize, Deserialize)]
-pub struct Login {
-    pub email: String,
-    pub password: String,
-    #[serde(default = "default_auto_create_session")]
-    pub auto_create_session: bool,
-}
-
-fn default_auto_create_session() -> bool {
-    true
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompleteUserData {
     pub id: Uuid,
-    pub rank: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub password: String,
     pub city_id: Option<Uuid>,
@@ -34,26 +22,52 @@ pub struct CompleteUserData {
     pub is_deleted: bool,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct LoginResponse {
-    pub token: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefreshToken {
     pub id: Uuid,
-    pub full_name: String,
-    pub email: String,
-    pub rank: String,
-    pub registration: String,
-    pub profile: String,
-    pub work_session: Option<WorkSessionWithMembers>,
+    pub user_id: Uuid,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub replaced_by_token_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
+}
+
+impl RefreshToken {
+    /// A refresh token is active when it has not been revoked and is not expired.
+    pub fn is_active(&self, now: DateTime<Utc>) -> bool {
+        self.revoked_at.is_none() && self.expires_at > now
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NewRefreshToken {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ClientMetadata {
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClaimsToUserToken {
+pub struct UserClaims {
     pub id: String,
     pub exp: usize,
-    pub rank: String,
+    pub iss: String,
+    pub aud: String,
+    pub rank: Rank,
     pub registration: String,
     pub full_name: String,
-    pub profile: String,
+    pub profile: Profile,
     pub email: String,
     pub city_id: Option<String>,
 }

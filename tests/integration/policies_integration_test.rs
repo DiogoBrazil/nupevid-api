@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use serde_json::json;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -15,7 +16,7 @@ fn build_token_for_user(
     city_id: Option<Uuid>,
     jwt_secret: &str,
 ) -> String {
-    let claims = nupevid_api::core::entities::auth::ClaimsToUserToken {
+    let claims = nupevid_api::core::entities::auth::UserClaims {
         id: id.to_string(),
         exp: {
             use std::time::{SystemTime, UNIX_EPOCH};
@@ -25,20 +26,20 @@ fn build_token_for_user(
                 .as_secs() as usize)
                 + 3600
         },
-        rank: rank.to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: rank.try_into().expect("Invalid rank"),
         registration: registration.to_string(),
         full_name: full_name.to_string(),
-        profile: profile.to_string(),
+        profile: profile.try_into().expect("Invalid profile"),
         email: email.to_string(),
         city_id: city_id.map(|c| c.to_string()),
     };
     test_helpers::generate_jwt(&claims, jwt_secret)
 }
 
-#[actix_rt::test]
-async fn root_cannot_assign_city_management_policies() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_cannot_assign_city_management_policies(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -92,10 +93,8 @@ async fn root_cannot_assign_city_management_policies() {
     }
 }
 
-#[actix_rt::test]
-async fn root_cannot_remove_city_management_policies() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_cannot_remove_city_management_policies(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -142,10 +141,8 @@ async fn root_cannot_remove_city_management_policies() {
     }
 }
 
-#[actix_rt::test]
-async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_city_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_city_user(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -323,10 +320,8 @@ async fn root_can_grant_extra_read_victims_to_city_admin_and_admin_assigns_to_ci
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_assign_policy_not_possessed() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_assign_policy_not_possessed(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -391,10 +386,8 @@ async fn city_admin_cannot_assign_policy_not_possessed() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_assign_policies() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_assign_policies(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -461,10 +454,8 @@ async fn city_user_cannot_assign_policies() {
     assert_eq!(create_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_user_read_cities_only_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_read_cities_only_own_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -522,10 +513,8 @@ async fn city_user_read_cities_only_own_city() {
     assert_eq!(cities[0]["id"].as_str().unwrap(), city_a.to_string());
 }
 
-#[actix_rt::test]
-async fn city_admin_with_extra_read_attendances_can_list_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_with_extra_read_attendances_can_list_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -608,18 +597,19 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
 
     // Cria vítima e atendimento em city_b
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_b, "Valid")
+            .await;
     let attendance_payload = json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2024-01-01",
         "attendance_time": "10:00:00",
         "description": "Atendimento B",
         "latitude": null,
         "longitude": null,
-        "address": null
-        ,
-        "offender_id": null,
-        "protective_measure_id": null,
+        "address": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -664,10 +654,8 @@ async fn city_admin_with_extra_read_attendances_can_list_other_city() {
     assert!(!list_body["data"].as_array().unwrap().is_empty());
 }
 
-#[actix_rt::test]
-async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_with_extra_read_protective_measures_can_list_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -791,10 +779,8 @@ async fn city_admin_with_extra_read_protective_measures_can_list_other_city() {
     assert!(!list_body["data"].as_array().unwrap().is_empty());
 }
 
-#[actix_rt::test]
-async fn invalid_policy_name_rejected_on_create_and_update_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn invalid_policy_name_rejected_on_create_and_update_user(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -824,7 +810,7 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     )
     .to_request();
     let create_resp = test::call_service(&app, create_req).await;
-    assert_eq!(create_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(create_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     // Cria usuário válido
     let valid_user = json!({
@@ -874,13 +860,11 @@ async fn invalid_policy_name_rejected_on_create_and_update_user() {
     )
     .to_request();
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(update_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[actix_rt::test]
-async fn update_protective_measure_changing_victim_requires_policy_in_both_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_protective_measure_changing_victim_requires_policy_in_both_cities(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1034,10 +1018,8 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
     assert_eq!(update_resp_ok.status(), 200);
 }
 
-#[actix_rt::test]
-async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_list_victims_only_allowed_cities_multi_extra(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1144,10 +1126,8 @@ async fn city_admin_list_victims_only_allowed_cities_multi_extra() {
     assert!(!cities.contains(&city_c.to_string()));
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_append_policies_via_endpoint() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_append_policies_via_endpoint(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1230,10 +1210,8 @@ async fn city_user_cannot_append_policies_via_endpoint() {
     assert_eq!(append_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_user_cannot_remove_policies_via_endpoint() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_user_cannot_remove_policies_via_endpoint(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1320,10 +1298,8 @@ async fn city_user_cannot_remove_policies_via_endpoint() {
     assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_admin_can_append_and_remove_policies_for_city_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_can_append_and_remove_policies_for_city_user(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1499,10 +1475,8 @@ async fn city_admin_can_append_and_remove_policies_for_city_user() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -1631,10 +1605,8 @@ async fn city_admin_cannot_append_policy_to_user_from_unauthorized_city() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_remove_policy_from_user_of_unauthorized_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

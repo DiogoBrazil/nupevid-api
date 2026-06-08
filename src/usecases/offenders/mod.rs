@@ -1,0 +1,40 @@
+pub mod create_offender_address_usecase;
+pub mod create_offender_phone_usecase;
+pub mod create_offender_usecase;
+pub mod delete_offender_address_usecase;
+pub mod delete_offender_phone_usecase;
+pub mod delete_offender_usecase;
+pub mod deps;
+pub mod get_all_offenders_usecase;
+pub mod get_offender_by_id_usecase;
+pub mod get_offenders_by_victim_usecase;
+pub mod helpers;
+mod normalization;
+#[cfg(test)]
+mod normalization_test;
+pub mod search_offenders_usecase;
+pub mod update_offender_address_usecase;
+pub mod update_offender_phone_usecase;
+pub mod update_offender_usecase;
+
+#[cfg(test)]
+mod create_offender_usecase_test;
+#[cfg(test)]
+mod test_support;
+#[cfg(test)]
+mod update_offender_usecase_test;
+
+pub use create_offender_address_usecase::CreateOffenderAddressUseCase;
+pub use create_offender_phone_usecase::CreateOffenderPhoneUseCase;
+pub use create_offender_usecase::CreateOffenderUseCase;
+pub use delete_offender_address_usecase::DeleteOffenderAddressUseCase;
+pub use delete_offender_phone_usecase::DeleteOffenderPhoneUseCase;
+pub use delete_offender_usecase::DeleteOffenderUseCase;
+pub use deps::OffenderUseCaseDependencies;
+pub use get_all_offenders_usecase::GetAllOffendersUseCase;
+pub use get_offender_by_id_usecase::GetOffenderByIdUseCase;
+pub use get_offenders_by_victim_usecase::GetOffendersByVictimUseCase;
+pub use search_offenders_usecase::SearchOffendersUseCase;
+pub use update_offender_address_usecase::UpdateOffenderAddressUseCase;
+pub use update_offender_phone_usecase::UpdateOffenderPhoneUseCase;
+pub use update_offender_usecase::UpdateOffenderUseCase;

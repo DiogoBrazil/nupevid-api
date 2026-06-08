@@ -1,24 +1,22 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{NaiveDate, NaiveTime};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn create_attendance_with_nonexistent_victim_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_attendance_with_nonexistent_protective_measure_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
 
-    let random_victim_id = Uuid::new_v4();
+    let random_pm_id = Uuid::new_v4();
 
     let payload = serde_json::json!({
-        "victim_id": random_victim_id,
+        "protective_measure_id": random_pm_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -26,8 +24,6 @@ async fn create_attendance_with_nonexistent_victim_returns_404() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -51,11 +47,8 @@ async fn create_attendance_with_nonexistent_victim_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn update_attendance_change_victim_requires_permission_on_both() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_attendance_change_victim_requires_permission_on_both(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -63,6 +56,12 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
     let victim_a = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
     let victim_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
+    let offender_a = db_fixtures::insert_offender(&pool, "Agressor A", city_a).await;
+    let offender_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
+    let pm_a =
+        db_fixtures::insert_protective_measure(&pool, victim_a, offender_a, city_a, "Valid").await;
+    let pm_b =
+        db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
     // Create root user in database
     let root_user_id =
@@ -76,7 +75,7 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
 
     // Create attendance for victim_a
     let payload = serde_json::json!({
-        "victim_id": victim_a,
+        "protective_measure_id": pm_a,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -84,8 +83,6 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -110,12 +107,12 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     let body: serde_json::Value = test::read_body_json(create_resp).await;
     let attendance_id = body["data"]["id"].as_str().unwrap();
 
-    // CITY_ADMIN for city_a tries to change victim to city_b
+    // CITY_ADMIN for city_a tries to change PM to one in city_b (which derives victim_b)
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let update_payload = serde_json::json!({
-        "victim_id": victim_b,
+        "protective_measure_id": pm_b,
         "was_victim_present": false,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 2, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(14, 0, 0).unwrap(),
@@ -123,8 +120,6 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,
@@ -148,16 +143,16 @@ async fn update_attendance_change_victim_requires_permission_on_both() {
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn update_nonexistent_attendance_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_nonexistent_attendance_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city = db_fixtures::insert_city(&pool, "Test City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
@@ -165,7 +160,7 @@ async fn update_nonexistent_attendance_returns_404() {
     let random_id = Uuid::new_v4();
 
     let update_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         "attendance_time": NaiveTime::from_hms_opt(10, 0, 0).unwrap(),
@@ -173,8 +168,6 @@ async fn update_nonexistent_attendance_returns_404() {
         "latitude": null,
         "longitude": null,
         "address": null,
-        "offender_id": null,
-        "protective_measure_id": null,
         "is_remote": false,
         "risk_level": null,
         "offender_freedom_status": null,

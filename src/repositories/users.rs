@@ -4,11 +4,36 @@ use serde_json::{Value as JsonValue, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::config::querys::users::UsersQueries;
+use super::models::users::UserRecordRow;
 use crate::core::{
-    contracts::repository::users::UserRepository,
-    entities::users::{CreateUser, UpdateUser, UserDataCreatedWithoutPassword},
+    commands::users::{CreateUser, UpdateUser},
+    contracts::repository::{error::RepositoryError, users::UserRepository},
+    entities::users::User,
+    value_objects::policies::PermissionPolicies,
 };
+use crate::repositories::queries::users::UsersQueries;
+
+use crate::repositories::error_mapper::map_sqlx_error;
+fn map_user_error(err: sqlx::Error) -> RepositoryError {
+    let base = map_sqlx_error(err);
+    match base {
+        RepositoryError::UniqueViolation { ref constraint } => {
+            if let Some(c) = constraint.as_deref()
+                && c.contains("registration")
+            {
+                return RepositoryError::DuplicateEntry("registration already exists".into());
+            }
+            base
+        }
+        RepositoryError::ForeignKeyViolation { ref constraint } => match constraint.as_deref() {
+            Some("fk_users_city") => {
+                RepositoryError::ReferencedEntityNotFound("City not found".into())
+            }
+            _ => base,
+        },
+        _ => base,
+    }
+}
 
 #[derive(Clone)]
 pub struct PgUserRepository {
@@ -23,10 +48,7 @@ impl PgUserRepository {
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
-    async fn create_user(
-        &self,
-        user: CreateUser,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    async fn create_user(&self, user: CreateUser) -> Result<User, RepositoryError> {
         let id: Uuid = Uuid::new_v4();
 
         info!(
@@ -39,19 +61,20 @@ impl UserRepository for PgUserRepository {
             None => json!({}),
         };
 
-        let user_created: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::CREATE_USER)
-                .bind(id)
-                .bind(user.rank)
-                .bind(user.registration)
-                .bind(user.full_name)
-                .bind(user.profile)
-                .bind(user.email)
-                .bind(user.password)
-                .bind(user.city_id)
-                .bind(permission_policies_json)
-                .fetch_one(&self.pool)
-                .await?;
+        let user_created: User = sqlx::query_as::<_, UserRecordRow>(UsersQueries::CREATE_USER)
+            .bind(id)
+            .bind(user.rank.as_str())
+            .bind(user.registration)
+            .bind(user.full_name)
+            .bind(user.profile.as_str())
+            .bind(user.email)
+            .bind(user.password)
+            .bind(user.city_id)
+            .bind(permission_policies_json)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into();
 
         info!(
             "[Repository] User successfully inserted into database with ID: {}",
@@ -61,11 +84,7 @@ impl UserRepository for PgUserRepository {
         Ok(user_created)
     }
 
-    async fn update_user_by_id(
-        &self,
-        data: UpdateUser,
-        id: Uuid,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    async fn update_user_by_id(&self, data: UpdateUser, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update user with ID: {}",
             id
@@ -76,18 +95,20 @@ impl UserRepository for PgUserRepository {
             None => json!({}),
         };
 
-        let user_updated: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::UPDATE_USER_BY_ID)
+        let user_updated: User =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_BY_ID)
                 .bind(id)
-                .bind(data.rank)
+                .bind(data.rank.as_str())
                 .bind(data.registration)
                 .bind(data.full_name)
-                .bind(data.profile)
+                .bind(data.profile.as_str())
                 .bind(data.email)
                 .bind(data.city_id)
                 .bind(permission_policies_json)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into();
 
         info!(
             "[Repository] User successfully updated into database with ID: {}",
@@ -97,19 +118,18 @@ impl UserRepository for PgUserRepository {
         Ok(user_updated)
     }
 
-    async fn get_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    async fn get_user_by_id(&self, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get user with id: {}",
             id
         );
 
-        let user: UserDataCreatedWithoutPassword = sqlx::query_as(UsersQueries::GET_USER_BY_ID)
+        let user: User = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USER_BY_ID)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?
+            .into();
 
         info!(
             "[Repository] User successfully found in the database with IDD: {}",
@@ -119,7 +139,7 @@ impl UserRepository for PgUserRepository {
         Ok(user)
     }
 
-    async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, sqlx::Error> {
+    async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to check if user with email {} exists",
             email
@@ -128,7 +148,8 @@ impl UserRepository for PgUserRepository {
         let user_exists: bool = sqlx::query_scalar(UsersQueries::CHECK_USER_EXISTS_BY_EMAIL)
             .bind(email)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?;
 
         info!(
             "[Repository] User exists with email {}: {}",
@@ -142,7 +163,7 @@ impl UserRepository for PgUserRepository {
         &self,
         email: &str,
         id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> Result<bool, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to check if email {} exists for other user",
             email
@@ -152,39 +173,43 @@ impl UserRepository for PgUserRepository {
             .bind(email)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?;
 
         Ok(result)
     }
 
-    async fn get_all_users(&self) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+    async fn get_all_users(&self) -> Result<Vec<User>, RepositoryError> {
         info!("[Repository] Executing SQL query to get all users");
 
-        let users: Vec<UserDataCreatedWithoutPassword> =
-            sqlx::query_as(UsersQueries::GET_ALL_USERS)
-                .fetch_all(&self.pool)
-                .await?;
+        let users: Vec<User> = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_ALL_USERS)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         info!("[Repository] Found {} users in database", users.len());
 
         Ok(users)
     }
 
-    async fn get_users_by_name(
-        &self,
-        name: &str,
-    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+    async fn get_users_by_name(&self, name: &str) -> Result<Vec<User>, RepositoryError> {
         let pattern = format!("%{}%", name);
         info!(
             "[Repository] Executing SQL query to get users by name pattern: {}",
             pattern
         );
 
-        let users: Vec<UserDataCreatedWithoutPassword> =
-            sqlx::query_as(UsersQueries::GET_USERS_BY_NAME)
-                .bind(pattern)
-                .fetch_all(&self.pool)
-                .await?;
+        let users: Vec<User> = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_NAME)
+            .bind(pattern)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_user_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         info!("[Repository] Found {} users by name", users.len());
 
@@ -194,50 +219,60 @@ impl UserRepository for PgUserRepository {
     async fn get_users_by_registration(
         &self,
         registration: &str,
-    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+    ) -> Result<Vec<User>, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get users by registration: {}",
             registration
         );
 
-        let users: Vec<UserDataCreatedWithoutPassword> =
-            sqlx::query_as(UsersQueries::GET_USERS_BY_REGISTRATION)
+        let users: Vec<User> =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_REGISTRATION)
                 .bind(registration)
                 .fetch_all(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect();
 
         info!("[Repository] Found {} users by registration", users.len());
 
         Ok(users)
     }
 
-    async fn get_users_paginated(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
+    async fn get_users_paginated<'a>(
+        &'a self,
+        allowed_cities: Option<&'a [Uuid]>,
         exclude_root: bool,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<UserDataCreatedWithoutPassword>, sqlx::Error> {
+    ) -> Result<Vec<User>, RepositoryError> {
         info!("[Repository] Executing SQL query to get paginated users");
 
-        let users: Vec<UserDataCreatedWithoutPassword> = match allowed_cities {
+        let users: Vec<User> = match allowed_cities {
             Some(city_ids) => {
-                sqlx::query_as(UsersQueries::GET_USERS_PAGED_BY_CITIES)
+                sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED_BY_CITIES)
                     .bind(city_ids)
                     .bind(exclude_root)
                     .bind(limit)
                     .bind(offset)
                     .fetch_all(&self.pool)
-                    .await?
+                    .await
+                    .map_err(map_user_error)?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect()
             }
-            None => {
-                sqlx::query_as(UsersQueries::GET_USERS_PAGED)
-                    .bind(exclude_root)
-                    .bind(limit)
-                    .bind(offset)
-                    .fetch_all(&self.pool)
-                    .await?
-            }
+            None => sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_PAGED)
+                .bind(exclude_root)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(map_user_error)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         };
 
         info!("[Repository] Found {} users in database", users.len());
@@ -245,44 +280,41 @@ impl UserRepository for PgUserRepository {
         Ok(users)
     }
 
-    async fn count_users(
-        &self,
-        allowed_cities: Option<&[Uuid]>,
+    async fn count_users<'a>(
+        &'a self,
+        allowed_cities: Option<&'a [Uuid]>,
         exclude_root: bool,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> Result<i64, RepositoryError> {
         let count: i64 = match allowed_cities {
-            Some(city_ids) => {
-                sqlx::query_scalar(UsersQueries::COUNT_USERS_BY_CITIES)
-                    .bind(city_ids)
-                    .bind(exclude_root)
-                    .fetch_one(&self.pool)
-                    .await?
-            }
-            None => {
-                sqlx::query_scalar(UsersQueries::COUNT_USERS)
-                    .bind(exclude_root)
-                    .fetch_one(&self.pool)
-                    .await?
-            }
+            Some(city_ids) => sqlx::query_scalar(UsersQueries::COUNT_USERS_BY_CITIES)
+                .bind(city_ids)
+                .bind(exclude_root)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_user_error)?,
+            None => sqlx::query_scalar(UsersQueries::COUNT_USERS)
+                .bind(exclude_root)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_user_error)?,
         };
 
         Ok(count)
     }
 
-    async fn delete_user_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    async fn delete_user_by_id(&self, id: Uuid) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to delete user with id: {}",
             id
         );
 
-        let deleted_user: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::DELETE_USER_BY_ID)
+        let deleted_user: User =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::DELETE_USER_BY_ID)
                 .bind(id)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into();
 
         info!(
             "[Repository] User successfully deleted from database with ID: {}",
@@ -292,7 +324,7 @@ impl UserRepository for PgUserRepository {
         Ok(deleted_user)
     }
 
-    async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, sqlx::Error> {
+    async fn get_user_password_by_id(&self, id: Uuid) -> Result<String, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get password for user with id: {}",
             id
@@ -301,7 +333,8 @@ impl UserRepository for PgUserRepository {
         let password: String = sqlx::query_scalar(UsersQueries::GET_USER_PASSWORD_BY_ID)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?;
 
         info!(
             "[Repository] Password retrieved successfully for user with ID: {}",
@@ -315,18 +348,20 @@ impl UserRepository for PgUserRepository {
         &self,
         id: Uuid,
         new_password: String,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update password for user with id: {}",
             id
         );
 
-        let updated_user: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::UPDATE_USER_PASSWORD_BY_ID)
+        let updated_user: User =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_PASSWORD_BY_ID)
                 .bind(id)
                 .bind(new_password)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into();
 
         info!(
             "[Repository] Password updated successfully for user with ID: {}",
@@ -341,19 +376,21 @@ impl UserRepository for PgUserRepository {
         id: Uuid,
         new_password: String,
         expires_at: chrono::DateTime<chrono::Utc>,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to reset password for user with id: {}",
             id
         );
 
-        let updated_user: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::RESET_USER_PASSWORD_BY_ID)
+        let updated_user: User =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::RESET_USER_PASSWORD_BY_ID)
                 .bind(id)
                 .bind(new_password)
                 .bind(expires_at)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into();
 
         info!(
             "[Repository] Password reset successfully for user with ID: {}",
@@ -366,10 +403,10 @@ impl UserRepository for PgUserRepository {
     async fn check_city_admin_exists_for_city(
         &self,
         city_id: Uuid,
-        exclude_user_id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+        exclude_user_id: Option<Uuid>,
+    ) -> Result<bool, RepositoryError> {
         info!(
-            "[Repository] Executing SQL query to check if CITY_ADMIN exists for city: {} excluding user: {}",
+            "[Repository] Executing SQL query to check if CITY_ADMIN exists for city: {} excluding user: {:?}",
             city_id, exclude_user_id
         );
 
@@ -377,7 +414,8 @@ impl UserRepository for PgUserRepository {
             .bind(city_id)
             .bind(exclude_user_id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?;
 
         info!(
             "[Repository] CITY_ADMIN exists for city {}: {}",
@@ -387,37 +425,44 @@ impl UserRepository for PgUserRepository {
         Ok(result)
     }
 
-    async fn get_user_policies_json_by_id(&self, id: Uuid) -> Result<JsonValue, sqlx::Error> {
+    async fn get_user_policies_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<PermissionPolicies, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get permission_policies for user {}",
             id
         );
 
-        let policies: JsonValue = sqlx::query_scalar(UsersQueries::GET_USER_POLICIES_BY_ID)
+        let policies_json: JsonValue = sqlx::query_scalar(UsersQueries::GET_USER_POLICIES_BY_ID)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(map_user_error)?;
 
         info!("[Repository] Retrieved permission_policies for user {}", id);
 
-        Ok(policies)
+        Ok(serde_json::from_value(policies_json).unwrap_or_default())
     }
 
     async fn update_user_policies_by_id(
         &self,
         id: Uuid,
-        policies: JsonValue,
-    ) -> Result<UserDataCreatedWithoutPassword, sqlx::Error> {
+        policies: PermissionPolicies,
+    ) -> Result<User, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to update permission_policies for user {}",
             id
         );
-        let user: UserDataCreatedWithoutPassword =
-            sqlx::query_as(UsersQueries::UPDATE_USER_POLICIES_BY_ID)
+        let policies_json = serde_json::to_value(&policies).unwrap_or_else(|_| json!({}));
+        let user: User =
+            sqlx::query_as::<_, UserRecordRow>(UsersQueries::UPDATE_USER_POLICIES_BY_ID)
                 .bind(id)
-                .bind(policies)
+                .bind(policies_json)
                 .fetch_one(&self.pool)
-                .await?;
+                .await
+                .map_err(map_user_error)?
+                .into();
         info!("[Repository] Updated permission_policies for user {}", id);
         Ok(user)
     }

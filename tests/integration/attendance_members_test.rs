@@ -1,13 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
 // ==================== ATTENDANCE VICTIMS MEMBERS TESTS ====================
 
-#[actix_rt::test]
-async fn get_victim_attendance_members_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_victim_attendance_members_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -22,6 +21,10 @@ async fn get_victim_attendance_members_success() {
     )
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session for user
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -32,7 +35,7 @@ async fn get_victim_attendance_members_success() {
 
     // Create attendance victim
     let create_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -77,10 +80,8 @@ async fn get_victim_attendance_members_success() {
     assert_eq!(members.len(), 1);
 }
 
-#[actix_rt::test]
-async fn add_victim_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_victim_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -103,6 +104,10 @@ async fn add_victim_attendance_member_success() {
     )
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -113,7 +118,7 @@ async fn add_victim_attendance_member_success() {
 
     // Create attendance
     let create_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -178,10 +183,8 @@ async fn add_victim_attendance_member_success() {
     assert!(has_member);
 }
 
-#[actix_rt::test]
-async fn add_victim_attendance_member_different_city_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_victim_attendance_member_different_city_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -205,6 +208,10 @@ async fn add_victim_attendance_member_different_city_fails() {
     )
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city1_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city1_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city1_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -215,7 +222,7 @@ async fn add_victim_attendance_member_different_city_fails() {
 
     // Create attendance
     let create_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -260,10 +267,8 @@ async fn add_victim_attendance_member_different_city_fails() {
     assert_eq!(add_resp.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
-async fn remove_victim_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_victim_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -286,6 +291,10 @@ async fn remove_victim_attendance_member_success() {
     )
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -296,7 +305,7 @@ async fn remove_victim_attendance_member_success() {
 
     // Create attendance
     let create_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -376,10 +385,8 @@ async fn remove_victim_attendance_member_success() {
 
 // ==================== ATTENDANCE OFFENDERS MEMBERS TESTS ====================
 
-#[actix_rt::test]
-async fn get_offender_attendance_members_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn get_offender_attendance_members_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -395,6 +402,9 @@ async fn get_offender_attendance_members_success() {
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -405,9 +415,7 @@ async fn get_offender_attendance_members_success() {
 
     // Create attendance offender
     let create_payload = serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -453,10 +461,8 @@ async fn get_offender_attendance_members_success() {
     assert_eq!(members.len(), 1);
 }
 
-#[actix_rt::test]
-async fn add_offender_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn add_offender_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -480,6 +486,9 @@ async fn add_offender_attendance_member_success() {
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -490,9 +499,7 @@ async fn add_offender_attendance_member_success() {
 
     // Create attendance
     let create_payload = serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -559,10 +566,8 @@ async fn add_offender_attendance_member_success() {
     assert!(has_member);
 }
 
-#[actix_rt::test]
-async fn remove_offender_attendance_member_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn remove_offender_attendance_member_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -586,6 +591,9 @@ async fn remove_offender_attendance_member_success() {
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     // Create work session
     let _session_id = test_helpers::create_work_session_for_user(&pool, user_id).await;
@@ -596,9 +604,7 @@ async fn remove_offender_attendance_member_success() {
 
     // Create attendance
     let create_payload = serde_json::json!({
-        "offender_id": offender_id,
-        "victim_id": victim_id,
-        "protective_measure_id": serde_json::Value::Null,
+        "protective_measure_id": pm_id,
         "was_offender_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",
@@ -680,10 +686,8 @@ async fn remove_offender_attendance_member_success() {
 
 // ==================== ALL SESSION MEMBERS AUTO-ADD TESTS ====================
 
-#[actix_rt::test]
-async fn create_attendance_adds_all_session_members_automatically() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_attendance_adds_all_session_members_automatically(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -714,6 +718,10 @@ async fn create_attendance_adds_all_session_members_automatically() {
     )
     .await;
     let victim_id = db_fixtures::insert_victim(&pool, "Test Victim", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Test Offender", city_id).await;
+    let pm_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
 
     let mut claims = test_helpers::build_city_admin_claims(city_id);
     claims.id = creator_id.to_string();
@@ -762,7 +770,7 @@ async fn create_attendance_adds_all_session_members_automatically() {
 
     // Create attendance victim
     let create_attendance_payload = serde_json::json!({
-        "victim_id": victim_id,
+        "protective_measure_id": pm_id,
         "was_victim_present": true,
         "attendance_date": "2025-01-15",
         "attendance_time": "14:30:00",

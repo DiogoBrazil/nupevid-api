@@ -1,7 +1,8 @@
-use jsonwebtoken::{EncodingKey, Header, encode, errors::Error as JwtError};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::auth::UserClaims;
+use crate::core::errors::DomainError;
 
 pub use crate::core::contracts::adapters::token_generator::{TokenClaimsInput, TokenGeneratorPort};
 
@@ -25,28 +26,31 @@ impl TokenGeneratorPort for JwtTokenGenerator {
         &self,
         claims: TokenClaimsInput<'_>,
         secret: &str,
-    ) -> Result<String, JwtError> {
+    ) -> Result<String, DomainError> {
         let expiration: usize = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize
-            + 24 * 3600;
+            + claims.expires_in_seconds.max(0) as usize;
 
-        let claims = ClaimsToUserToken {
+        let claims = UserClaims {
             id: claims.id.to_string(),
             exp: expiration,
-            rank: claims.rank.to_string(),
+            iss: claims.issuer.to_string(),
+            aud: claims.audience.to_string(),
+            rank: claims.rank.clone(),
             registration: claims.registration.to_string(),
             full_name: claims.full_name.to_string(),
-            profile: claims.profile.to_string(),
+            profile: claims.profile.clone(),
             email: claims.email.to_string(),
             city_id: claims.city_id.map(|s| s.to_string()),
         };
 
         encode(
-            &Header::default(),
+            &Header::new(Algorithm::HS256),
             &claims,
             &EncodingKey::from_secret(secret.as_bytes()),
         )
+        .map_err(|e| DomainError::AdapterError(e.to_string()))
     }
 }

@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nupevid_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-nupevid}
+      POSTGRES_USER: ${DB_USER:-nupevid_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nupevid_pass_change_me}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=pt_BR.UTF-8"
+      TZ: America/Porto_Velho
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d:ro
+    networks:
+      - nupevid_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-nupevid_user} -d ${DB_NAME:-nupevid}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: nupevid_api
+    restart: unless-stopped
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}}
+      SERVER_ADDR: 0.0.0.0:8080
+      JWT_SECRET: ${JWT_SECRET:-default_secret_key_change_me}
+      JWT_ISSUER: ${JWT_ISSUER:-nupevid-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-nupevid-api}
+      API_KEY: ${API_KEY:-default_api_key_change_me}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
+      ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
+      RUST_LOG: info
+    networks:
+      - nupevid_network
+      - traefiknet
+
+  logdock:
+    image: sgtribeiro/logdock:0.1.0-subpath
+    container_name: nupevid_logdock
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - logdock_data:/data
+    environment:
+      ADMIN_USERNAME: ${LOGDOCK_ADMIN:-admin}
+      ADMIN_PASSWORD: ${LOGDOCK_PASSWORD:?set LOGDOCK_PASSWORD in .env}
+      JWT_SECRET: ${LOGDOCK_JWT_SECRET:-}
+      RUST_LOG: logdock=info
+      TZ: America/Porto_Velho
+      BASE_PATH: /logdock
+    networks:
+      - traefiknet
+
+  reverse-proxy:
+    image: traefik:v3.0
+    container_name: nupevid_traefik
+    restart: unless-stopped
+    command:
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    networks:
+      - traefiknet
+
+volumes:
+  postgres_data:
+    driver: local
+  logdock_data:
+    driver: local
+
+networks:
+  nupevid_network:
+    driver: bridge
+  traefiknet:
+    driver: bridge
+    name: ${TRAEFIK_DOCKER_NETWORK:-traefiknet}

@@ -1,15 +1,16 @@
 use crate::config::config_env::Config;
-use crate::core::entities::auth::ClaimsToUserToken;
+use crate::core::entities::auth::UserClaims;
 use crate::validators::common::is_public_route;
 use actix_web::{
     Error, HttpMessage,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
-    error::ErrorUnauthorized,
+    error::{ErrorInternalServerError, ErrorUnauthorized},
     http::Method,
     web,
 };
 use futures::future::{LocalBoxFuture, Ready, err, ok};
-use jsonwebtoken::{DecodingKey, Validation, decode};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
+use subtle::ConstantTimeEq;
 
 pub struct AuthMiddleware;
 
@@ -51,7 +52,9 @@ where
             return Box::pin(self.service.call(req));
         }
 
-        let config = req.app_data::<web::Data<Config>>().unwrap();
+        let Some(config) = req.app_data::<web::Data<Config>>() else {
+            return Box::pin(err(ErrorInternalServerError("missing application config")));
+        };
 
         if let Err(e) = self.verify_api_key(&req, config) {
             return Box::pin(err(e));
@@ -73,27 +76,23 @@ where
 
 impl<S> AuthMiddlewareService<S> {
     fn verify_api_key(&self, req: &ServiceRequest, config: &Config) -> Result<(), Error> {
-        if req.path().starts_with("/api/swagger") {
+        if req.path().starts_with("/api/swagger") || req.path().starts_with("/logdock") {
             return Ok(());
         }
 
-        match req.headers().get("api_key") {
-            Some(api_key_header) => {
-                if api_key_header.to_str().unwrap_or_default() != config.api_key {
-                    Err(ErrorUnauthorized("wrong api_key"))
-                } else {
-                    Ok(())
-                }
-            }
-            None => Err(ErrorUnauthorized("empty api_key")),
+        let Some(header) = req.headers().get("api_key") else {
+            return Err(ErrorUnauthorized("empty api_key"));
+        };
+        let provided = header.as_bytes();
+        let expected = config.api_key.as_bytes();
+        if provided.len() == expected.len() && provided.ct_eq(expected).into() {
+            Ok(())
+        } else {
+            Err(ErrorUnauthorized("wrong api_key"))
         }
     }
 
-    fn verify_jwt_token(
-        &self,
-        req: &ServiceRequest,
-        config: &Config,
-    ) -> Result<ClaimsToUserToken, Error> {
+    fn verify_jwt_token(&self, req: &ServiceRequest, config: &Config) -> Result<UserClaims, Error> {
         let auth_header = req
             .headers()
             .get("Authorization")
@@ -105,10 +104,14 @@ impl<S> AuthMiddlewareService<S> {
         }
 
         let token = &auth_header[7..];
-        decode::<ClaimsToUserToken>(
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.set_issuer(&[&config.jwt_issuer]);
+        validation.set_audience(&[&config.jwt_audience]);
+
+        decode::<UserClaims>(
             token,
             &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
-            &Validation::default(),
+            &validation,
         )
         .map(|data| data.claims)
         .map_err(|_| ErrorUnauthorized("Invalid token"))

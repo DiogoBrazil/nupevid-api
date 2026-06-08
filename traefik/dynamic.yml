@@ -1,0 +1,26 @@
+http:
+  routers:
+    logdock:
+      entryPoints:
+        - web
+      rule: PathPrefix(`/logdock`)
+      priority: 10
+      service: logdock
+
+    api:
+      entryPoints:
+        - web
+      rule: PathPrefix(`/`)
+      priority: 1
+      service: api
+
+  services:
+    logdock:
+      loadBalancer:
+        servers:
+          - url: http://logdock:8080
+
+    api:
+      loadBalancer:
+        servers:
+          - url: http://api:8080

@@ -1,0 +1,3013 @@
+{
+  "info": {
+    "_postman_id": "e5b6e242-284b-4c2c-91ac-024a90d578ef",
+    "name": "nupevid-backend",
+    "description": "Collection completa da API NUPEVID - Sistema de gerenciamento de vítimas, atendimentos e medidas protetivas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "29286933"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@email.com\",\n    \"password\": \"admin@123\",\n    \"auto_create_session\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.access_token) {",
+                  "    pm.environment.set('access_token', jsonData.data.access_token);",
+                  "    pm.environment.set('user_id', jsonData.data.id);",
+                  "    console.log('access_token and user_id saved!');",
+                  "}",
+                  "if (jsonData.data && jsonData.data.refresh_token) {",
+                  "    pm.environment.set('refresh_token', jsonData.data.refresh_token);",
+                  "    console.log('refresh_token saved!');",
+                  "}",
+                  "if (jsonData.data && jsonData.data.work_session) {",
+                  "    pm.environment.set('work_session_id', jsonData.data.work_session.id);",
+                  "    console.log('work_session_id saved!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.access_token) {",
+                  "    pm.environment.set('access_token', jsonData.data.access_token);",
+                  "    console.log('access_token rotated!');",
+                  "}",
+                  "if (jsonData.data && jsonData.data.refresh_token) {",
+                  "    pm.environment.set('refresh_token', jsonData.data.refresh_token);",
+                  "    console.log('refresh_token rotated!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.set('access_token', '');",
+                  "pm.environment.set('refresh_token', '');",
+                  "console.log('access_token and refresh_token cleared!');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "item": [
+        {
+          "name": "list users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Página"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "description": "Itens por página"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "search users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "",
+                  "description": "Nome (parcial). Mutuamente exclusivo com registration"
+                },
+                {
+                  "key": "registration",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Registration exata. Mutuamente exclusivo com name"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get user by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rank\": \"SD PM\",\n    \"registration\": \"100000002\",\n    \"full_name\": \"Maria Santos\",\n    \"profile\": \"CITY_USER\",\n    \"email\": \"maria@email.com\",\n    \"password\": \"senha@123\",\n    \"city_id\": \"{{city_id}}\",\n    \"permission_policies\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update user",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rank\": \"SD PM\",\n    \"registration\": \"100000002\",\n    \"full_name\": \"Maria Santos Atualizada\",\n    \"profile\": \"CITY_USER\",\n    \"email\": \"maria@email.com\",\n    \"city_id\": \"{{city_id}}\",\n    \"permission_policies\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update own password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"current_password\": \"admin@123\",\n    \"new_password\": \"novaSenha@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "reset user password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/password/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "password",
+                "reset"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "append policy cities",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/policies/{{policy}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "policies",
+                "{{policy}}",
+                "cities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"city_ids\": [\n        \"{{city_id}}\"\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove policy cities",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/policies/{{policy}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "policies",
+                "{{policy}}",
+                "cities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"city_ids\": [\n        \"{{city_id}}\"\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "cities",
+      "item": [
+        {
+          "name": "list cities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get city by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "{{city_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create city",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"PORTO VELHO\",\n    \"state\": \"RO\",\n    \"battalion\": \"1\\u00baBPM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update city",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "{{city_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"PORTO VELHO\",\n    \"state\": \"RO\",\n    \"battalion\": \"1\\u00baBPM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete city",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "{{city_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "victims",
+      "item": [
+        {
+          "name": "list victims",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "search victims",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "",
+                  "description": "Nome (parcial). Mutuamente exclusivo com cpf"
+                },
+                {
+                  "key": "cpf",
+                  "value": "",
+                  "disabled": true,
+                  "description": "CPF exato. Mutuamente exclusivo com name"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get victim by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create victim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Ana Paula dos Santos\",\n    \"cpf\": \"529.982.247-25\",\n    \"birth_date\": \"1990-05-15\",\n    \"city_id\": null,\n    \"phones\": [\n        {\n            \"phone\": \"(69) 99999-8888\",\n            \"phone_type\": \"Mobile\"\n        }\n    ],\n    \"addresses\": [\n        {\n            \"street\": \"Rua das Flores\",\n            \"number\": \"123\",\n            \"district\": \"Centro\",\n            \"city_id\": \"{{city_id}}\",\n            \"zip_code\": \"76801-000\",\n            \"complement\": null,\n            \"address_type\": \"Residential\"\n        }\n    ],\n    \"education_level\": \"High School\",\n    \"occupation\": \"Professora\",\n    \"children_count\": 2,\n    \"is_pregnant\": false,\n    \"special_needs_type\": null,\n    \"uses_alcohol\": false,\n    \"uses_drugs\": false,\n    \"psychiatric_issues_type\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update victim",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Ana Paula dos Santos Atualizada\",\n    \"cpf\": \"529.982.247-25\",\n    \"birth_date\": \"1990-05-15\",\n    \"city_id\": null,\n    \"phones\": [\n        {\n            \"phone\": \"(69) 99999-8888\",\n            \"phone_type\": \"Mobile\"\n        }\n    ],\n    \"addresses\": [\n        {\n            \"street\": \"Rua das Flores\",\n            \"number\": \"456\",\n            \"district\": \"Centro\",\n            \"city_id\": \"{{city_id}}\",\n            \"zip_code\": \"76801-000\",\n            \"complement\": null,\n            \"address_type\": \"Residential\"\n        }\n    ],\n    \"education_level\": \"College\",\n    \"occupation\": \"Professora\",\n    \"children_count\": 2,\n    \"is_pregnant\": false,\n    \"special_needs_type\": null,\n    \"uses_alcohol\": false,\n    \"uses_drugs\": false,\n    \"psychiatric_issues_type\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete victim",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add phone to victim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/phones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "phones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"(69) 98888-7777\",\n    \"phone_type\": \"Residential\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update victim phone",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/phones/{{phone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "phones",
+                "{{phone_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"(69) 97777-6666\",\n    \"phone_type\": \"Work\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete victim phone",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/phones/{{phone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "phones",
+                "{{phone_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add address to victim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "addresses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"street\": \"Av. Brasil\",\n    \"number\": \"500\",\n    \"district\": \"Nova Porto Velho\",\n    \"city_id\": \"{{city_id}}\",\n    \"zip_code\": \"76820-000\",\n    \"complement\": \"Bloco A\",\n    \"address_type\": \"Work\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update victim address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/addresses/{{address_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "addresses",
+                "{{address_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"street\": \"Av. Brasil\",\n    \"number\": \"501\",\n    \"district\": \"Nova Porto Velho\",\n    \"city_id\": \"{{city_id}}\",\n    \"zip_code\": \"76820-000\",\n    \"complement\": \"Bloco B\",\n    \"address_type\": \"Work\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete victim address",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/victims/{{victim_id}}/addresses/{{address_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "victims",
+                "{{victim_id}}",
+                "addresses",
+                "{{address_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "offenders",
+      "item": [
+        {
+          "name": "list offenders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "search offenders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "",
+                  "description": "Nome (parcial). Mutuamente exclusivo com cpf"
+                },
+                {
+                  "key": "cpf",
+                  "value": "",
+                  "disabled": true,
+                  "description": "CPF exato. Mutuamente exclusivo com name"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get offender by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get offenders by victim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/victim/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "victim",
+                "{{victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create offender",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Jo\\u00e3o da Silva Santos\",\n    \"cpf\": \"123.456.789-00\",\n    \"birth_date\": \"1980-05-20\",\n    \"city_id\": null,\n    \"imprisoned\": false,\n    \"occupation\": \"Mec\\u00e2nico\",\n    \"security_force\": null,\n    \"uses_alcohol\": true,\n    \"uses_drugs\": false,\n    \"psychiatric_issues_type\": null,\n    \"education_level\": \"High School\",\n    \"observation\": null,\n    \"phones\": [\n        {\n            \"phone\": \"(69) 99999-7777\",\n            \"phone_type\": \"Mobile\"\n        }\n    ],\n    \"addresses\": [\n        {\n            \"street\": \"Rua das Flores\",\n            \"number\": \"123\",\n            \"district\": \"Centro\",\n            \"city_id\": \"{{city_id}}\",\n            \"zip_code\": \"76801-000\",\n            \"complement\": null,\n            \"address_type\": \"Residential\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update offender",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Jo\\u00e3o da Silva Santos Atualizado\",\n    \"cpf\": \"123.456.789-00\",\n    \"birth_date\": \"1980-05-20\",\n    \"city_id\": null,\n    \"imprisoned\": false,\n    \"occupation\": \"Mec\\u00e2nico\",\n    \"security_force\": null,\n    \"uses_alcohol\": true,\n    \"uses_drugs\": false,\n    \"psychiatric_issues_type\": null,\n    \"education_level\": \"High School\",\n    \"observation\": \"Observa\\u00e7\\u00e3o atualizada\",\n    \"phones\": [\n        {\n            \"phone\": \"(69) 99999-7777\",\n            \"phone_type\": \"Mobile\"\n        }\n    ],\n    \"addresses\": [\n        {\n            \"street\": \"Rua das Flores\",\n            \"number\": \"123\",\n            \"district\": \"Centro\",\n            \"city_id\": \"{{city_id}}\",\n            \"zip_code\": \"76801-000\",\n            \"complement\": null,\n            \"address_type\": \"Residential\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete offender",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add phone to offender",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/phones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "phones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"(69) 98888-6666\",\n    \"phone_type\": \"Mobile\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update offender phone",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/phones/{{phone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "phones",
+                "{{phone_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"(69) 97777-5555\",\n    \"phone_type\": \"Residential\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete offender phone",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/phones/{{phone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "phones",
+                "{{phone_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add address to offender",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "addresses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"street\": \"Av. Mamor\\u00e9\",\n    \"number\": \"300\",\n    \"district\": \"Embratel\",\n    \"city_id\": \"{{city_id}}\",\n    \"zip_code\": \"76820-000\",\n    \"complement\": null,\n    \"address_type\": \"Residential\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update offender address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/addresses/{{address_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "addresses",
+                "{{address_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"street\": \"Av. Mamor\\u00e9\",\n    \"number\": \"301\",\n    \"district\": \"Embratel\",\n    \"city_id\": \"{{city_id}}\",\n    \"zip_code\": \"76820-000\",\n    \"complement\": \"Apt 101\",\n    \"address_type\": \"Residential\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete offender address",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/offenders/{{offender_id}}/addresses/{{address_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "offenders",
+                "{{offender_id}}",
+                "addresses",
+                "{{address_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "protective-measures",
+      "item": [
+        {
+          "name": "list protective measures",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                },
+                {
+                  "key": "include_related_entities",
+                  "value": "false",
+                  "description": "true para incluir victim, offender e court_district"
+                },
+                {
+                  "key": "victim_id",
+                  "value": "{{victim_id}}",
+                  "description": "Filtra as medidas pela vítima (UUID). Opcional; combinável com offender_id (AND).",
+                  "disabled": true
+                },
+                {
+                  "key": "offender_id",
+                  "value": "{{offender_id}}",
+                  "description": "Filtra as medidas pelo agressor (UUID). Opcional; combinável com victim_id (AND).",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get protective measure by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures/{{protective_measure_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures",
+                "{{protective_measure_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get protective measures by victim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures/victim/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures",
+                "victim",
+                "{{victim_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create protective measure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"process_number\": \"12345-67.2025.8.26.0000\",\n    \"sei_process_number\": \"SEI-2025/001234\",\n    \"occurrence_report_number\": \"BO-2025/001234\",\n    \"issued_at\": \"2025-01-15\",\n    \"judicial_authority\": \"1\\u00aa Vara de Viol\\u00eancia Dom\\u00e9stica\",\n    \"court_district_id\": \"{{city_id}}\",\n    \"distance_meters\": 500,\n    \"status\": \"Valid\",\n    \"violence_types\": [\n        \"Physical\",\n        \"Psychological\"\n    ],\n    \"relationship_to_victim\": \"Spouse\",\n    \"assaults_children\": false,\n    \"was_drunk_during_assault\": true,\n    \"victim_id\": \"{{victim_id}}\",\n    \"offender_id\": \"{{offender_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update protective measure",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures/{{protective_measure_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures",
+                "{{protective_measure_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"process_number\": \"12345-67.2025.8.26.0000\",\n    \"sei_process_number\": \"SEI-2025/001234\",\n    \"occurrence_report_number\": \"BO-2025/001234\",\n    \"issued_at\": \"2025-01-15\",\n    \"judicial_authority\": \"1\\u00aa Vara de Viol\\u00eancia Dom\\u00e9stica\",\n    \"court_district_id\": \"{{city_id}}\",\n    \"distance_meters\": 300,\n    \"status\": \"Valid\",\n    \"violence_types\": [\n        \"Physical\",\n        \"Psychological\",\n        \"Moral\"\n    ],\n    \"relationship_to_victim\": \"Spouse\",\n    \"assaults_children\": false,\n    \"was_drunk_during_assault\": true,\n    \"victim_id\": \"{{victim_id}}\",\n    \"offender_id\": \"{{offender_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete protective measure",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/protective-measures/{{protective_measure_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "protective-measures",
+                "{{protective_measure_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "attendance-victims",
+      "item": [
+        {
+          "name": "list attendance victims",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance victim by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance victims by victim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/by-victim/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "by-victim",
+                "{{victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance victims by measure",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/by-measure/{{protective_measure_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "by-measure",
+                "{{protective_measure_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create attendance victim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"protective_measure_id\": \"{{protective_measure_id}}\",\n    \"was_victim_present\": true,\n    \"attendance_date\": \"2025-03-15\",\n    \"attendance_time\": \"14:30:00\",\n    \"description\": \"Atendimento inicial \\u00e0 v\\u00edtima\",\n    \"latitude\": -8.7612,\n    \"longitude\": -63.9004,\n    \"address\": {\n        \"street\": \"Rua das Flores\",\n        \"number\": \"123\",\n        \"district\": \"Centro\",\n        \"city_id\": \"{{city_id}}\",\n        \"zip_code\": \"76801-000\",\n        \"complement\": null\n    },\n    \"is_remote\": false,\n    \"risk_level\": \"Medium\",\n    \"offender_freedom_status\": \"Free\",\n    \"offender_has_firearm_access\": \"Unknown\",\n    \"needs_legal_assistance\": false,\n    \"needs_psychological_support\": true,\n    \"was_instructed_about_protective_measure_procedures\": true,\n    \"offender_violated_protective_measure\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update attendance victim",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"protective_measure_id\": \"{{protective_measure_id}}\",\n    \"was_victim_present\": true,\n    \"attendance_date\": \"2025-03-15\",\n    \"attendance_time\": \"15:00:00\",\n    \"description\": \"Atendimento atualizado\",\n    \"latitude\": -8.7612,\n    \"longitude\": -63.9004,\n    \"address\": {\n        \"street\": \"Rua das Flores\",\n        \"number\": \"123\",\n        \"district\": \"Centro\",\n        \"city_id\": \"{{city_id}}\",\n        \"zip_code\": \"76801-000\",\n        \"complement\": null\n    },\n    \"is_remote\": false,\n    \"risk_level\": \"High\",\n    \"offender_freedom_status\": \"Free\",\n    \"offender_has_firearm_access\": \"No\",\n    \"needs_legal_assistance\": true,\n    \"needs_psychological_support\": true,\n    \"was_instructed_about_protective_measure_procedures\": true,\n    \"offender_violated_protective_measure\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete attendance victim",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list attendance victim members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}",
+                "members"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add attendance victim member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}",
+                "members"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"{{user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove attendance victim member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-victims/{{attendance_victim_id}}/members/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-victims",
+                "{{attendance_victim_id}}",
+                "members",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "attendance-offenders",
+      "item": [
+        {
+          "name": "list attendance offenders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance offender by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance offenders by measure",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/by-measure/{{protective_measure_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "by-measure",
+                "{{protective_measure_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance offenders by offender",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/by-offender/{{offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "by-offender",
+                "{{offender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get attendance offenders by victim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/by-victim/{{victim_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "by-victim",
+                "{{victim_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create attendance offender",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"protective_measure_id\": \"{{protective_measure_id}}\",\n    \"was_offender_present\": true,\n    \"attendance_date\": \"2025-01-15\",\n    \"attendance_time\": \"14:30:00\",\n    \"address\": {\n        \"street\": \"Rua das Flores\",\n        \"number\": \"123\",\n        \"district\": \"Centro\",\n        \"city_id\": \"{{city_id}}\",\n        \"zip_code\": \"76801-000\",\n        \"complement\": \"Sala 10\"\n    },\n    \"is_remote\": false,\n    \"assaults_children\": false,\n    \"violence_aggravator\": \"AlcoholUse\",\n    \"violence_aggravator_other\": null,\n    \"description\": \"Atendimento ao agressor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update attendance offender",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"protective_measure_id\": \"{{protective_measure_id}}\",\n    \"was_offender_present\": true,\n    \"attendance_date\": \"2025-01-15\",\n    \"attendance_time\": \"14:30:00\",\n    \"address\": {\n        \"street\": \"Rua das Flores\",\n        \"number\": \"123\",\n        \"district\": \"Centro\",\n        \"city_id\": \"{{city_id}}\",\n        \"zip_code\": \"76801-000\",\n        \"complement\": \"Sala 10\"\n    },\n    \"is_remote\": false,\n    \"assaults_children\": false,\n    \"violence_aggravator\": \"DrugUse\",\n    \"violence_aggravator_other\": null,\n    \"description\": \"Atendimento de acompanhamento\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete attendance offender",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list attendance offender members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}",
+                "members"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add attendance offender member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}",
+                "members"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"{{user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove attendance offender member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance-offenders/{{attendance_offender_id}}/members/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance-offenders",
+                "{{attendance_offender_id}}",
+                "members",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "work-sessions",
+      "item": [
+        {
+          "name": "list work sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                },
+                {
+                  "key": "user_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Filtrar por criador"
+                },
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Data inicial (YYYY-MM-DD)"
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Data final (YYYY-MM-DD)"
+                },
+                {
+                  "key": "city_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Filtrar por cidade"
+                },
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get active work session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "active"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get work session by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create work session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Patrulhamento preventivo zona leste\",\n    \"members\": [\n        {\n            \"user_id\": \"{{user_id}}\",\n            \"function\": \"Commander\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update work session",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include_related_entities",
+                  "value": "false"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Patrulhamento atualizado - zona norte\",\n    \"members\": [\n        {\n            \"user_id\": \"{{user_id}}\",\n            \"function\": \"Commander\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "end work session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/end",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "end"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add member to work session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}",
+                "members"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"{{member_id}}\",\n    \"function\": \"Patroller\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update work session members",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}",
+                "members"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"members\": [\n        {\n            \"user_id\": \"{{user_id}}\",\n            \"function\": \"Commander\"\n        },\n        {\n            \"user_id\": \"{{member_id}}\",\n            \"function\": \"Patroller\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove member from work session",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}",
+                "members",
+                "{{member_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update member function",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/work-sessions/{{work_session_id}}/members/{{user_id}}/function",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "work-sessions",
+                "{{work_session_id}}",
+                "members",
+                "{{user_id}}",
+                "function"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"function\": \"Driver\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "machine-information",
+      "item": [
+        {
+          "name": "get machine information",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "api_key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/machine-information",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "machine-information"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

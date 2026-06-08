@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceVictimMember {
     pub id: Uuid,
     pub attendance_victim_id: Uuid,
@@ -12,7 +11,7 @@ pub struct AttendanceVictimMember {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceOffenderMember {
     pub id: Uuid,
     pub attendance_offender_id: Uuid,
@@ -21,16 +20,8 @@ pub struct AttendanceOffenderMember {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct AttendanceMemberWithDetails {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub user_name: String,
-    pub work_session_id: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct AddAttendanceMember {
     pub user_id: Uuid,
 }

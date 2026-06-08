@@ -5,7 +5,12 @@ use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
-async fn insert_attendance_victim(pool: &PgPool, victim_id: Uuid) -> Uuid {
+async fn insert_attendance_victim(
+    pool: &PgPool,
+    victim_id: Uuid,
+    offender_id: Uuid,
+    protective_measure_id: Uuid,
+) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO attendance_victims (
@@ -29,8 +34,8 @@ async fn insert_attendance_victim(pool: &PgPool, victim_id: Uuid) -> Uuid {
     .bind(Some("Attendance test".to_string()))
     .bind(Some(1.0_f64))
     .bind(Some(1.0_f64))
-    .bind(Option::<Uuid>::None)
-    .bind(Option::<Uuid>::None)
+    .bind(Some(offender_id))
+    .bind(protective_measure_id)
     .bind(false)
     .bind("Low")
     .bind("Free")
@@ -45,7 +50,12 @@ async fn insert_attendance_victim(pool: &PgPool, victim_id: Uuid) -> Uuid {
     id
 }
 
-async fn insert_attendance_offender(pool: &PgPool, offender_id: Uuid, victim_id: Uuid) -> Uuid {
+async fn insert_attendance_offender(
+    pool: &PgPool,
+    offender_id: Uuid,
+    victim_id: Uuid,
+    protective_measure_id: Uuid,
+) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO attendance_offenders (
@@ -61,7 +71,7 @@ async fn insert_attendance_offender(pool: &PgPool, offender_id: Uuid, victim_id:
     .bind(id)
     .bind(offender_id)
     .bind(victim_id)
-    .bind(Option::<Uuid>::None)
+    .bind(protective_measure_id)
     .bind(true)
     .bind(NaiveDate::from_ymd_opt(2025, 1, 2).expect("valid date"))
     .bind(NaiveTime::from_hms_opt(10, 0, 0).expect("valid time"))
@@ -76,10 +86,8 @@ async fn insert_attendance_offender(pool: &PgPool, offender_id: Uuid, victim_id:
     id
 }
 
-#[actix_rt::test]
-async fn cities_list_pagination_clamps_page_size() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cities_list_pagination_clamps_page_size(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -107,10 +115,8 @@ async fn cities_list_pagination_clamps_page_size() {
     assert_eq!(body["data"].as_array().unwrap().len(), 3);
 }
 
-#[actix_rt::test]
-async fn users_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn users_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -152,10 +158,8 @@ async fn users_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn victims_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn victims_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -183,10 +187,8 @@ async fn victims_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn offenders_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn offenders_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -214,10 +216,8 @@ async fn offenders_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn protective_measures_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn protective_measures_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -250,18 +250,20 @@ async fn protective_measures_list_pagination_returns_metadata() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn attendance_victims_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn attendance_victims_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "Attendance Victim City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim A", city_id).await;
-    insert_attendance_victim(&pool, victim_id).await;
-    insert_attendance_victim(&pool, victim_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender A", city_id).await;
+    let protective_measure_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
+    insert_attendance_victim(&pool, victim_id, offender_id, protective_measure_id).await;
+    insert_attendance_victim(&pool, victim_id, offender_id, protective_measure_id).await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
@@ -279,13 +281,24 @@ async fn attendance_victims_list_pagination_returns_metadata() {
     assert_eq!(body["page_size"].as_i64(), Some(1));
     assert_eq!(body["total_items"].as_i64(), Some(2));
     assert_eq!(body["total_pages"].as_i64(), Some(2));
-    assert_eq!(body["data"].as_array().unwrap().len(), 1);
+    let data = body["data"].as_array().unwrap();
+    assert_eq!(data.len(), 1);
+    assert_eq!(
+        data[0]["victim_id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
+    assert_eq!(
+        data[0]["offender_id"].as_str().unwrap(),
+        offender_id.to_string()
+    );
+    assert_eq!(
+        data[0]["protective_measure_id"].as_str().unwrap(),
+        protective_measure_id.to_string()
+    );
 }
 
-#[actix_rt::test]
-async fn attendance_offenders_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn attendance_offenders_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -293,8 +306,11 @@ async fn attendance_offenders_list_pagination_returns_metadata() {
     let city_id = db_fixtures::insert_city(&pool, "Attendance Offender City").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Victim A", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Offender A", city_id).await;
-    insert_attendance_offender(&pool, offender_id, victim_id).await;
-    insert_attendance_offender(&pool, offender_id, victim_id).await;
+    let protective_measure_id =
+        db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city_id, "Valid")
+            .await;
+    insert_attendance_offender(&pool, offender_id, victim_id, protective_measure_id).await;
+    insert_attendance_offender(&pool, offender_id, victim_id, protective_measure_id).await;
 
     let root_claims = test_helpers::build_root_claims();
     let root_token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
@@ -312,13 +328,24 @@ async fn attendance_offenders_list_pagination_returns_metadata() {
     assert_eq!(body["page_size"].as_i64(), Some(1));
     assert_eq!(body["total_items"].as_i64(), Some(2));
     assert_eq!(body["total_pages"].as_i64(), Some(2));
-    assert_eq!(body["data"].as_array().unwrap().len(), 1);
+    let data = body["data"].as_array().unwrap();
+    assert_eq!(data.len(), 1);
+    assert_eq!(
+        data[0]["offender_id"].as_str().unwrap(),
+        offender_id.to_string()
+    );
+    assert_eq!(
+        data[0]["victim_id"].as_str().unwrap(),
+        victim_id.to_string()
+    );
+    assert_eq!(
+        data[0]["protective_measure_id"].as_str().unwrap(),
+        protective_measure_id.to_string()
+    );
 }
 
-#[actix_rt::test]
-async fn work_sessions_list_pagination_returns_metadata() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn work_sessions_list_pagination_returns_metadata(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, test};
 use chrono::NaiveDate;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -25,10 +26,8 @@ fn build_measure_payload(
     })
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_success_for_victim_in_own_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_success_for_victim_in_own_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -62,10 +61,8 @@ async fn create_protective_measure_success_for_victim_in_own_city() {
     );
 }
 
-#[actix_rt::test]
-async fn cannot_create_second_active_measure_for_same_victim() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn cannot_create_second_active_measure_for_same_victim(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -101,22 +98,20 @@ async fn cannot_create_second_active_measure_for_same_victim() {
     )
     .to_request();
     let resp2 = test::call_service(&app, req2).await;
-    assert_eq!(resp2.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp2.status(), StatusCode::CONFLICT);
 
     let body: serde_json::Value = test::read_body_json(resp2).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
+    assert_eq!(body["status_code"].as_u64().unwrap(), 409);
     assert!(
         body["message"]
             .as_str()
             .unwrap()
-            .contains("already has an active protective measure")
+            .contains("active protective measure")
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_create_measure_for_victim_in_other_city(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -144,10 +139,8 @@ async fn city_admin_cannot_create_measure_for_victim_in_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn list_measures_by_victim_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn list_measures_by_victim_success(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -184,10 +177,8 @@ async fn list_measures_by_victim_success() {
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_victim_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_victim_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -216,10 +207,8 @@ async fn create_protective_measure_with_nonexistent_victim_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_process_number_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_process_number_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -254,10 +243,8 @@ async fn create_protective_measure_with_empty_process_number_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_judicial_authority_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_judicial_authority_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -292,10 +279,8 @@ async fn create_protective_measure_with_empty_judicial_authority_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_empty_violence_types_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_empty_violence_types_fails(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -330,10 +315,8 @@ async fn create_protective_measure_with_empty_violence_types_fails() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_court_district_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_court_district_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -365,10 +348,8 @@ async fn create_protective_measure_with_nonexistent_court_district_returns_404()
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_with_nonexistent_offender_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_with_nonexistent_offender_returns_404(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -401,10 +382,8 @@ async fn create_protective_measure_with_nonexistent_offender_returns_404() {
     );
 }
 
-#[actix_rt::test]
-async fn create_protective_measure_rejects_extension_id_on_create() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_protective_measure_rejects_unknown_extensions_field(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -437,18 +416,13 @@ async fn create_protective_measure_rejects_extension_id_on_create() {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(
-        body["message"].as_str().unwrap(),
-        "Bad Request: Error adding protective measure: extension id is not allowed on create"
-    );
+    assert_eq!(body["field"].as_str().unwrap(), "extensions");
 }
 
-#[actix_rt::test]
-async fn delete_protective_measure_soft_delete() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn delete_protective_measure_soft_delete(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -492,4 +466,139 @@ async fn delete_protective_measure_soft_delete() {
     .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
+}
+
+/// Seeds three measures in one city and returns the ids of the created entities:
+/// (victim_a, victim_b, offender_x, offender_y, m1, m2, m3) where
+/// m1=(victim_a, offender_x, Valid), m2=(victim_a, offender_y, Revoked), m3=(victim_b, offender_x, Valid).
+async fn seed_filter_data(pool: &PgPool) -> (Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
+    let city = db_fixtures::insert_city(pool, "Cidade Filtro Medidas").await;
+    let victim_a = db_fixtures::insert_victim(pool, "Vitima Filtro A", city).await;
+    let victim_b = db_fixtures::insert_victim(pool, "Vitima Filtro B", city).await;
+    let offender_x = db_fixtures::insert_offender(pool, "Agressor Filtro X", city).await;
+    let offender_y = db_fixtures::insert_offender(pool, "Agressor Filtro Y", city).await;
+
+    let m1 = db_fixtures::insert_protective_measure(pool, victim_a, offender_x, city, "Valid").await;
+    let m2 =
+        db_fixtures::insert_protective_measure(pool, victim_a, offender_y, city, "Revoked").await;
+    let m3 = db_fixtures::insert_protective_measure(pool, victim_b, offender_x, city, "Valid").await;
+
+    (victim_a, victim_b, offender_x, offender_y, m1, m2, m3)
+}
+
+fn response_ids(body: &serde_json::Value) -> Vec<String> {
+    body["data"]
+        .as_array()
+        .expect("data array")
+        .iter()
+        .map(|m| m["id"].as_str().expect("id").to_string())
+        .collect()
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_victim_id(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (victim_a, _victim_b, _offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get()
+            .uri(&format!("/api/v1/protective-measures?victim_id={}", victim_a)),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m2.to_string()));
+    assert!(!ids.contains(&m3.to_string()));
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_offender_id(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (_victim_a, _victim_b, offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures?offender_id={}",
+            offender_x
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m3.to_string()));
+    assert!(!ids.contains(&m2.to_string()));
+}
+
+#[sqlx::test]
+async fn list_protective_measures_filtered_by_victim_and_offender(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (victim_a, _victim_b, offender_x, _offender_y, m1, _m2, _m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri(&format!(
+            "/api/v1/protective-measures?victim_id={}&offender_id={}",
+            victim_a, offender_x
+        )),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids, vec![m1.to_string()]);
+}
+
+#[sqlx::test]
+async fn list_protective_measures_without_filters_returns_all(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+    let root_token =
+        test_helpers::generate_jwt(&test_helpers::build_root_claims(), &config.jwt_secret);
+
+    let (_victim_a, _victim_b, _offender_x, _offender_y, m1, m2, m3) = seed_filter_data(&pool).await;
+
+    let req = test_helpers::with_auth_headers(
+        test::TestRequest::get().uri("/api/v1/protective-measures"),
+        &config,
+        &root_token,
+    )
+    .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let ids = response_ids(&body);
+
+    assert_eq!(ids.len(), 3);
+    assert!(ids.contains(&m1.to_string()));
+    assert!(ids.contains(&m2.to_string()));
+    assert!(ids.contains(&m3.to_string()));
 }

@@ -1,12 +1,10 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn commander_non_creator_can_add_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn commander_non_creator_can_add_member(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -91,11 +89,8 @@ async fn commander_non_creator_can_add_member() {
     assert_eq!(add_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn commander_non_creator_can_remove_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn commander_non_creator_can_remove_member(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -168,11 +163,8 @@ async fn commander_non_creator_can_remove_member() {
     assert_eq!(remove_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn commander_non_creator_can_update_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn commander_non_creator_can_update_members(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -273,11 +265,8 @@ async fn commander_non_creator_can_update_members() {
     assert_eq!(update_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn commander_non_creator_can_update_member_function() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn commander_non_creator_can_update_member_function(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -356,11 +345,8 @@ async fn commander_non_creator_can_update_member_function() {
     assert_eq!(update_resp.status(), StatusCode::OK);
 }
 
-#[actix_rt::test]
-async fn commander_non_creator_can_end_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn commander_non_creator_can_end_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -432,11 +418,8 @@ async fn commander_non_creator_can_end_session() {
     assert_eq!(is_active, false);
 }
 
-#[actix_rt::test]
-async fn member_non_commander_cannot_remove_member() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn member_non_commander_cannot_remove_member(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -507,13 +490,13 @@ async fn member_non_commander_cannot_remove_member() {
 
     let remove_resp = test::call_service(&app, remove_req).await;
     assert_eq!(remove_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(remove_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
-#[actix_rt::test]
-async fn member_non_commander_cannot_update_members() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn member_non_commander_cannot_update_members(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -596,13 +579,13 @@ async fn member_non_commander_cannot_update_members() {
 
     let update_resp = test::call_service(&app, update_req).await;
     assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(update_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }
 
-#[actix_rt::test]
-async fn member_non_commander_cannot_end_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn member_non_commander_cannot_end_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -668,4 +651,7 @@ async fn member_non_commander_cannot_end_session() {
 
     let end_resp = test::call_service(&app, end_req).await;
     assert_eq!(end_resp.status(), StatusCode::FORBIDDEN);
+    let body: serde_json::Value = test::read_body_json(end_resp).await;
+    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
+    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
 }

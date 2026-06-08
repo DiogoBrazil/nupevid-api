@@ -1,13 +1,11 @@
 use actix_web::{http::StatusCode, test};
 use chrono::{Duration, Utc};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn login_with_empty_email_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_empty_email_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -26,11 +24,8 @@ async fn login_with_empty_email_returns_unauthorized() {
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
-async fn login_with_empty_password_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_empty_password_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -49,11 +44,8 @@ async fn login_with_empty_password_returns_unauthorized() {
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
-async fn login_with_invalid_email_format_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_invalid_email_format_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -72,11 +64,8 @@ async fn login_with_invalid_email_format_returns_unauthorized() {
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
-async fn login_without_api_key_header_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_without_api_key_header_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -97,11 +86,8 @@ async fn login_without_api_key_header_returns_unauthorized() {
     );
 }
 
-#[actix_rt::test]
-async fn login_with_invalid_api_key_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_invalid_api_key_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -123,11 +109,8 @@ async fn login_with_invalid_api_key_returns_unauthorized() {
     );
 }
 
-#[actix_rt::test]
-async fn protected_route_without_authorization_header_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn protected_route_without_authorization_header_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -143,11 +126,8 @@ async fn protected_route_without_authorization_header_returns_unauthorized() {
     assert!(err.to_string().contains("Invalid authorization header"));
 }
 
-#[actix_rt::test]
-async fn protected_route_with_malformed_authorization_header_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn protected_route_with_malformed_authorization_header_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -164,11 +144,8 @@ async fn protected_route_with_malformed_authorization_header_returns_unauthorize
     assert!(err.to_string().contains("Invalid authorization header"));
 }
 
-#[actix_rt::test]
-async fn protected_route_with_invalid_bearer_token_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn protected_route_with_invalid_bearer_token_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -185,11 +162,8 @@ async fn protected_route_with_invalid_bearer_token_returns_unauthorized() {
     assert!(err.to_string().contains("Invalid token"));
 }
 
-#[actix_rt::test]
-async fn login_with_expired_temporary_password_returns_unauthorized_with_specific_message() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_expired_temporary_password_returns_unauthorized_with_specific_message(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -249,11 +223,8 @@ async fn login_with_expired_temporary_password_returns_unauthorized_with_specifi
     );
 }
 
-#[actix_rt::test]
-async fn login_with_temporary_password_missing_expiration_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn login_with_temporary_password_missing_expiration_returns_unauthorized(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

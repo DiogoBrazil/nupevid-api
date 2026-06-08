@@ -1,4 +1,5 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
@@ -22,10 +23,8 @@ fn build_address_payload(city_id: Uuid) -> serde_json::Value {
     })
 }
 
-#[actix_rt::test]
-async fn can_add_update_delete_phone_for_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn can_add_update_delete_phone_for_offender(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -99,22 +98,21 @@ async fn can_add_update_delete_phone_for_offender() {
     .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     let offender_body: serde_json::Value = test::read_body_json(get_resp).await;
-    assert!(offender_body["data"]["phones"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        offender_body["data"]["phones"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
-#[actix_rt::test]
-async fn can_add_update_delete_address_for_offender() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn can_add_update_delete_address_for_offender(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_id = db_fixtures::insert_city(&pool, "City Offender Addresses").await;
-    let offender_id =
-        db_fixtures::insert_offender(&pool, "Offender For Addresses", city_id).await;
+    let offender_id = db_fixtures::insert_offender(&pool, "Offender For Addresses", city_id).await;
 
     let root_claims = test_helpers::build_root_claims();
     let token = test_helpers::generate_jwt(&root_claims, &config.jwt_secret);
@@ -187,23 +185,22 @@ async fn can_add_update_delete_address_for_offender() {
     .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     let offender_body: serde_json::Value = test::read_body_json(get_resp).await;
-    assert!(offender_body["data"]["addresses"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        offender_body["data"]["addresses"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_modify_offender_phone_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_modify_offender_phone_in_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_a = db_fixtures::insert_city(&pool, "City A Off Phone").await;
     let city_b = db_fixtures::insert_city(&pool, "City B Off Phone").await;
-    let offender_b_id =
-        db_fixtures::insert_offender(&pool, "Offender in City B", city_b).await;
+    let offender_b_id = db_fixtures::insert_offender(&pool, "Offender in City B", city_b).await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
@@ -222,17 +219,14 @@ async fn city_admin_cannot_modify_offender_phone_in_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_modify_offender_address_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_modify_offender_address_in_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
     let city_a = db_fixtures::insert_city(&pool, "City A Off Addr").await;
     let city_b = db_fixtures::insert_city(&pool, "City B Off Addr").await;
-    let offender_b_id =
-        db_fixtures::insert_offender(&pool, "Offender in City B", city_b).await;
+    let offender_b_id = db_fixtures::insert_offender(&pool, "Offender in City B", city_b).await;
 
     let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
     let token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);

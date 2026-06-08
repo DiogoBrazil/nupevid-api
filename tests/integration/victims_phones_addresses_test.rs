@@ -2,6 +2,7 @@ use actix_web::{http::StatusCode, test};
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
+use sqlx::PgPool;
 
 fn build_phone_payload() -> serde_json::Value {
     serde_json::json!({
@@ -22,10 +23,8 @@ fn build_address_payload(city_id: Uuid) -> serde_json::Value {
     })
 }
 
-#[actix_rt::test]
-async fn can_add_update_delete_phone_for_victim() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn can_add_update_delete_phone_for_victim(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -102,10 +101,8 @@ async fn can_add_update_delete_phone_for_victim() {
     assert!(victim_body["data"]["phones"].as_array().unwrap().is_empty());
 }
 
-#[actix_rt::test]
-async fn can_add_update_delete_address_for_victim() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn can_add_update_delete_address_for_victim(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -191,10 +188,8 @@ async fn can_add_update_delete_address_for_victim() {
     );
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_modify_phone_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_modify_phone_in_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -220,10 +215,8 @@ async fn city_admin_cannot_modify_phone_in_other_city() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
-async fn city_admin_cannot_modify_address_in_other_city() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_cannot_modify_address_in_other_city(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

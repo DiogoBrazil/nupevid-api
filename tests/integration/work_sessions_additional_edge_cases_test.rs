@@ -1,14 +1,12 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{db_fixtures, test_helpers};
 
 /// Phase 9 - Test 1: Try to end session twice
-#[actix_rt::test]
-async fn cannot_end_session_twice() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_end_session_twice(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -48,11 +46,8 @@ async fn cannot_end_session_twice() {
 }
 
 /// Phase 9 - Test 2: GET session with invalid UUID format
-#[actix_rt::test]
-async fn get_session_with_invalid_uuid() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn get_session_with_invalid_uuid(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -78,11 +73,8 @@ async fn get_session_with_invalid_uuid() {
 }
 
 /// Phase 9 - Test 3: Update members with empty array
-#[actix_rt::test]
-async fn update_members_with_empty_array_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn update_members_with_empty_array_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -144,11 +136,8 @@ async fn update_members_with_empty_array_fails() {
 }
 
 /// Phase 9 - Test 4: Try to remove Commander from session
-#[actix_rt::test]
-async fn cannot_remove_commander_from_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn cannot_remove_commander_from_session(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -221,11 +210,8 @@ async fn cannot_remove_commander_from_session() {
 }
 
 /// Phase 9 - Test 5: GET non-existent session returns 404
-#[actix_rt::test]
-async fn get_nonexistent_session_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn get_nonexistent_session_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -252,11 +238,8 @@ async fn get_nonexistent_session_returns_404() {
 }
 
 /// Phase 9 - Test 6: Add member with malformed UUID
-#[actix_rt::test]
-async fn add_member_with_malformed_uuid() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn add_member_with_malformed_uuid(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

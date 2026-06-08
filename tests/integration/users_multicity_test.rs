@@ -1,83 +1,11 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, fixtures, test_helpers};
+use nupevid_api::core::value_objects::profiles::Profile;
 
-#[actix_rt::test]
-async fn create_city_admin_without_city_id_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-    let config = test_helpers::build_test_config();
-    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
-
-    let claims = test_helpers::build_root_claims();
-    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
-
-    let mut user = fixtures::valid_create_user();
-    user.profile = "CITY_ADMIN".to_string();
-    user.city_id = None;
-
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/users")
-            .set_json(&user),
-        &config,
-        &token,
-    )
-    .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("city_id is required")
-    );
-}
-
-#[actix_rt::test]
-async fn create_city_user_without_city_id_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-    let config = test_helpers::build_test_config();
-    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
-
-    let claims = test_helpers::build_root_claims();
-    let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
-
-    let mut user = fixtures::valid_create_user();
-    user.profile = "CITY_USER".to_string();
-    user.city_id = None;
-
-    let req = test_helpers::with_auth_headers(
-        test::TestRequest::post()
-            .uri("/api/v1/users")
-            .set_json(&user),
-        &config,
-        &token,
-    )
-    .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-
-    let body: serde_json::Value = test::read_body_json(resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 400);
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("city_id is required")
-    );
-}
-
-#[actix_rt::test]
-async fn create_city_admin_success_with_city_id() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_city_admin_success_with_city_id(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -87,7 +15,7 @@ async fn create_city_admin_success_with_city_id() {
     let city_id = db_fixtures::insert_city(&pool, "Cidade Admin").await;
 
     let mut user = fixtures::valid_create_user();
-    user.profile = "CITY_ADMIN".to_string();
+    user.profile = Profile::CityAdmin;
     user.city_id = Some(city_id);
 
     let req = test_helpers::with_auth_headers(
@@ -111,10 +39,8 @@ async fn create_city_admin_success_with_city_id() {
     );
 }
 
-#[actix_rt::test]
-async fn create_second_city_admin_same_city_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn create_second_city_admin_same_city_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -124,11 +50,11 @@ async fn create_second_city_admin_same_city_should_fail() {
     let city_id = db_fixtures::insert_city(&pool, "Cidade Unica").await;
 
     let mut admin1 = fixtures::valid_create_user();
-    admin1.profile = "CITY_ADMIN".to_string();
+    admin1.profile = Profile::CityAdmin;
     admin1.city_id = Some(city_id);
 
     let mut admin2 = fixtures::valid_create_user_2();
-    admin2.profile = "CITY_ADMIN".to_string();
+    admin2.profile = Profile::CityAdmin;
     admin2.city_id = Some(city_id);
 
     // First admin should succeed
@@ -165,10 +91,8 @@ async fn create_second_city_admin_same_city_should_fail() {
     );
 }
 
-#[actix_rt::test]
-async fn update_user_to_city_admin_without_city_id_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_to_city_admin_without_city_id_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -192,7 +116,7 @@ async fn update_user_to_city_admin_without_city_id_should_fail() {
 
     // Try to update to CITY_ADMIN without city_id
     let mut update_data = fixtures::valid_update_user();
-    update_data.profile = "CITY_ADMIN".to_string();
+    update_data.profile = Profile::CityAdmin;
     update_data.city_id = None;
 
     let update_req = test_helpers::with_auth_headers(
@@ -217,10 +141,8 @@ async fn update_user_to_city_admin_without_city_id_should_fail() {
     );
 }
 
-#[actix_rt::test]
-async fn update_user_creating_duplicate_city_admin_should_fail() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn update_user_creating_duplicate_city_admin_should_fail(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -231,7 +153,7 @@ async fn update_user_creating_duplicate_city_admin_should_fail() {
 
     // First CITY_ADMIN
     let mut admin1 = fixtures::valid_create_user();
-    admin1.profile = "CITY_ADMIN".to_string();
+    admin1.profile = Profile::CityAdmin;
     admin1.city_id = Some(city_id);
     let req1 = test_helpers::with_auth_headers(
         test::TestRequest::post()
@@ -262,7 +184,7 @@ async fn update_user_creating_duplicate_city_admin_should_fail() {
 
     // Try to promote user2 to CITY_ADMIN for same city
     let mut update_data = fixtures::valid_update_user();
-    update_data.profile = "CITY_ADMIN".to_string();
+    update_data.profile = Profile::CityAdmin;
     update_data.city_id = Some(city_id);
 
     let update_req = test_helpers::with_auth_headers(

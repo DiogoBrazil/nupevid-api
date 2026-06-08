@@ -1,12 +1,10 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 
 use crate::common::{db_fixtures, test_helpers};
 
-#[actix_rt::test]
-async fn create_work_session_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_work_session_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -81,11 +79,8 @@ async fn create_work_session_success() {
     assert_eq!(members.len(), 3);
 }
 
-#[actix_rt::test]
-async fn create_work_session_without_commander_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_work_session_without_commander_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -137,11 +132,8 @@ async fn create_work_session_without_commander_fails() {
     assert!(body["message"].as_str().unwrap().contains("Commander"));
 }
 
-#[actix_rt::test]
-async fn create_work_session_with_two_commanders_fails() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn create_work_session_with_two_commanders_fails(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -193,11 +185,8 @@ async fn create_work_session_with_two_commanders_fails() {
     assert!(body["message"].as_str().unwrap().contains("Commander"));
 }
 
-#[actix_rt::test]
-async fn get_active_session_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn get_active_session_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -228,11 +217,8 @@ async fn get_active_session_success() {
     assert_eq!(body["data"]["is_active"].as_bool().unwrap(), true);
 }
 
-#[actix_rt::test]
-async fn get_active_session_when_none_returns_404() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn get_active_session_when_none_returns_404(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -256,11 +242,8 @@ async fn get_active_session_when_none_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
-async fn end_session_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn end_session_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -296,11 +279,8 @@ async fn end_session_success() {
     assert_eq!(is_active, false);
 }
 
-#[actix_rt::test]
-async fn user_cannot_have_two_active_sessions() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
-
+#[sqlx::test]
+async fn user_cannot_have_two_active_sessions(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 

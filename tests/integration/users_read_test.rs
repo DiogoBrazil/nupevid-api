@@ -1,14 +1,15 @@
 use actix_web::{http::StatusCode, test};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{fixtures, test_helpers};
-use nupevid_api::core::entities::auth::ClaimsToUserToken;
+use nupevid_api::core::entities::auth::UserClaims;
+use nupevid_api::core::value_objects::profiles::Profile;
+use nupevid_api::core::value_objects::ranks::Rank;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[actix_rt::test]
-async fn test_get_all_users_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_all_users_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -47,10 +48,8 @@ async fn test_get_all_users_success() {
     assert_eq!(body["data"].as_array().unwrap().len(), 2);
 }
 
-#[actix_rt::test]
-async fn test_get_all_users_empty() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_all_users_empty(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -72,10 +71,8 @@ async fn test_get_all_users_empty() {
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
 }
 
-#[actix_rt::test]
-async fn non_root_list_users_should_not_include_root() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn non_root_list_users_should_not_include_root(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -136,17 +133,19 @@ async fn non_root_list_users_should_not_include_root() {
     let _ = test::call_service(&app, req).await;
 
     // Non-root token (CITY_USER)
-    let claims_user = ClaimsToUserToken {
+    let claims_user = UserClaims {
         id: Uuid::new_v4().to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "CB PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::CbPm,
         registration: "100009991".to_string(),
         full_name: "Any User".to_string(),
-        profile: "CITY_USER".to_string(),
+        profile: Profile::CityUser,
         email: "any.user@test.com".to_string(),
         city_id: Some(city_id.to_string()),
     };
@@ -166,10 +165,8 @@ async fn non_root_list_users_should_not_include_root() {
     assert!(arr.iter().all(|u| u["profile"].as_str().unwrap() != "ROOT"));
 }
 
-#[actix_rt::test]
-async fn test_get_user_by_id_success() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_user_by_id_success(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -207,10 +204,8 @@ async fn test_get_user_by_id_success() {
     assert_eq!(get_body["data"]["email"].as_str().unwrap(), user.email);
 }
 
-#[actix_rt::test]
-async fn test_get_user_by_id_not_found() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn test_get_user_by_id_not_found(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -233,9 +228,8 @@ async fn test_get_user_by_id_not_found() {
     assert!(body["message"].as_str().unwrap().contains("not found"));
 }
 
-#[actix_rt::test]
-async fn test_get_user_by_invalid_uuid() {
-    let pool = test_helpers::setup_test_db().await;
+#[sqlx::test]
+async fn test_get_user_by_invalid_uuid(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -254,10 +248,8 @@ async fn test_get_user_by_invalid_uuid() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND); // Route not matched
 }
 
-#[actix_rt::test]
-async fn city_admin_only_sees_users_from_permitted_cities() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn city_admin_only_sees_users_from_permitted_cities(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
 
@@ -356,17 +348,19 @@ async fn city_admin_only_sees_users_from_permitted_cities() {
     test::call_service(&app, create_user2_req).await;
 
     // Create token for CITY_ADMIN with read_users permission only for city1
-    let admin_claims = ClaimsToUserToken {
+    let admin_claims = UserClaims {
         id: admin_id.to_string(),
         exp: (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize)
             + 3600,
-        rank: "MAJ PM".to_string(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank: Rank::MajPm,
         registration: "100000111".to_string(),
         full_name: "Admin City 1".to_string(),
-        profile: "CITY_ADMIN".to_string(),
+        profile: Profile::CityAdmin,
         email: "admin.city1@test.com".to_string(),
         city_id: Some(city1_id.to_string()),
     };

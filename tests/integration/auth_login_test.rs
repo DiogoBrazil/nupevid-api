@@ -16,8 +16,8 @@ async fn insert_test_user(pool: &PgPool, email: &str, plain_password: &str) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, false)",
     )
     .bind(Uuid::new_v4())
-    .bind("Sargento")
-    .bind(12345_i32)
+    .bind("SD PM")
+    .bind("100012345")
     .bind("Test User")
     .bind("ROOT")
     .bind(email)
@@ -27,10 +27,8 @@ async fn insert_test_user(pool: &PgPool, email: &str, plain_password: &str) {
     .expect("Failed to insert test user");
 }
 
-#[actix_rt::test]
-async fn login_success_root_user() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_success_root_user(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -55,19 +53,17 @@ async fn login_success_root_user() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(body["data"]["id"].as_str().is_some());
     assert_eq!(body["data"]["email"].as_str().unwrap(), email);
     assert_eq!(body["data"]["full_name"].as_str().unwrap(), "Test User");
-    assert_eq!(body["data"]["rank"].as_str().unwrap(), "Sargento");
-    assert_eq!(body["data"]["registration"].as_str().unwrap(), "12345");
+    assert_eq!(body["data"]["rank"].as_str().unwrap(), "SD PM");
+    assert_eq!(body["data"]["registration"].as_str().unwrap(), "100012345");
     assert_eq!(body["data"]["profile"].as_str().unwrap(), "ROOT");
 }
 
-#[actix_rt::test]
-async fn login_invalid_email_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_invalid_email_returns_unauthorized(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -96,10 +92,8 @@ async fn login_invalid_email_returns_unauthorized() {
     );
 }
 
-#[actix_rt::test]
-async fn login_invalid_password_returns_unauthorized() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_invalid_password_returns_unauthorized(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -131,10 +125,8 @@ async fn login_invalid_password_returns_unauthorized() {
     );
 }
 
-#[actix_rt::test]
-async fn login_with_auto_create_session_true_creates_work_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_with_auto_create_session_true_creates_work_session(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -162,7 +154,7 @@ async fn login_with_auto_create_session_true_creates_work_session() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_object(),
         "work_session should be an object"
@@ -196,10 +188,8 @@ async fn login_with_auto_create_session_true_creates_work_session() {
     assert_eq!(member_function, "Commander");
 }
 
-#[actix_rt::test]
-async fn login_with_auto_create_session_requires_city_for_non_root() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_with_auto_create_session_requires_city_for_non_root(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -231,10 +221,8 @@ async fn login_with_auto_create_session_requires_city_for_non_root() {
     );
 }
 
-#[actix_rt::test]
-async fn login_with_auto_create_session_false_does_not_create_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_with_auto_create_session_false_does_not_create_session(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -267,7 +255,7 @@ async fn login_with_auto_create_session_false_does_not_create_session() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_null(),
         "work_session should be null when auto_create_session is false"
@@ -284,10 +272,8 @@ async fn login_with_auto_create_session_false_does_not_create_session() {
     assert_eq!(session_count, 0, "No work session should be created");
 }
 
-#[actix_rt::test]
-async fn login_with_auto_create_session_returns_existing_active_session() {
-    let pool = test_helpers::setup_test_db().await;
-    test_helpers::clean_database(&pool).await;
+#[sqlx::test]
+async fn login_with_auto_create_session_returns_existing_active_session(pool: PgPool) {
 
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
@@ -323,7 +309,7 @@ async fn login_with_auto_create_session_returns_existing_active_session() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"].as_u64().unwrap(), 200);
-    assert!(body["data"]["token"].as_str().is_some());
+    assert!(body["data"]["access_token"].as_str().is_some());
     assert!(
         body["data"]["work_session"].is_object(),
         "work_session should be an object"
