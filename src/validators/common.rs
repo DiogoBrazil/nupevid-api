@@ -18,7 +18,7 @@ pub fn is_public_route(path: &str) -> bool {
         "/api/v1/auth/logout",
         "/api/swagger",
     ];
-    const PUBLIC_PREFIX: &[&str] = &["/api/swagger/", "/logstreamer"];
+    const PUBLIC_PREFIX: &[&str] = &["/api/swagger/", "/logdock"];
 
     PUBLIC_EXACT.contains(&path) || PUBLIC_PREFIX.iter().any(|prefix| path.starts_with(prefix))
 }

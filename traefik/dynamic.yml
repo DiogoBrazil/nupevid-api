@@ -1,11 +1,11 @@
 http:
   routers:
-    logstreamer:
+    logdock:
       entryPoints:
         - web
-      rule: PathPrefix(`/logstreamer`)
+      rule: PathPrefix(`/logdock`)
       priority: 10
-      service: logstreamer
+      service: logdock
 
     api:
       entryPoints:
@@ -15,10 +15,10 @@ http:
       service: api
 
   services:
-    logstreamer:
+    logdock:
       loadBalancer:
         servers:
-          - url: http://logstreamer:8080
+          - url: http://logdock:8080
 
     api:
       loadBalancer:

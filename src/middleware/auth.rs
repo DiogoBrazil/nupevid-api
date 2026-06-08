@@ -76,7 +76,7 @@ where
 
 impl<S> AuthMiddlewareService<S> {
     fn verify_api_key(&self, req: &ServiceRequest, config: &Config) -> Result<(), Error> {
-        if req.path().starts_with("/api/swagger") || req.path().starts_with("/logstreamer") {
+        if req.path().starts_with("/api/swagger") || req.path().starts_with("/logdock") {
             return Ok(());
         }
 
