@@ -383,9 +383,9 @@ docker compose up --build
 Isso sobe a stack local com o Traefik como porta de entrada em `http://localhost:8080`.
 
 - API: `http://localhost:8080/api/v1`
-- LogStreamer: `http://localhost:8080/logstreamer`
+- LogDock: `http://localhost:8080/logdock`
  
-No ambiente local, o Traefik usa um arquivo de rotas estático para encaminhar as requisições para `api` e `logstreamer` na rede Docker interna.
+No ambiente local, o Traefik usa um arquivo de rotas estático para encaminhar as requisições para `api` e `logdock` na rede Docker interna.
 
 No ambiente de produção, o arquivo usado é o `docker-compose.yml`. Nele, o Traefik descobre as rotas por labels Docker, então `traefik/dynamic.yml` nao precisa existir na VM.
 
