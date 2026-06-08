@@ -884,21 +884,22 @@ A relação completa de endpoints está na seção [Referência de Endpoints](#1
 
 1. Crie uma branch de feature/correção.
 2. Garanta que as migrações estejam aplicadas no ambiente local.
-3. Rode testes:
+3. Rode a suíte de testes com [nextest](https://nexte.st/) — use o wrapper do projeto, que carrega o `.env` e aponta `DATABASE_URL` para `DATABASE_TEST_URL`:
 
 ```bash
-cargo test -- --test-threads=1
+./test.sh                 # equivalente a: cargo nextest run
 ```
 
-4. Para testes unitários:
+Ou diretamente (com `DATABASE_TEST_URL` exportado para os testes de banco):
 
 ```bash
-cargo test --lib
+cargo nextest run         # toda a suíte
+cargo nextest run --lib   # apenas testes unitários
 ```
 
-5. Abra PR com descrição clara de contexto, impacto e estratégia de validação.
+4. Abra PR com descrição clara de contexto, impacto e estratégia de validação.
 
-Referência adicional: `TESTING.md`.
+> Pré-requisito: `cargo install cargo-nextest --locked`. Detalhes em `TESTING.md`.
 
 ---
 
