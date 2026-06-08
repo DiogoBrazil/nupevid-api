@@ -163,7 +163,7 @@ Route → Controller → UseCase → Repository (+ Queries SQL) → PostgreSQL
   - `entities` — modelos de domínio.
   - `value_objects` — tipos de domínio (perfis, postos, políticas, estados, batalhões, composição de equipe, CPF, matrícula).
   - `commands` — DTOs de entrada (ex.: `CreateUser`, `SaveVictim`).
-  - `read_models` / `responses` — DTOs de saída.
+  - `read_models` — DTOs de saída (inclui respostas de `auth` e `users`).
   - `filters` — parâmetros de busca/paginação.
   - `contracts` — portas (traits) de repositório e de adapters.
   - `authorization`, `auth_context`, `policy_defaults` — RBAC + políticas por cidade.
@@ -229,8 +229,7 @@ Route → Controller → UseCase → Repository (+ Queries SQL) → PostgreSQL
 │   │   ├── entities/               # modelos de domínio
 │   │   ├── value_objects/          # perfis, postos, políticas, estados, etc.
 │   │   ├── commands/               # DTOs de entrada
-│   │   ├── read_models/            # DTOs de leitura
-│   │   ├── responses/              # DTOs de resposta (auth, users)
+│   │   ├── read_models/            # DTOs de leitura/resposta (inclui auth, users)
 │   │   ├── filters/                # parâmetros de busca/paginação
 │   │   ├── contracts/              # portas (traits) de repositório/adapters
 │   │   ├── authorization.rs        # verificação de permissões
