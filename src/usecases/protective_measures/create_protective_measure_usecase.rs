@@ -37,7 +37,7 @@ impl CreateProtectiveMeasureUseCase {
         get_offender_or_not_found(&*self.deps.offender_repository, measure.offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::CreateProtectiveMeasures, victim.city_id)?;
+        auth.check_policy(&Policy::CreateProtectiveMeasures, victim.summary.city_id)?;
 
         ProtectiveMeasureValidator::validate_required_fields(
             &measure.process_number,

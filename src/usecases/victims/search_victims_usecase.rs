@@ -50,7 +50,7 @@ impl SearchVictimsUseCase {
                 Ok(list) => {
                     let filtered: Vec<_> = list
                         .into_iter()
-                        .filter(|v| allowed_cities.contains(&v.city_id))
+                        .filter(|v| allowed_cities.contains(&v.summary.city_id))
                         .collect();
                     Ok(filtered)
                 }

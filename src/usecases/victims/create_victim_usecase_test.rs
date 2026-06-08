@@ -122,8 +122,8 @@ async fn test_create_victim_success() {
 
     assert!(result.is_ok());
     let victim_response = result.unwrap();
-    assert_eq!(victim_response.full_name, "Maria Silva");
-    assert_eq!(victim_response.city_id, city_id);
+    assert_eq!(victim_response.summary.full_name, "Maria Silva");
+    assert_eq!(victim_response.summary.city_id, city_id);
 }
 
 #[tokio::test]

@@ -36,7 +36,7 @@ impl GetOffenderByIdUseCase {
         {
             Ok(offender_with_details) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::ReadOffenders, offender_with_details.city_id)?;
+                auth.check_policy(&Policy::ReadOffenders, offender_with_details.summary.city_id)?;
 
                 info!(
                     "[GetOffenderByIdUseCase] Offender with id {} found successfully",

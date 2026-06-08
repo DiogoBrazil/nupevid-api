@@ -40,7 +40,7 @@ impl GetAttendanceMembersUseCase {
 
         let victim =
             get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
-        auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, victim.summary.city_id)?;
 
         let members = self
             .deps

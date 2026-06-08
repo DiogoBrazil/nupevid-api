@@ -37,7 +37,7 @@ impl GetProtectiveMeasureByIdUseCase {
             get_victim_or_not_found(&*self.deps.victim_repository, measure.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.city_id)?;
+        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.summary.city_id)?;
 
         info!(
             "[GetProtectiveMeasureByIdUseCase] Protective measure found: {}",

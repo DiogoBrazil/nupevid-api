@@ -43,7 +43,7 @@ impl GetAttendanceOffenderByIdUseCase {
         .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, offender.summary.city_id)?;
 
         Ok(attendance_with_address)
     }

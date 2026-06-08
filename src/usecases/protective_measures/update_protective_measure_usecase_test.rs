@@ -21,7 +21,7 @@ use crate::core::entities::protective_measures::{
     ProtectiveMeasure, ProtectiveMeasureStatus, RelationshipToVictim, ViolenceType,
 };
 use crate::core::read_models::offenders::OffenderWithDetails;
-use crate::core::read_models::victims::VictimWithDetails;
+use crate::core::read_models::victims::{VictimSummary, VictimWithDetails};
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
@@ -101,27 +101,29 @@ fn measure(
 fn victim(id: Uuid, city_id: Uuid) -> VictimWithDetails {
     let now = Utc::now();
     VictimWithDetails {
-        id,
-        full_name: "MARIA TESTE".to_string(),
-        cpf: None,
-        birth_date: None,
-        city_id,
+        summary: VictimSummary {
+            id,
+            full_name: "MARIA TESTE".to_string(),
+            cpf: None,
+            birth_date: None,
+            city_id,
+            is_deleted: false,
+            education_level: None,
+            occupation: None,
+            has_children: false,
+            children_count: None,
+            is_pregnant: None,
+            has_special_needs: false,
+            special_needs_type: None,
+            uses_alcohol: false,
+            uses_drugs: false,
+            has_psychiatric_issues: false,
+            psychiatric_issues_type: None,
+            phones: vec![],
+            addresses: vec![],
+        },
         created_at: now,
         updated_at: now,
-        is_deleted: false,
-        education_level: None,
-        occupation: None,
-        has_children: false,
-        children_count: None,
-        is_pregnant: None,
-        has_special_needs: false,
-        special_needs_type: None,
-        uses_alcohol: false,
-        uses_drugs: false,
-        has_psychiatric_issues: false,
-        psychiatric_issues_type: None,
-        phones: vec![],
-        addresses: vec![],
     }
 }
 

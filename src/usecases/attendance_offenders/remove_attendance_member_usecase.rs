@@ -41,7 +41,7 @@ impl RemoveAttendanceOffenderMemberUseCase {
         let offender =
             get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
                 .await?;
-        auth.check_policy(&Policy::ManageAttendanceMembers, offender.city_id)?;
+        auth.check_policy(&Policy::ManageAttendanceMembers, offender.summary.city_id)?;
 
         match self
             .deps

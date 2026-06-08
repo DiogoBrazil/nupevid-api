@@ -25,7 +25,7 @@ use crate::core::entities::work_session_members::WorkSessionMember;
 use crate::core::entities::work_sessions::WorkSession;
 use crate::core::read_models::attendance_members::AttendanceMemberWithDetails;
 use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
-use crate::core::read_models::victims::VictimWithDetails;
+use crate::core::read_models::victims::{VictimSummary, VictimWithDetails};
 use crate::core::read_models::work_sessions::{
     WorkSessionMemberWithDetails, WorkSessionMemberWithUser, WorkSessionWithMemberDetails,
 };
@@ -76,27 +76,29 @@ pub fn protective_measure(id: Uuid, victim_id: Uuid, offender_id: Uuid) -> Prote
 pub fn victim_with_details(id: Uuid, city_id: Uuid) -> VictimWithDetails {
     let now = Utc::now();
     VictimWithDetails {
-        id,
-        full_name: "VICTIM".to_string(),
-        cpf: None,
-        birth_date: None,
-        city_id,
+        summary: VictimSummary {
+            id,
+            full_name: "VICTIM".to_string(),
+            cpf: None,
+            birth_date: None,
+            city_id,
+            is_deleted: false,
+            education_level: None,
+            occupation: None,
+            has_children: false,
+            children_count: None,
+            is_pregnant: None,
+            has_special_needs: false,
+            special_needs_type: None,
+            uses_alcohol: false,
+            uses_drugs: false,
+            has_psychiatric_issues: false,
+            psychiatric_issues_type: None,
+            phones: vec![],
+            addresses: vec![],
+        },
         created_at: now,
         updated_at: now,
-        is_deleted: false,
-        education_level: None,
-        occupation: None,
-        has_children: false,
-        children_count: None,
-        is_pregnant: None,
-        has_special_needs: false,
-        special_needs_type: None,
-        uses_alcohol: false,
-        uses_drugs: false,
-        has_psychiatric_issues: false,
-        psychiatric_issues_type: None,
-        phones: vec![],
-        addresses: vec![],
     }
 }
 

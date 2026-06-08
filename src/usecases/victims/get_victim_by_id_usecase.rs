@@ -31,7 +31,7 @@ impl GetVictimByIdUseCase {
         match self.deps.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::ReadVictims, victim_with_address.city_id)?;
+                auth.check_policy(&Policy::ReadVictims, victim_with_address.summary.city_id)?;
 
                 info!(
                     "[GetVictimByIdUseCase] Victim with id {} found successfully",

@@ -5,7 +5,7 @@ use crate::core::application_error::ApplicationError as AppError;
 use crate::core::auth_helpers::extract_city_id_from_claims;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
-use crate::core::responses::users::ResetUserPasswordResponse;
+use crate::core::read_models::users::ResetUserPasswordResponse;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::helpers_common::get_user_or_not_found;
 use crate::usecases::users::deps::UserUseCaseDependencies;

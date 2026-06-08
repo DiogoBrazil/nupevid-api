@@ -11,5 +11,4 @@ pub mod filters;
 pub mod pagination;
 pub mod policy_defaults;
 pub mod read_models;
-pub mod responses;
 pub mod value_objects;

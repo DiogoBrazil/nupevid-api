@@ -16,7 +16,7 @@ pub async fn authorize_offender_access(
     policy: &Policy,
 ) -> Result<OffenderWithDetails, AppError> {
     let offender = get_offender_or_not_found(offender_read_repository, offender_id).await?;
-    auth.check_policy(policy, offender.city_id)?;
+    auth.check_policy(policy, offender.summary.city_id)?;
     Ok(offender)
 }
 

@@ -48,7 +48,7 @@ impl UpdateAttendanceVictimUseCase {
         let existing_victim =
             get_victim_or_not_found(&*self.deps.victim_repository, existing.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::UpdateAttendances, existing_victim.city_id)?;
+        auth.check_policy(&Policy::UpdateAttendances, existing_victim.summary.city_id)?;
 
         let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
@@ -61,7 +61,7 @@ impl UpdateAttendanceVictimUseCase {
         if new_victim_id != existing.victim_id {
             let new_victim =
                 get_victim_or_not_found(&*self.deps.victim_repository, new_victim_id).await?;
-            auth.check_policy(&Policy::UpdateAttendances, new_victim.city_id)?;
+            auth.check_policy(&Policy::UpdateAttendances, new_victim.summary.city_id)?;
         }
 
         match self

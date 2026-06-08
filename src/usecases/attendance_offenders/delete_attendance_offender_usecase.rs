@@ -41,7 +41,7 @@ impl DeleteAttendanceOffenderUseCase {
                 .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::DeleteAttendances, offender.city_id)?;
+        auth.check_policy(&Policy::DeleteAttendances, offender.summary.city_id)?;
 
         match self
             .deps

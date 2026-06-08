@@ -46,8 +46,8 @@ async fn create_succeeds_when_valid_cpf_and_policy_present() {
         .await;
 
     let offender = result.unwrap();
-    assert_eq!(offender.full_name, "JOAO TESTE");
-    assert_eq!(offender.city_id, city_id);
+    assert_eq!(offender.summary.full_name, "JOAO TESTE");
+    assert_eq!(offender.summary.city_id, city_id);
 }
 
 #[tokio::test]
@@ -111,7 +111,7 @@ async fn create_derives_city_from_residential_address_when_city_id_absent() {
         .execute(cmd, &claims(Profile::CityAdmin, Some(residential_city)))
         .await;
 
-    assert_eq!(result.unwrap().city_id, residential_city);
+    assert_eq!(result.unwrap().summary.city_id, residential_city);
 }
 
 #[tokio::test]

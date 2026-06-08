@@ -43,7 +43,7 @@ impl CreateAttendanceVictimUseCase {
         .await?;
         let victim = get_victim_or_not_found(&*self.deps.victim_repository, pm.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::CreateAttendances, victim.city_id)?;
+        auth.check_policy(&Policy::CreateAttendances, victim.summary.city_id)?;
 
         let members_for_tx =
             get_active_session_members(claims, &*self.deps.work_session_repository).await?;

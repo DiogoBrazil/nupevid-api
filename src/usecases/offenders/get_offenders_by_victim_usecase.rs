@@ -39,7 +39,7 @@ impl GetOffendersByVictimUseCase {
                 Ok(all) => {
                     let filtered: Vec<_> = all
                         .into_iter()
-                        .filter(|o| allowed_cities.contains(&o.city_id))
+                        .filter(|o| allowed_cities.contains(&o.summary.city_id))
                         .collect();
                     Ok(filtered)
                 }

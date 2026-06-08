@@ -41,7 +41,7 @@ impl GetAttendanceOffenderMembersUseCase {
         let offender =
             get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
                 .await?;
-        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, offender.summary.city_id)?;
 
         let members = self
             .deps

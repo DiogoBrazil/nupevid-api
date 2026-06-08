@@ -43,7 +43,7 @@ impl AddAttendanceOffenderMemberUseCase {
         let offender =
             get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
                 .await?;
-        auth.check_policy(&Policy::ManageAttendanceMembers, offender.city_id)?;
+        auth.check_policy(&Policy::ManageAttendanceMembers, offender.summary.city_id)?;
 
         let user_to_add = self
             .deps
@@ -58,7 +58,7 @@ impl AddAttendanceOffenderMemberUseCase {
                 }
             })?;
 
-        if user_to_add.city_id != Some(offender.city_id) {
+        if user_to_add.city_id != Some(offender.summary.city_id) {
             return Err(AppError::BadRequest(
                 "User must be from the same city as the offender".to_string(),
             ));

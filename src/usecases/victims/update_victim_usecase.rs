@@ -42,7 +42,7 @@ impl UpdateVictimUseCase {
 
         match self.deps.victim_read_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                auth.check_policy(&Policy::UpdateVictims, existing_victim.city_id)?;
+                auth.check_policy(&Policy::UpdateVictims, existing_victim.summary.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -68,7 +68,7 @@ impl UpdateVictimUseCase {
                 let victim_with_address = VictimWithDetails::from_write_result(victim_with_address);
                 info!(
                     "[UpdateVictimUseCase] Victim updated successfully with ID: {}",
-                    victim_with_address.id
+                    victim_with_address.summary.id
                 );
                 Ok(victim_with_address)
             }

@@ -37,7 +37,7 @@ impl DeleteAttendanceVictimUseCase {
         let victim =
             get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::DeleteAttendances, victim.city_id)?;
+        auth.check_policy(&Policy::DeleteAttendances, victim.summary.city_id)?;
 
         match self
             .deps

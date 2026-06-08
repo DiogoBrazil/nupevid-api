@@ -52,7 +52,7 @@ impl CreateOffenderUseCase {
                     OffenderWithDetails::from_write_result(offender_with_details);
                 info!(
                     "[CreateOffenderUseCase] Offender created successfully with ID: {}",
-                    offender_with_details.id
+                    offender_with_details.summary.id
                 );
                 Ok(offender_with_details)
             }

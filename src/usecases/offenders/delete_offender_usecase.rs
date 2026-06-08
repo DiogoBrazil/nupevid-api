@@ -36,7 +36,7 @@ impl DeleteOffenderUseCase {
         {
             Ok(offender) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::DeleteOffenders, offender.city_id)?;
+                auth.check_policy(&Policy::DeleteOffenders, offender.summary.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(

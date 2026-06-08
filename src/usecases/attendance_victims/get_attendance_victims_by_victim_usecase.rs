@@ -30,7 +30,7 @@ impl GetAttendanceVictimsByVictimUseCase {
 
         let victim = get_victim_or_not_found(&*self.deps.victim_repository, victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadAttendances, victim.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, victim.summary.city_id)?;
 
         match self
             .deps

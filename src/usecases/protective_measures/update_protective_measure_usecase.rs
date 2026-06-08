@@ -72,12 +72,12 @@ impl UpdateProtectiveMeasureUseCase {
             get_victim_or_not_found(&*self.deps.victim_repository, existing.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::UpdateProtectiveMeasures, existing_victim.city_id)?;
+        auth.check_policy(&Policy::UpdateProtectiveMeasures, existing_victim.summary.city_id)?;
 
         if data.victim_id != existing.victim_id {
             let new_victim =
                 get_victim_or_not_found(&*self.deps.victim_repository, data.victim_id).await?;
-            auth.check_policy(&Policy::UpdateProtectiveMeasures, new_victim.city_id)?;
+            auth.check_policy(&Policy::UpdateProtectiveMeasures, new_victim.summary.city_id)?;
         }
 
         Ok(())

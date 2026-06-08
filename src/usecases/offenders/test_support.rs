@@ -15,7 +15,7 @@ use crate::core::entities::common::{AddressData, EducationLevel, PhoneData};
 use crate::core::entities::offenders::{
     Offender, OffenderAddress, OffenderPhone, OffenderWriteResult,
 };
-use crate::core::read_models::offenders::OffenderWithDetails;
+use crate::core::read_models::offenders::{OffenderSummary, OffenderWithDetails};
 use crate::core::value_objects::profiles::Profile;
 use crate::core::value_objects::ranks::Rank;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
@@ -38,26 +38,28 @@ pub fn claims(profile: Profile, city_id: Option<Uuid>) -> UserClaims {
 pub fn offender_with_details(id: Uuid, city_id: Uuid, full_name: &str) -> OffenderWithDetails {
     let now = Utc::now();
     OffenderWithDetails {
-        id,
-        full_name: full_name.to_string(),
-        cpf: None,
-        birth_date: None,
-        city_id,
-        imprisoned: false,
-        occupation: None,
-        is_public_security_agent: false,
-        security_force: None,
-        uses_alcohol: false,
-        uses_drugs: false,
-        has_psychiatric_issues: false,
-        psychiatric_issues_type: None,
-        education_level: EducationLevel::HighSchool,
-        observation: None,
+        summary: OffenderSummary {
+            id,
+            full_name: full_name.to_string(),
+            cpf: None,
+            birth_date: None,
+            city_id,
+            imprisoned: false,
+            occupation: None,
+            is_public_security_agent: false,
+            security_force: None,
+            uses_alcohol: false,
+            uses_drugs: false,
+            has_psychiatric_issues: false,
+            psychiatric_issues_type: None,
+            education_level: EducationLevel::HighSchool,
+            observation: None,
+            is_deleted: false,
+            phones: vec![],
+            addresses: vec![],
+        },
         created_at: now,
         updated_at: now,
-        is_deleted: false,
-        phones: vec![],
-        addresses: vec![],
     }
 }
 

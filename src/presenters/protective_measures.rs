@@ -172,8 +172,8 @@ mod tests {
         ProtectiveMeasureStatus, RelationshipToVictim, ViolenceType,
     };
     use crate::core::entities::victims::{VictimAddress, VictimPhone, VictimWriteResult};
-    use crate::core::read_models::offenders::OffenderWithDetails;
-    use crate::core::read_models::victims::VictimWithDetails;
+    use crate::core::read_models::offenders::{OffenderSummary, OffenderWithDetails};
+    use crate::core::read_models::victims::{VictimSummary, VictimWithDetails};
 
     struct FakeVictimRepo {
         victim: Option<VictimWithDetails>,
@@ -553,53 +553,57 @@ mod tests {
     fn victim(id: Uuid, city_id: Uuid) -> VictimWithDetails {
         let now = Utc::now();
         VictimWithDetails {
-            id,
-            full_name: "MARIA TESTE".to_string(),
-            cpf: None,
-            birth_date: None,
-            city_id,
+            summary: VictimSummary {
+                id,
+                full_name: "MARIA TESTE".to_string(),
+                cpf: None,
+                birth_date: None,
+                city_id,
+                is_deleted: false,
+                education_level: None,
+                occupation: None,
+                has_children: false,
+                children_count: None,
+                is_pregnant: None,
+                has_special_needs: false,
+                special_needs_type: None,
+                uses_alcohol: false,
+                uses_drugs: false,
+                has_psychiatric_issues: false,
+                psychiatric_issues_type: None,
+                phones: vec![],
+                addresses: vec![],
+            },
             created_at: now,
             updated_at: now,
-            is_deleted: false,
-            education_level: None,
-            occupation: None,
-            has_children: false,
-            children_count: None,
-            is_pregnant: None,
-            has_special_needs: false,
-            special_needs_type: None,
-            uses_alcohol: false,
-            uses_drugs: false,
-            has_psychiatric_issues: false,
-            psychiatric_issues_type: None,
-            phones: vec![],
-            addresses: vec![],
         }
     }
 
     fn offender(id: Uuid, city_id: Uuid) -> OffenderWithDetails {
         let now = Utc::now();
         OffenderWithDetails {
-            id,
-            full_name: "JOAO TESTE".to_string(),
-            cpf: None,
-            birth_date: None,
-            city_id,
-            imprisoned: false,
-            occupation: None,
-            is_public_security_agent: false,
-            security_force: None,
-            uses_alcohol: false,
-            uses_drugs: false,
-            has_psychiatric_issues: false,
-            psychiatric_issues_type: None,
-            education_level: EducationLevel::HighSchool,
-            observation: None,
+            summary: OffenderSummary {
+                id,
+                full_name: "JOAO TESTE".to_string(),
+                cpf: None,
+                birth_date: None,
+                city_id,
+                imprisoned: false,
+                occupation: None,
+                is_public_security_agent: false,
+                security_force: None,
+                uses_alcohol: false,
+                uses_drugs: false,
+                has_psychiatric_issues: false,
+                psychiatric_issues_type: None,
+                education_level: EducationLevel::HighSchool,
+                observation: None,
+                is_deleted: false,
+                phones: vec![],
+                addresses: vec![],
+            },
             created_at: now,
             updated_at: now,
-            is_deleted: false,
-            phones: vec![],
-            addresses: vec![],
         }
     }
 

@@ -4,7 +4,7 @@ use log::{error, info};
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::ClientMetadata;
-use crate::core::responses::auth::RefreshResponse;
+use crate::core::read_models::auth::RefreshResponse;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
 use crate::usecases::auth::helpers::{
     AccessTokenSubject, build_new_refresh_token, issue_access_token, parse_refresh_token,

@@ -51,7 +51,7 @@ impl CreateVictimUseCase {
                 let victim_with_address = VictimWithDetails::from_write_result(victim_with_address);
                 info!(
                     "[CreateVictimUseCase] Victim created successfully with ID: {}",
-                    victim_with_address.id
+                    victim_with_address.summary.id
                 );
                 Ok(victim_with_address)
             }

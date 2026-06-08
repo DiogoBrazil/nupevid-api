@@ -7,7 +7,7 @@ use crate::core::commands::auth::Login;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::ClientMetadata;
 use crate::core::read_models::work_sessions::WorkSessionWithMemberDetails;
-use crate::core::responses::auth::LoginResponse;
+use crate::core::read_models::auth::LoginResponse;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
 use crate::usecases::auth::helpers::{

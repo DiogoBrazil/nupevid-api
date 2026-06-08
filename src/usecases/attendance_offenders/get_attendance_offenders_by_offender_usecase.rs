@@ -32,7 +32,7 @@ impl GetAttendanceOffendersByOffenderUseCase {
             get_offender_or_not_found(&*self.deps.offender_repository, offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadAttendances, offender.city_id)?;
+        auth.check_policy(&Policy::ReadAttendances, offender.summary.city_id)?;
 
         match self
             .deps

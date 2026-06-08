@@ -28,26 +28,10 @@ pub struct OffenderAddressResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OffenderWithDetails {
-    pub id: Uuid,
-    pub full_name: String,
-    pub cpf: Option<String>,
-    pub birth_date: Option<NaiveDate>,
-    pub city_id: Uuid,
-    pub imprisoned: bool,
-    pub occupation: Option<String>,
-    pub is_public_security_agent: bool,
-    pub security_force: Option<SecurityForce>,
-    pub uses_alcohol: bool,
-    pub uses_drugs: bool,
-    pub has_psychiatric_issues: bool,
-    pub psychiatric_issues_type: Option<Vec<String>>,
-    pub education_level: EducationLevel,
-    pub observation: Option<String>,
+    #[serde(flatten)]
+    pub summary: OffenderSummary,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub is_deleted: bool,
-    pub phones: Vec<OffenderPhoneResponse>,
-    pub addresses: Vec<OffenderAddressResponse>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,27 +87,31 @@ impl OffenderWithDetails {
         phones: Vec<OffenderPhone>,
         addresses: Vec<OffenderAddress>,
     ) -> Self {
+        let created_at = offender.created_at;
+        let updated_at = offender.updated_at;
         OffenderWithDetails {
-            id: offender.id,
-            full_name: offender.full_name,
-            cpf: offender.cpf,
-            birth_date: offender.birth_date,
-            city_id: offender.city_id,
-            imprisoned: offender.imprisoned,
-            occupation: offender.occupation,
-            is_public_security_agent: offender.is_public_security_agent,
-            security_force: offender.security_force,
-            uses_alcohol: offender.uses_alcohol,
-            uses_drugs: offender.uses_drugs,
-            has_psychiatric_issues: offender.has_psychiatric_issues,
-            psychiatric_issues_type: offender.psychiatric_issues_type,
-            education_level: offender.education_level,
-            observation: offender.observation,
-            created_at: offender.created_at,
-            updated_at: offender.updated_at,
-            is_deleted: offender.is_deleted,
-            phones: phones.into_iter().map(Into::into).collect(),
-            addresses: addresses.into_iter().map(Into::into).collect(),
+            summary: OffenderSummary {
+                id: offender.id,
+                full_name: offender.full_name,
+                cpf: offender.cpf,
+                birth_date: offender.birth_date,
+                city_id: offender.city_id,
+                imprisoned: offender.imprisoned,
+                occupation: offender.occupation,
+                is_public_security_agent: offender.is_public_security_agent,
+                security_force: offender.security_force,
+                uses_alcohol: offender.uses_alcohol,
+                uses_drugs: offender.uses_drugs,
+                has_psychiatric_issues: offender.has_psychiatric_issues,
+                psychiatric_issues_type: offender.psychiatric_issues_type,
+                education_level: offender.education_level,
+                observation: offender.observation,
+                is_deleted: offender.is_deleted,
+                phones: phones.into_iter().map(Into::into).collect(),
+                addresses: addresses.into_iter().map(Into::into).collect(),
+            },
+            created_at,
+            updated_at,
         }
     }
 
@@ -134,25 +122,66 @@ impl OffenderWithDetails {
 
 impl From<OffenderWithDetails> for OffenderSummary {
     fn from(o: OffenderWithDetails) -> Self {
+        o.summary
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    fn sample_summary() -> OffenderSummary {
         OffenderSummary {
-            id: o.id,
-            full_name: o.full_name,
-            cpf: o.cpf,
-            birth_date: o.birth_date,
-            city_id: o.city_id,
-            imprisoned: o.imprisoned,
-            occupation: o.occupation,
-            is_public_security_agent: o.is_public_security_agent,
-            security_force: o.security_force,
-            uses_alcohol: o.uses_alcohol,
-            uses_drugs: o.uses_drugs,
-            has_psychiatric_issues: o.has_psychiatric_issues,
-            psychiatric_issues_type: o.psychiatric_issues_type,
-            education_level: o.education_level,
-            observation: o.observation,
-            is_deleted: o.is_deleted,
-            phones: o.phones,
-            addresses: o.addresses,
+            id: Uuid::nil(),
+            full_name: "X".to_string(),
+            cpf: None,
+            birth_date: None,
+            city_id: Uuid::nil(),
+            imprisoned: false,
+            occupation: None,
+            is_public_security_agent: false,
+            security_force: None,
+            uses_alcohol: false,
+            uses_drugs: false,
+            has_psychiatric_issues: false,
+            psychiatric_issues_type: None,
+            education_level: EducationLevel::HighSchool,
+            observation: None,
+            is_deleted: false,
+            phones: vec![],
+            addresses: vec![],
         }
+    }
+
+    // Garante que `#[serde(flatten)]` mantém o JSON plano (sem chave "summary")
+    // e idêntico ao comportamento anterior: campos de negócio + created_at/updated_at.
+    #[test]
+    fn with_details_serializes_flat_with_timestamps() {
+        let now = Utc::now();
+        let wd = OffenderWithDetails {
+            summary: sample_summary(),
+            created_at: now,
+            updated_at: now,
+        };
+        let value = serde_json::to_value(&wd).unwrap();
+        let obj = value.as_object().unwrap();
+        assert!(!obj.contains_key("summary"), "flatten não deve aninhar");
+        assert!(obj.contains_key("id"));
+        assert!(obj.contains_key("full_name"));
+        assert!(obj.contains_key("phones"));
+        assert!(obj.contains_key("addresses"));
+        assert!(obj.contains_key("created_at"));
+        assert!(obj.contains_key("updated_at"));
+    }
+
+    #[test]
+    fn summary_serializes_without_timestamps() {
+        let value = serde_json::to_value(sample_summary()).unwrap();
+        let obj = value.as_object().unwrap();
+        assert!(obj.contains_key("id"));
+        assert!(!obj.contains_key("created_at"));
+        assert!(!obj.contains_key("updated_at"));
     }
 }

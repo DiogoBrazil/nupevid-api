@@ -38,7 +38,7 @@ async fn update_succeeds_when_policy_present_for_same_city() {
         .execute(cmd, offender_id, &claims(Profile::CityAdmin, Some(city_id)))
         .await;
 
-    assert_eq!(result.unwrap().full_name, "UPDATED");
+    assert_eq!(result.unwrap().summary.full_name, "UPDATED");
 }
 
 #[tokio::test]
@@ -115,7 +115,7 @@ async fn update_succeeds_when_policy_present_on_both_cities() {
         )
         .await;
 
-    assert_eq!(result.unwrap().city_id, new_city);
+    assert_eq!(result.unwrap().summary.city_id, new_city);
 }
 
 #[tokio::test]

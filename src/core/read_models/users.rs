@@ -34,3 +34,8 @@ impl From<User> for UserSummary {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ResetUserPasswordResponse {
+    pub temporary_password: String,
+}

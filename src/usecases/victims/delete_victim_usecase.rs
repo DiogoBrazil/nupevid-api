@@ -31,7 +31,7 @@ impl DeleteVictimUseCase {
         match self.deps.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::DeleteVictims, victim.city_id)?;
+                auth.check_policy(&Policy::DeleteVictims, victim.summary.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(

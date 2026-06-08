@@ -47,7 +47,7 @@ impl UpdateOffenderUseCase {
             .await
         {
             Ok(existing_offender) => {
-                auth.check_policy(&Policy::UpdateOffenders, existing_offender.city_id)?;
+                auth.check_policy(&Policy::UpdateOffenders, existing_offender.summary.city_id)?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
@@ -74,7 +74,7 @@ impl UpdateOffenderUseCase {
                     OffenderWithDetails::from_write_result(offender_with_details);
                 info!(
                     "[UpdateOffenderUseCase] Offender updated successfully with ID: {}",
-                    offender_with_details.id
+                    offender_with_details.summary.id
                 );
                 Ok(offender_with_details)
             }
