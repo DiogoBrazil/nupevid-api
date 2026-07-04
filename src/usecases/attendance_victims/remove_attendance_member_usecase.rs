@@ -7,6 +7,7 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    attendance_victim_not_found_error,
     get_attendance_victim_or_not_found, get_victim_or_not_found,
 };
 
@@ -40,7 +41,9 @@ impl RemoveAttendanceMemberUseCase {
 
         let victim =
             get_victim_or_not_found(&*self.deps.victim_repository, attendance.victim_id).await?;
-        auth.check_policy(&Policy::ManageAttendanceMembers, victim.summary.city_id)?;
+        auth.check_policy_or_not_found(&Policy::ManageAttendanceMembers, victim.summary.city_id, || {
+            attendance_victim_not_found_error(attendance_id)
+        })?;
 
         match self
             .deps

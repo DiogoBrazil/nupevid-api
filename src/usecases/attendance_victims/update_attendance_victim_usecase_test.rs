@@ -80,7 +80,7 @@ async fn update_change_victim_requires_policy_on_new_city() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]
