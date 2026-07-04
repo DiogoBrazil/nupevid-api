@@ -23,4 +23,12 @@ pub trait RefreshTokenRepository: Send + Sync {
 
     /// Idempotently revokes a refresh token (no-op if already revoked).
     async fn revoke_refresh_token(&self, id: Uuid) -> Result<(), RepositoryError>;
+
+    /// Revokes every active refresh token belonging to a user. Used after
+    /// password changes/resets, account removal and on refresh-token reuse
+    /// detection, so that no previously issued session survives.
+    async fn revoke_all_refresh_tokens_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<(), RepositoryError>;
 }
