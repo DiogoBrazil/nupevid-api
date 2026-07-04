@@ -11,6 +11,7 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    attendance_offender_not_found_error, offender_not_found_error, victim_not_found_error,
     get_attendance_offender_or_not_found, get_offender_or_not_found,
     get_protective_measure_or_not_found, get_victim_or_not_found,
 };
@@ -56,7 +57,11 @@ impl UpdateAttendanceOffenderUseCase {
                 .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::UpdateAttendances, existing_offender.summary.city_id)?;
+        auth.check_policy_or_not_found(
+            &Policy::UpdateAttendances,
+            existing_offender.summary.city_id,
+            || attendance_offender_not_found_error(id),
+        )?;
 
         let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
@@ -69,13 +74,19 @@ impl UpdateAttendanceOffenderUseCase {
         if new_offender_id != existing.offender_id {
             let new_offender =
                 get_offender_or_not_found(&*self.deps.offender_repository, new_offender_id).await?;
-            auth.check_policy(&Policy::UpdateAttendances, new_offender.summary.city_id)?;
+            auth.check_policy_or_not_found(
+                &Policy::UpdateAttendances,
+                new_offender.summary.city_id,
+                || offender_not_found_error(new_offender_id),
+            )?;
         }
 
         if new_victim_id != existing.victim_id {
             let victim =
                 get_victim_or_not_found(&*self.deps.victim_repository, new_victim_id).await?;
-            auth.check_policy(&Policy::UpdateAttendances, victim.summary.city_id)?;
+            auth.check_policy_or_not_found(&Policy::UpdateAttendances, victim.summary.city_id, || {
+                victim_not_found_error(new_victim_id)
+            })?;
         }
 
         match self
