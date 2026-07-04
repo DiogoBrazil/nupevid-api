@@ -8,7 +8,9 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::{ProtectiveMeasure, ProtectiveMeasureStatus};
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::helpers_common::{get_offender_or_not_found, get_victim_or_not_found};
+use crate::usecases::helpers_common::{
+    get_offender_or_not_found, get_victim_or_not_found, victim_not_found_error,
+};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 use crate::usecases::protective_measures::errors::map_reference_error;
 use crate::validators::protective_measure_validator::ProtectiveMeasureValidator;
@@ -37,7 +39,11 @@ impl CreateProtectiveMeasureUseCase {
         get_offender_or_not_found(&*self.deps.offender_repository, measure.offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::CreateProtectiveMeasures, victim.summary.city_id)?;
+        auth.check_policy_or_not_found(
+            &Policy::CreateProtectiveMeasures,
+            victim.summary.city_id,
+            || victim_not_found_error(measure.victim_id),
+        )?;
 
         ProtectiveMeasureValidator::validate_required_fields(
             &measure.process_number,

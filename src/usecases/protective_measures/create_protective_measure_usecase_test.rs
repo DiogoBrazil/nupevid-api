@@ -773,7 +773,7 @@ async fn create_fails_without_create_policy_for_victim_city() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]

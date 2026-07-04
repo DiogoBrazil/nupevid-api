@@ -6,7 +6,7 @@ use crate::core::auth_context::AuthContext;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
-use crate::usecases::helpers_common::get_victim_or_not_found;
+use crate::usecases::helpers_common::{get_victim_or_not_found, victim_not_found_error};
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
 pub struct GetMeasuresByVictimUseCase {
@@ -31,7 +31,11 @@ impl GetMeasuresByVictimUseCase {
         let victim = get_victim_or_not_found(&*self.deps.victim_repository, victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadProtectiveMeasures, victim.summary.city_id)?;
+        auth.check_policy_or_not_found(
+            &Policy::ReadProtectiveMeasures,
+            victim.summary.city_id,
+            || victim_not_found_error(victim_id),
+        )?;
 
         match self
             .deps

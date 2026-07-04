@@ -9,6 +9,7 @@ use crate::core::entities::protective_measures::ProtectiveMeasure;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::helpers_common::{
     get_protective_measure_or_not_found, get_victim_or_not_found,
+    protective_measure_not_found_error,
 };
 use crate::usecases::protective_measures::deps::ProtectiveMeasureUseCaseDependencies;
 
@@ -38,7 +39,11 @@ impl DeleteProtectiveMeasureUseCase {
             get_victim_or_not_found(&*self.deps.victim_repository, measure.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::DeleteProtectiveMeasures, victim.summary.city_id)?;
+        auth.check_policy_or_not_found(
+            &Policy::DeleteProtectiveMeasures,
+            victim.summary.city_id,
+            || protective_measure_not_found_error(id),
+        )?;
 
         match self
             .deps
