@@ -32,15 +32,15 @@ impl UserValidator {
 
         if !is_valid_registration(registration) {
             return Err(AppError::BadRequest(format!(
-                "{}invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
-                error_context, registration, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
+                "{}invalid registration format. Registration must start with '{}' and have at most {} characters",
+                error_context, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
             )));
         }
 
         if !is_valid_email(email) {
             return Err(AppError::BadRequest(format!(
-                "{}'{}' is not a valid email",
-                error_context, email
+                "{}invalid email format",
+                error_context
             )));
         }
 
@@ -139,7 +139,7 @@ mod tests {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("not a valid email")
+                .contains("invalid email format")
         );
     }
 
