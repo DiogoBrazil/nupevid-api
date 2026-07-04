@@ -3,6 +3,7 @@ use log::info;
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::mask_email;
 use crate::core::commands::users::{CreateUser, UpdateUser, UpdateUserPassword};
 use crate::core::filters::users::UserSearchQuery;
 use crate::core::value_objects::policies::Policy;
@@ -29,7 +30,7 @@ pub async fn create_user(
 ) -> Result<HttpResponse, AppError> {
     info!(
         "[Controller] Received request to create user with email: {}",
-        user.email
+        mask_email(&user.email)
     );
     let claims = request_claims(&req)?;
     let user = usecase.execute(user.into_inner(), &claims).await?;
