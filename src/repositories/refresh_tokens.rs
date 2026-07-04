@@ -105,4 +105,20 @@ impl RefreshTokenRepository for PgRefreshTokenRepository {
             .map_err(map_sqlx_error)?;
         Ok(())
     }
+
+    async fn revoke_all_refresh_tokens_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<(), RepositoryError> {
+        info!(
+            "[Repository] Revoking all active refresh tokens for user {}",
+            user_id
+        );
+        sqlx::query(RefreshTokenQueries::REVOKE_ALL_REFRESH_TOKENS_FOR_USER)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(())
+    }
 }

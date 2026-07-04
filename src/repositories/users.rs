@@ -5,6 +5,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::models::users::UserRecordRow;
+use crate::core::auth_helpers::mask_email;
 use crate::core::{
     commands::users::{CreateUser, UpdateUser},
     contracts::repository::{error::RepositoryError, users::UserRepository},
@@ -53,7 +54,8 @@ impl UserRepository for PgUserRepository {
 
         info!(
             "[Repository] Executing SQL query to create user with email: {} and ID: {}",
-            user.email, id
+            mask_email(&user.email),
+            id
         );
 
         let permission_policies_json = match &user.permission_policies {
@@ -142,7 +144,7 @@ impl UserRepository for PgUserRepository {
     async fn check_user_exists_by_email(&self, email: &str) -> Result<bool, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to check if user with email {} exists",
-            email
+            mask_email(email)
         );
 
         let user_exists: bool = sqlx::query_scalar(UsersQueries::CHECK_USER_EXISTS_BY_EMAIL)
@@ -153,7 +155,8 @@ impl UserRepository for PgUserRepository {
 
         info!(
             "[Repository] User exists with email {}: {}",
-            email, user_exists
+            mask_email(email),
+            user_exists
         );
 
         Ok(user_exists)
@@ -166,7 +169,7 @@ impl UserRepository for PgUserRepository {
     ) -> Result<bool, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to check if email {} exists for other user",
-            email
+            mask_email(email)
         );
 
         let result: bool = sqlx::query_scalar(UsersQueries::CHECK_EMAIL_EXISTS_FOR_OTHER_USER)
