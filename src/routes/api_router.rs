@@ -1,10 +1,14 @@
+use crate::middleware::rate_limit::AuthRateLimiterConfig;
 use crate::routes::{
     attendance_offenders, attendance_victims, auth, cities, machine_information, offenders,
     protective_measures, swagger, users, victims, work_sessions,
 };
 use actix_web::web;
 
-pub fn configure_routes(cfg: &mut web::ServiceConfig) {
+pub fn configure_routes(
+    cfg: &mut web::ServiceConfig,
+    auth_rate_limiter: Option<&AuthRateLimiterConfig>,
+) {
     cfg.service(
         web::scope("/api")
             .configure(swagger::configure_routes)
@@ -12,7 +16,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                 web::scope("/v1")
                     .configure(attendance_offenders::configure_routes)
                     .configure(attendance_victims::configure_routes)
-                    .configure(auth::configure_routes)
+                    .configure(|c: &mut web::ServiceConfig| {
+                        auth::configure_routes(c, auth_rate_limiter)
+                    })
                     .configure(cities::configure_routes)
                     .configure(machine_information::configure_routes)
                     .configure(offenders::configure_routes)
