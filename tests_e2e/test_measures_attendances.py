@@ -178,16 +178,16 @@ def test_protective_measures(root_token, admin_token, user_token, victim_id, off
         "protective-measures",
         user_token,
         json_data=_pm_payload(victim_id, offender_id, city_a, "008"),
-        expected=403,
-        label="CITY_USER create PM without policy -> 403",
+        expected=404,
+        label="CITY_USER create PM without policy -> 404 (nao revela existencia)",
     )
     do(
         "POST",
         "protective-measures",
         admin_token,
         json_data=_pm_payload(victim_b_id, offender_b_id, city_b, "009"),
-        expected=403,
-        label="CITY_ADMIN create PM other city -> 403",
+        expected=404,
+        label="CITY_ADMIN create PM other city -> 404 (nao revela existencia)",
     )
     do("GET", "protective-measures", admin_token, expected=200, label="CITY_ADMIN list PMs -> 200")
     do("GET", "protective-measures", user_token, expected=200, label="CITY_USER list PMs -> 200")
@@ -486,8 +486,8 @@ def test_attendance_victims(root_token, user_token, pm_id, city_a, admin_id, use
         expect_contains(data(members, "attendance victim members after add data"), lambda m: m.get("user_id") == admin_id, "attendance victim members include admin")
         do("DELETE", f"attendance-victims/{av_id}/members/{admin_id}", root_token, expected=200, label="remove member from attendance victim")
 
-        do("PUT", f"attendance-victims/{av_id}", user_token, json_data=update_payload, expected=403, label="CITY_USER update attendance victim without policy -> 403")
-        do("DELETE", f"attendance-victims/{av_id}", user_token, expected=403, label="CITY_USER delete attendance victim without policy -> 403")
+        do("PUT", f"attendance-victims/{av_id}", user_token, json_data=update_payload, expected=404, label="CITY_USER update attendance victim without policy -> 404")
+        do("DELETE", f"attendance-victims/{av_id}", user_token, expected=404, label="CITY_USER delete attendance victim without policy -> 404")
 
     do("GET", f"attendance-victims/{UUID_ZERO}", root_token, expected=404, label="get attendance victim not found -> 404")
 
@@ -545,8 +545,8 @@ def test_attendance_offenders(root_token, user_token, pm_id, city_a, admin_id, u
         expect_contains(data(members, "attendance offender members after add data"), lambda m: m.get("user_id") == admin_id, "attendance offender members include admin")
         do("DELETE", f"attendance-offenders/{ao_id}/members/{admin_id}", root_token, expected=200, label="remove member from attendance offender")
 
-        do("PUT", f"attendance-offenders/{ao_id}", user_token, json_data=update_payload, expected=403, label="CITY_USER update attendance offender without policy -> 403")
-        do("DELETE", f"attendance-offenders/{ao_id}", user_token, expected=403, label="CITY_USER delete attendance offender without policy -> 403")
+        do("PUT", f"attendance-offenders/{ao_id}", user_token, json_data=update_payload, expected=404, label="CITY_USER update attendance offender without policy -> 404")
+        do("DELETE", f"attendance-offenders/{ao_id}", user_token, expected=404, label="CITY_USER delete attendance offender without policy -> 404")
 
     return ao_id
 
@@ -559,16 +559,16 @@ def test_attendance_permissions(user_token, pm_id):
         "attendance-victims",
         user_token,
         json_data=_attendance_victim_payload(pm_id, None),
-        expected=403,
-        label="CITY_USER create attendance victim no policy -> 403",
+        expected=404,
+        label="CITY_USER create attendance victim no policy -> 404 (nao revela existencia)",
     )
     do(
         "POST",
         "attendance-offenders",
         user_token,
         json_data=_attendance_offender_payload(pm_id, None),
-        expected=403,
-        label="CITY_USER create attendance offender no policy -> 403",
+        expected=404,
+        label="CITY_USER create attendance offender no policy -> 404 (nao revela existencia)",
     )
     do("GET", "attendance-victims", user_token, expected=200, label="CITY_USER read attendance victims -> 200")
     do("GET", "attendance-offenders", user_token, expected=200, label="CITY_USER read attendance offenders -> 200")

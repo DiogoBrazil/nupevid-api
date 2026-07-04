@@ -516,7 +516,7 @@ def test_victims_offenders_permissions(admin_token, user_token, victim_id, offen
             expected=403,
             label="CITY_USER update victim no policy -> 403",
         )
-        do("DELETE", f"victims/{victim_id}", user_token, expected=403, label="CITY_USER delete victim no policy -> 403")
+        do("DELETE", f"victims/{victim_id}", user_token, expected=404, label="CITY_USER delete victim no policy -> 404 (nao revela existencia)")
 
     if offender_id:
         do(
@@ -527,6 +527,6 @@ def test_victims_offenders_permissions(admin_token, user_token, victim_id, offen
             expected=403,
             label="CITY_USER update offender no policy -> 403",
         )
-        do("DELETE", f"offenders/{offender_id}", user_token, expected=403, label="CITY_USER delete offender no policy -> 403")
+        do("DELETE", f"offenders/{offender_id}", user_token, expected=404, label="CITY_USER delete offender no policy -> 404 (nao revela existencia)")
 
     return created
