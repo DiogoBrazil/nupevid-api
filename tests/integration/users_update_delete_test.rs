@@ -103,7 +103,7 @@ async fn non_root_cannot_access_or_modify_root_user(pool: PgPool) {
     };
     let non_root_token = test_helpers::generate_jwt(&claims_user, &config.jwt_secret);
 
-    // Get by id -> FORBIDDEN
+    // Get by id -> NOT_FOUND
     let get_req = test_helpers::with_auth_headers(
         test::TestRequest::get().uri(&format!("/api/v1/users/{}", root_id)),
         &config,
@@ -111,7 +111,7 @@ async fn non_root_cannot_access_or_modify_root_user(pool: PgPool) {
     )
     .to_request();
     let get_resp = test::call_service(&app, get_req).await;
-    assert_eq!(get_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
+    assert_eq!(get_resp.status(), actix_web::http::StatusCode::NOT_FOUND);
 
     // Update -> FORBIDDEN
     let upd_payload = serde_json::json!({
@@ -132,7 +132,7 @@ async fn non_root_cannot_access_or_modify_root_user(pool: PgPool) {
     let upd_resp = test::call_service(&app, upd_req).await;
     assert_eq!(upd_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
 
-    // Delete -> FORBIDDEN
+    // Delete -> NOT_FOUND
     let del_req = test_helpers::with_auth_headers(
         test::TestRequest::delete().uri(&format!("/api/v1/users/{}", root_id)),
         &config,
@@ -140,7 +140,7 @@ async fn non_root_cannot_access_or_modify_root_user(pool: PgPool) {
     )
     .to_request();
     let del_resp = test::call_service(&app, del_req).await;
-    assert_eq!(del_resp.status(), actix_web::http::StatusCode::FORBIDDEN);
+    assert_eq!(del_resp.status(), actix_web::http::StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]

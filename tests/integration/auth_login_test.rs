@@ -332,3 +332,51 @@ async fn login_with_auto_create_session_returns_existing_active_session(pool: Pg
         "Should return existing session, not create new one"
     );
 }
+
+#[sqlx::test]
+async fn login_is_rate_limited_per_ip_when_enabled(pool: PgPool) {
+    let mut config = test_helpers::build_test_config();
+    config.login_rate_limit_per_minute = 2;
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let payload = serde_json::json!({
+        "email": "rate.limited@test.com",
+        "password": "whatever123",
+    });
+
+    let peer: std::net::SocketAddr = "198.51.100.20:40000".parse().unwrap();
+
+    // The first requests within the burst are processed normally (401 here,
+    // since the user does not exist).
+    for _ in 0..2 {
+        let req = test::TestRequest::post()
+            .uri("/api/v1/auth/login")
+            .peer_addr(peer)
+            .insert_header(("api_key", config.api_key.clone()))
+            .set_json(&payload)
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    // The next request from the same IP exceeds the limit.
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .peer_addr(peer)
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&payload)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+
+    // A different IP is not affected.
+    let other_peer: std::net::SocketAddr = "198.51.100.21:40000".parse().unwrap();
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .peer_addr(other_peer)
+        .insert_header(("api_key", config.api_key.clone()))
+        .set_json(&payload)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}

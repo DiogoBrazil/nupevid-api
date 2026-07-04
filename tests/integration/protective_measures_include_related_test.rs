@@ -41,7 +41,7 @@ async fn create_protective_measure_with_include_related_returns_entities(pool: P
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima PM", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor PM", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, offender_id);
@@ -88,7 +88,7 @@ async fn get_protective_measure_by_id_with_include_related_returns_entities(pool
     let measure_id =
         db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
@@ -133,7 +133,7 @@ async fn list_protective_measures_with_include_related_returns_entities(pool: Pg
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor PM Lista", city).await;
     db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
@@ -164,7 +164,7 @@ async fn get_protective_measures_by_victim_with_include_related_returns_entities
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor PM Victim", city).await;
     db_fixtures::insert_protective_measure(&pool, victim_id, offender_id, city, "Valid").await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(

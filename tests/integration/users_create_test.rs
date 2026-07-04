@@ -326,7 +326,7 @@ async fn test_city_admin_cannot_create_root(pool: PgPool) {
     let city_id: uuid::Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create CITY_ADMIN claims
-    let city_admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let city_admin_claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let city_admin_token = test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
 
     // Try to create a ROOT user as CITY_ADMIN
@@ -382,7 +382,7 @@ async fn test_city_admin_cannot_create_city_admin(pool: PgPool) {
     let city_id: uuid::Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // Create CITY_ADMIN claims
-    let city_admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let city_admin_claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let city_admin_token = test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
 
     // Try to create another CITY_ADMIN as CITY_ADMIN
@@ -449,7 +449,7 @@ async fn test_city_admin_city_id_in_body_is_ignored(pool: PgPool) {
     let city2_id: uuid::Uuid = city2_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // CITY_ADMIN of city1 tries to send city2_id in body - should be ignored
-    let city_admin_claims = test_helpers::build_city_admin_claims(city1_id);
+    let city_admin_claims = test_helpers::seed_city_admin_claims(&pool, city1_id).await;
     let city_admin_token = test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
 
     let new_user = serde_json::json!({
@@ -510,7 +510,7 @@ async fn test_city_admin_can_create_city_user_in_own_city(pool: PgPool) {
     let city_id: uuid::Uuid = city_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // CITY_ADMIN creates CITY_USER - city_id NOT provided in body (should be auto-filled from token)
-    let city_admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let city_admin_claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let city_admin_token = test_helpers::generate_jwt(&city_admin_claims, &config.jwt_secret);
 
     let new_user = serde_json::json!({

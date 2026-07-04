@@ -158,7 +158,7 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city(pool: PgPoo
     let pm_b =
         db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let payload = build_attendance_offender_payload(pm_b);
@@ -172,7 +172,7 @@ async fn city_admin_cannot_create_attendance_offender_for_other_city(pool: PgPoo
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -216,7 +216,7 @@ async fn list_attendance_offenders_filtered_by_city(pool: PgPool) {
     }
 
     // City A admin should only see their own
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let req = test_helpers::with_auth_headers(
@@ -419,7 +419,7 @@ async fn update_attendance_offender_change_victim_requires_permission_on_new_vic
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]

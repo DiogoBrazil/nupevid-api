@@ -938,7 +938,7 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
     let created: serde_json::Value = test::read_body_json(create_resp).await;
     let measure_id = created["data"]["id"].as_str().unwrap();
 
-    // Tenta atualizar medida mudando vítima para city_b sem policy extra -> FORBIDDEN
+    // Tenta atualizar medida mudando vítima para city_b sem policy extra -> NOT_FOUND (não revela existência)
     let update_payload_forbidden = json!({
         "process_number": "55555-55.2025.8.26.0000",
         "issued_at": "2025-01-01",
@@ -961,7 +961,7 @@ async fn update_protective_measure_changing_victim_requires_policy_in_both_citie
     )
     .to_request();
     let update_resp_forbidden = test::call_service(&app, update_req_forbidden).await;
-    assert_eq!(update_resp_forbidden.status(), 403);
+    assert_eq!(update_resp_forbidden.status(), 404);
 
     // ROOT concede update_protective_measures para city_b
     let get_admin_req = test_helpers::with_auth_headers(

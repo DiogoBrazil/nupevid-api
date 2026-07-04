@@ -36,7 +36,7 @@ async fn update_protective_measure_success(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create initial measure
@@ -103,7 +103,7 @@ async fn cannot_update_to_active_when_victim_already_has_active_measure(pool: Pg
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create first measure (inactive)
@@ -179,7 +179,7 @@ async fn update_measure_nonexistent_id_returns_404(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let random_id = Uuid::new_v4();
@@ -230,7 +230,7 @@ async fn update_measure_change_victim_requires_permission_on_both(pool: PgPool) 
     let measure_id = body["data"]["id"].as_str().unwrap();
 
     // CITY_ADMIN A tries to change victim to B (different city)
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let update_payload = build_measure_payload(victim_b, city_b, offender_b, "Revoked");
@@ -244,7 +244,7 @@ async fn update_measure_change_victim_requires_permission_on_both(pool: PgPool) 
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -257,7 +257,7 @@ async fn update_measure_with_empty_process_number_fails(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create measure
@@ -314,7 +314,7 @@ async fn update_measure_with_empty_judicial_authority_fails(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create measure
@@ -376,7 +376,7 @@ async fn update_measure_to_nonexistent_victim_returns_404(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create measure
@@ -420,7 +420,7 @@ async fn update_measure_rejects_unknown_extensions_field(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload_a = build_measure_payload(victim_id, city, offender_id, "Revoked");

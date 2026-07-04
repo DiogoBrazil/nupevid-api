@@ -33,6 +33,9 @@ pub fn build_test_config() -> Config {
         run_migrations_on_startup: false,
         access_token_ttl_seconds: 900,
         refresh_token_ttl_seconds: 604800,
+        // Rate limiting disabled in tests: many tests issue rapid sequential
+        // logins from the same loopback address.
+        login_rate_limit_per_minute: 0,
     }
 }
 
@@ -101,6 +104,47 @@ pub fn build_city_user_claims(city_id: Uuid) -> UserClaims {
         full_name: "City User".to_string(),
         profile: Profile::CityUser,
         email: "city.user@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    }
+}
+
+/// Inserts a real CITY_ADMIN user (with default policies for the profile) and
+/// returns claims referencing it. Tokens for nonexistent users are rejected by
+/// the API, so synthetic claims must always point to a persisted user.
+pub async fn seed_city_admin_claims(pool: &PgPool, city_id: Uuid) -> UserClaims {
+    seed_user_claims(pool, city_id, Profile::CityAdmin).await
+}
+
+/// Inserts a real CITY_USER user (with default policies for the profile) and
+/// returns claims referencing it.
+#[allow(dead_code)]
+pub async fn seed_city_user_claims(pool: &PgPool, city_id: Uuid) -> UserClaims {
+    seed_user_claims(pool, city_id, Profile::CityUser).await
+}
+
+async fn seed_user_claims(pool: &PgPool, city_id: Uuid, profile: Profile) -> UserClaims {
+    let unique = Uuid::new_v4().simple().to_string();
+    let registration = format!("1{}", &unique[..8]);
+    let email = format!("seed.{}@test.com", &unique[..12]);
+    let (profile_str, rank, full_name) = match profile {
+        Profile::CityAdmin => ("CITY_ADMIN", Rank::CapPm, "City Admin"),
+        _ => ("CITY_USER", Rank::SdPm, "City User"),
+    };
+
+    let user_id =
+        super::db_fixtures::insert_user(pool, &registration, &email, profile_str, Some(city_id))
+            .await;
+
+    UserClaims {
+        id: user_id.to_string(),
+        exp: default_exp(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank,
+        registration,
+        full_name: full_name.to_string(),
+        profile,
+        email,
         city_id: Some(city_id.to_string()),
     }
 }

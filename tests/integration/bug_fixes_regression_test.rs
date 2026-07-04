@@ -231,7 +231,7 @@ async fn b06_update_protective_measure_returns_updated_measure(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Victim B06", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Offender B06", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Create protective measure

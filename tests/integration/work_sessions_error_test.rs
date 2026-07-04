@@ -52,8 +52,10 @@ async fn create_victim_attendance_without_active_session_fails(pool: PgPool) {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    // Returns FORBIDDEN (403) because permission check happens before work session check
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    // CITY_USER lacks the create_attendances policy; the by-ID policy denial is
+    // answered as NOT_FOUND so resource existence cannot be probed. The work
+    // session check would only run after authorization.
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 /// Phase 1 - Test 2: Create offender attendance without active session should fail
@@ -98,8 +100,10 @@ async fn create_offender_attendance_without_active_session_fails(pool: PgPool) {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    // Returns FORBIDDEN (403) because permission check happens before work session check
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    // CITY_USER lacks the create_attendances policy; the by-ID policy denial is
+    // answered as NOT_FOUND so resource existence cannot be probed. The work
+    // session check would only run after authorization.
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 /// Phase 1 - Test 3: Verify attendance members are tracked correctly

@@ -36,7 +36,7 @@ async fn create_protective_measure_success_for_victim_in_own_city(pool: PgPool) 
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
@@ -71,7 +71,7 @@ async fn cannot_create_second_active_measure_for_same_victim(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
@@ -121,7 +121,7 @@ async fn city_admin_cannot_create_measure_for_victim_in_other_city(pool: PgPool)
     let victim_in_b = db_fixtures::insert_victim(&pool, "Vitima B", city_b).await;
     let offender_in_b = db_fixtures::insert_offender(&pool, "Agressor B", city_b).await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_in_b, city_b, offender_in_b, "Valid");
@@ -136,7 +136,7 @@ async fn city_admin_cannot_create_measure_for_victim_in_other_city(pool: PgPool)
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -149,7 +149,7 @@ async fn list_measures_by_victim_success(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, offender_id, "Valid");
@@ -187,7 +187,7 @@ async fn create_protective_measure_with_nonexistent_victim_returns_404(pool: PgP
     let _real_victim_id = db_fixtures::insert_victim(&pool, "Vitima Real", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Random victim id that does not exist
@@ -217,7 +217,7 @@ async fn create_protective_measure_with_empty_process_number_fails(pool: PgPool)
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
@@ -253,7 +253,7 @@ async fn create_protective_measure_with_empty_judicial_authority_fails(pool: PgP
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
@@ -289,7 +289,7 @@ async fn create_protective_measure_with_empty_violence_types_fails(pool: PgPool)
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
@@ -325,7 +325,7 @@ async fn create_protective_measure_with_nonexistent_court_district_returns_404(p
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, Uuid::new_v4(), offender_id, "Revoked");
@@ -357,7 +357,7 @@ async fn create_protective_measure_with_nonexistent_offender_returns_404(pool: P
     let city = db_fixtures::insert_city(&pool, "Cidade FK 2").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, Uuid::new_v4(), "Revoked");
@@ -392,7 +392,7 @@ async fn create_protective_measure_rejects_unknown_extensions_field(pool: PgPool
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let mut payload = build_measure_payload(victim_id, city, offender_id, "Revoked");
@@ -431,7 +431,7 @@ async fn delete_protective_measure_soft_delete(pool: PgPool) {
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima", city).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor", city).await;
 
-    let admin_claims = test_helpers::build_city_admin_claims(city);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     let payload = build_measure_payload(victim_id, city, offender_id, "Valid");

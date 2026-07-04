@@ -295,7 +295,7 @@ async fn city_admin_can_only_access_victims_in_own_city(pool: PgPool) {
     assert_eq!(create_v2_resp.status(), StatusCode::CREATED);
 
     // CITY_ADMIN for city A
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // List victims -> should only see victims in city A
@@ -405,7 +405,7 @@ async fn city_admin_cannot_create_victim_in_other_city(pool: PgPool) {
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to create victim in a different city (B)
@@ -613,7 +613,7 @@ async fn city_admin_cannot_create_victim_with_address_in_other_city(pool: PgPool
     let city_a = db_fixtures::insert_city(&pool, "Cidade A").await;
     let city_b = db_fixtures::insert_city(&pool, "Cidade B").await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to create victim with address in city B

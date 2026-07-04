@@ -40,7 +40,7 @@ async fn non_root_cannot_create_city(pool: PgPool) {
     let city_id: Uuid = base_body["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // CITY_ADMIN tenta criar cidade -> FORBIDDEN
-    let admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
     let admin_create_payload = new_city_payload("ARIQUEMES");
     let admin_req = test_helpers::with_auth_headers(
@@ -109,7 +109,7 @@ async fn city_admin_cannot_update_or_delete_cities(pool: PgPool) {
     let city_id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // CITY_ADMIN da própria cidade
-    let admin_claims = test_helpers::build_city_admin_claims(city_id);
+    let admin_claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let admin_token = test_helpers::generate_jwt(&admin_claims, &config.jwt_secret);
 
     // Tenta atualizar cidade - deve ser FORBIDDEN (apenas ROOT pode)
@@ -175,7 +175,7 @@ async fn city_admin_cannot_update_or_delete_any_city(pool: PgPool) {
     let city_b: Uuid = body_b["data"]["id"].as_str().unwrap().parse().unwrap();
 
     // CITY_ADMIN de city_a tentando alterar/excluir city_b (deve falhar - apenas ROOT pode)
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let update_payload = serde_json::json!({

@@ -110,7 +110,7 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim(pool: PgPool)
     let pm_b =
         db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let payload = build_attendance_payload(pm_b);
@@ -124,7 +124,7 @@ async fn city_admin_cannot_create_attendance_for_other_city_victim(pool: PgPool)
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -169,7 +169,7 @@ async fn list_attendance_victims_filtered_by_city(pool: PgPool) {
     }
 
     // CITY_ADMIN A should only see its city's attendance
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let list_req = test_helpers::with_auth_headers(
@@ -294,7 +294,7 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden(pool: PgPool) {
     let attendance_id = body["data"]["id"].as_str().unwrap();
 
     // CITY_ADMIN A should be forbidden from accessing attendance in city B
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let get_req = test_helpers::with_auth_headers(
@@ -304,7 +304,7 @@ async fn get_attendance_by_id_for_other_city_returns_forbidden(pool: PgPool) {
     )
     .to_request();
     let get_resp = test::call_service(&app, get_req).await;
-    assert_eq!(get_resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -531,7 +531,7 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     let pm_b =
         db_fixtures::insert_protective_measure(&pool, victim_b, offender_b, city_b, "Valid").await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to create attendance with address for victim in city B
@@ -546,7 +546,7 @@ async fn city_admin_cannot_create_attendance_with_address_for_other_city_victim(
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -738,7 +738,7 @@ async fn get_attendance_victims_by_victim_different_city_forbidden(pool: PgPool)
     assert_eq!(create_resp.status(), StatusCode::CREATED);
 
     // Try to get attendances as CITY_ADMIN from city A
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let get_req = test_helpers::with_auth_headers(
@@ -752,5 +752,5 @@ async fn get_attendance_victims_by_victim_different_city_forbidden(pool: PgPool)
     .to_request();
 
     let get_resp = test::call_service(&app, get_req).await;
-    assert_eq!(get_resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 }
