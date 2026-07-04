@@ -10,7 +10,7 @@ pub async fn get_machine_information(
     req: HttpRequest,
 ) -> Result<HttpResponse, AppError> {
     info!("[Controller] Received request to get machine information");
-    let _claims = request_claims(&req)?;
-    let info = usecase.execute().await?;
+    let claims = request_claims(&req)?;
+    let info = usecase.execute(&claims).await?;
     Ok(success(info))
 }
