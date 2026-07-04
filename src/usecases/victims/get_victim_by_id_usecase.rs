@@ -7,6 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::victim_not_found_error;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 
 pub struct GetVictimByIdUseCase {
@@ -31,7 +32,11 @@ impl GetVictimByIdUseCase {
         match self.deps.victim_read_repository.get_victim_by_id(id).await {
             Ok(victim_with_address) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::ReadVictims, victim_with_address.summary.city_id)?;
+                auth.check_policy_or_not_found(
+                    &Policy::ReadVictims,
+                    victim_with_address.summary.city_id,
+                    || victim_not_found_error(id),
+                )?;
 
                 info!(
                     "[GetVictimByIdUseCase] Victim with id {} found successfully",

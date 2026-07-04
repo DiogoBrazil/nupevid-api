@@ -16,7 +16,9 @@ pub async fn authorize_victim_access(
     policy: &Policy,
 ) -> Result<VictimWithDetails, AppError> {
     let victim = get_victim_or_not_found(victim_read_repository, victim_id).await?;
-    auth.check_policy(policy, victim.summary.city_id)?;
+    auth.check_policy_or_not_found(policy, victim.summary.city_id, || {
+        AppError::NotFound(format!("Victim with id '{}' not found", victim_id))
+    })?;
     Ok(victim)
 }
 
