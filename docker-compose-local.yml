@@ -38,14 +38,21 @@ services:
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL:-postgres://${DB_USER:-nupevid_user}:${DB_PASSWORD:-nupevid_pass_change_me}@postgres:5432/${DB_NAME:-nupevid}}
       SERVER_ADDR: 0.0.0.0:8080
-      JWT_SECRET: ${JWT_SECRET:-default_secret_key_change_me}
+      JWT_SECRET: ${JWT_SECRET:-local_jwt_secret_change_me_32_bytes_minimum}
       JWT_ISSUER: ${JWT_ISSUER:-nupevid-api}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-nupevid-api}
-      API_KEY: ${API_KEY:-default_api_key_change_me}
+      API_KEY: ${API_KEY:-local_api_key_change_me_32_bytes_minimum}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
       ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
       # Local/e2e: rate limit de login desabilitado por padrão.
       LOGIN_RATE_LIMIT_PER_MINUTE: ${LOGIN_RATE_LIMIT_PER_MINUTE:-0}
+      JSON_PAYLOAD_LIMIT_BYTES: ${JSON_PAYLOAD_LIMIT_BYTES:-1048576}
+      CLIENT_REQUEST_TIMEOUT_SECONDS: ${CLIENT_REQUEST_TIMEOUT_SECONDS:-15}
+      KEEP_ALIVE_SECONDS: ${KEEP_ALIVE_SECONDS:-75}
+      LGPD_RETENTION_POLICY_DAYS: ${LGPD_RETENTION_POLICY_DAYS:-}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-}
+      RETENTION_ENFORCEMENT_ENABLED: ${RETENTION_ENFORCEMENT_ENABLED:-false}
       RUST_LOG: info
     networks:
       - nupevid_network
