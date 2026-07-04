@@ -7,6 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::offender_not_found_error;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 
 pub struct DeleteOffenderUseCase {
@@ -36,7 +37,11 @@ impl DeleteOffenderUseCase {
         {
             Ok(offender) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::DeleteOffenders, offender.summary.city_id)?;
+                auth.check_policy_or_not_found(
+                    &Policy::DeleteOffenders,
+                    offender.summary.city_id,
+                    || offender_not_found_error(id),
+                )?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(

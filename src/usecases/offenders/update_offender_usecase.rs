@@ -8,6 +8,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::offender_not_found_error;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 use crate::usecases::offenders::normalization::normalize_offender_input;
 use crate::validators::common::validate_person_name;
@@ -47,7 +48,11 @@ impl UpdateOffenderUseCase {
             .await
         {
             Ok(existing_offender) => {
-                auth.check_policy(&Policy::UpdateOffenders, existing_offender.summary.city_id)?;
+                auth.check_policy_or_not_found(
+                    &Policy::UpdateOffenders,
+                    existing_offender.summary.city_id,
+                    || offender_not_found_error(id),
+                )?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(
