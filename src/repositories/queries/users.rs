@@ -38,7 +38,7 @@ impl UsersQueries {
     pub const GET_USERS_BY_NAME: &'static str = r#"
         SELECT id, rank, registration, full_name, profile, email, city_id, permission_policies, created_at, updated_at, is_deleted
         FROM users
-        WHERE full_name ILIKE $1 AND is_deleted = false
+        WHERE full_name ILIKE $1 ESCAPE '\' AND is_deleted = false
         ORDER BY created_at DESC
     "#;
 

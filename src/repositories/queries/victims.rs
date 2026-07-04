@@ -109,7 +109,7 @@ impl VictimsQueries {
             uses_alcohol, uses_drugs,
             has_psychiatric_issues, psychiatric_issues_type
         FROM victims
-        WHERE full_name ILIKE $1 AND is_deleted = false
+        WHERE full_name ILIKE $1 ESCAPE '\' AND is_deleted = false
         ORDER BY created_at DESC
     "#;
 
