@@ -1,6 +1,7 @@
 use chrono::{Duration, Utc};
 use rand::distributions::Alphanumeric;
 use rand::{Rng, rngs::OsRng};
+use std::sync::OnceLock;
 use uuid::Uuid;
 
 use crate::config::config_env::Config;
@@ -21,6 +22,20 @@ pub fn generate_refresh_secret() -> String {
         .take(REFRESH_SECRET_LEN)
         .map(char::from)
         .collect()
+}
+
+/// Performs a dummy password verification so the "user not found" login path
+/// takes roughly the same time as the "wrong password" path, preventing email
+/// enumeration through timing analysis. The dummy hash is computed once per
+/// process using the active hasher implementation.
+pub fn equalize_login_timing(hasher: &dyn PasswordHasherPort, password: &str) {
+    static DUMMY_HASH: OnceLock<String> = OnceLock::new();
+    let dummy_hash = DUMMY_HASH.get_or_init(|| {
+        hasher
+            .hash_password("nupevid-dummy-timing-equalization")
+            .unwrap_or_default()
+    });
+    let _ = hasher.verify_password(dummy_hash, password);
 }
 
 /// Parses a refresh token in the `{token_id}.{secret}` format.
