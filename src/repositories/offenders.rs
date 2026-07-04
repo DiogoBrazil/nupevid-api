@@ -17,6 +17,7 @@ use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::repositories::queries::offenders::{
     OffenderAddressesQueries, OffenderPhonesQueries, OffendersQueries,
 };
+use crate::repositories::search::contains_pattern_escaped;
 
 use super::models::offenders::{OffenderAddressRow, OffenderPhoneRow, OffenderRow};
 
@@ -324,11 +325,8 @@ impl OffenderReadRepository for PgOffenderRepository {
         &self,
         name: &str,
     ) -> Result<Vec<OffenderWithDetails>, RepositoryError> {
-        let pattern = format!("%{}%", name);
-        info!(
-            "[Repository] Fetching offenders by name pattern: {}",
-            pattern
-        );
+        let pattern = contains_pattern_escaped(name);
+        info!("[Repository] Fetching offenders by name");
 
         let offenders: Vec<Offender> =
             sqlx::query_as::<_, OffenderRow>(OffendersQueries::GET_OFFENDERS_BY_NAME)

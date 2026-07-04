@@ -13,6 +13,7 @@ use crate::core::{
     value_objects::policies::PermissionPolicies,
 };
 use crate::repositories::queries::users::UsersQueries;
+use crate::repositories::search::contains_pattern_escaped;
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_user_error(err: sqlx::Error) -> RepositoryError {
@@ -199,11 +200,8 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn get_users_by_name(&self, name: &str) -> Result<Vec<User>, RepositoryError> {
-        let pattern = format!("%{}%", name);
-        info!(
-            "[Repository] Executing SQL query to get users by name pattern: {}",
-            pattern
-        );
+        let pattern = contains_pattern_escaped(name);
+        info!("[Repository] Executing SQL query to get users by name");
 
         let users: Vec<User> = sqlx::query_as::<_, UserRecordRow>(UsersQueries::GET_USERS_BY_NAME)
             .bind(pattern)

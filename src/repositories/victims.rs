@@ -14,6 +14,7 @@ use crate::core::read_models::victims::VictimWithDetails;
 use crate::repositories::queries::victims::{
     VictimAddressesQueries, VictimPhonesQueries, VictimsQueries,
 };
+use crate::repositories::search::contains_pattern_escaped;
 
 use crate::repositories::error_mapper::map_sqlx_error;
 fn map_victim_error(err: sqlx::Error) -> RepositoryError {
@@ -373,8 +374,8 @@ impl VictimReadRepository for PgVictimRepository {
         &self,
         name: &str,
     ) -> Result<Vec<VictimWithDetails>, RepositoryError> {
-        let pattern = format!("%{}%", name);
-        info!("[Repository] Fetching victims by name pattern: {}", pattern);
+        let pattern = contains_pattern_escaped(name);
+        info!("[Repository] Fetching victims by name");
 
         let victims: Vec<Victim> =
             sqlx::query_as::<_, VictimRow>(VictimsQueries::GET_VICTIMS_BY_NAME)
