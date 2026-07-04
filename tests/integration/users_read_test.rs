@@ -117,7 +117,7 @@ async fn non_root_list_users_should_not_include_root(pool: PgPool) {
     let req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/users")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "rank": city_user_payload.rank,
                 "registration": city_user_payload.registration,
                 "full_name": city_user_payload.full_name,

@@ -143,7 +143,7 @@ async fn test_create_user_invalid_email(pool: PgPool) {
         body["message"]
             .as_str()
             .unwrap()
-            .contains("not a valid email")
+            .contains("invalid email format")
     );
 }
 

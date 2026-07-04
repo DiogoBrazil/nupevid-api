@@ -86,7 +86,7 @@ async fn create_attendance_offender_success_for_offender_in_own_city(pool: PgPoo
         body["data"]["victim_id"].as_str().unwrap(),
         victim_id.to_string()
     );
-    assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), true);
+    assert!(body["data"]["assaults_children"].as_bool().unwrap());
     assert_eq!(
         body["data"]["violence_aggravator"].as_str().unwrap(),
         "AlcoholUse"
@@ -351,7 +351,7 @@ async fn update_attendance_offender(pool: PgPool) {
         body["data"]["description"].as_str().unwrap(),
         "Descrição atualizada"
     );
-    assert_eq!(body["data"]["assaults_children"].as_bool().unwrap(), false);
+    assert!(!body["data"]["assaults_children"].as_bool().unwrap());
 }
 
 #[sqlx::test]

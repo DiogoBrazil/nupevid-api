@@ -68,7 +68,7 @@ async fn create_work_session_success(pool: PgPool) {
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(body["status"].as_u64().unwrap(), 201);
     assert!(body["data"]["id"].as_str().is_some());
-    assert_eq!(body["data"]["is_active"].as_bool().unwrap(), true);
+    assert!(body["data"]["is_active"].as_bool().unwrap());
     assert_eq!(
         body["data"]["description"].as_str().unwrap(),
         "Test session"
@@ -214,7 +214,7 @@ async fn get_active_session_success(pool: PgPool) {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["id"].as_str().unwrap(), session_id.to_string());
-    assert_eq!(body["data"]["is_active"].as_bool().unwrap(), true);
+    assert!(body["data"]["is_active"].as_bool().unwrap());
 }
 
 #[sqlx::test]
@@ -276,7 +276,7 @@ async fn end_session_success(pool: PgPool) {
         .await
         .expect("Failed to check session status");
 
-    assert_eq!(is_active, false);
+    assert!(!is_active);
 }
 
 #[sqlx::test]

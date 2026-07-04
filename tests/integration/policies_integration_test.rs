@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::common::{db_fixtures, test_helpers};
 
 // Helper: build JWT for a persisted user
+#[allow(clippy::too_many_arguments)]
 fn build_token_for_user(
     id: Uuid,
     profile: &str,

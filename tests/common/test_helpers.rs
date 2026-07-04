@@ -6,17 +6,21 @@ use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use nupevid_api::middleware::auth::AuthMiddleware;
+use nupevid_api::middleware::request_context::RequestContextAuditMiddleware;
+use nupevid_api::middleware::security_headers::security_headers;
 use sqlx::PgPool;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 /// Build a Config instance suitable for tests.
 pub fn build_test_config() -> Config {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     let server_addr = std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
-    let api_key = std::env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "test-jwt-secret-at-least-32-bytes".to_string());
+    let api_key =
+        std::env::var("API_KEY").unwrap_or_else(|_| "test-api-key-at-least-32-bytes".to_string());
     let jwt_issuer = std::env::var("JWT_ISSUER").unwrap_or_else(|_| "nupevid-api".to_string());
     let jwt_audience =
         std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "nupevid-api".to_string());
@@ -36,6 +40,12 @@ pub fn build_test_config() -> Config {
         // Rate limiting disabled in tests: many tests issue rapid sequential
         // logins from the same loopback address.
         login_rate_limit_per_minute: 0,
+        json_payload_limit_bytes: 1048576,
+        client_request_timeout_seconds: 15,
+        keep_alive_seconds: 75,
+        lgpd_retention_policy_days: None,
+        audit_log_retention_days: None,
+        retention_enforcement_enabled: false,
     }
 }
 
@@ -48,7 +58,9 @@ pub async fn create_full_test_app(
 
     test::init_service(
         App::new()
+            .wrap(RequestContextAuditMiddleware)
             .wrap(AuthMiddleware)
+            .wrap(security_headers())
             .configure(|cfg: &mut web::ServiceConfig| deps.configure(cfg)),
     )
     .await

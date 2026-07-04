@@ -110,7 +110,7 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root(pool: PgPool)
     let city_a_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "name": "PORTO VELHO",
                 "state": "RO",
                 "battalion": "1ºBPM"
@@ -127,7 +127,7 @@ async fn search_users_city_admin_filters_by_city_and_excludes_root(pool: PgPool)
     let city_b_req = test_helpers::with_auth_headers(
         test::TestRequest::post()
             .uri("/api/v1/cities")
-            .set_json(&serde_json::json!({
+            .set_json(serde_json::json!({
                 "name": "JI-PARANÁ",
                 "state": "RO",
                 "battalion": "2ºBPM"
