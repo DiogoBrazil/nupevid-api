@@ -19,6 +19,9 @@ impl ResponseError for ApplicationError {
             ApplicationError::UnprocessableEntity { .. } => {
                 (StatusCode::UNPROCESSABLE_ENTITY, "UnprocessableEntity")
             }
+            ApplicationError::PayloadTooLarge(_) => {
+                (StatusCode::PAYLOAD_TOO_LARGE, "Payload Too Large")
+            }
             ApplicationError::DatabaseError(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database Error")
             }
@@ -29,6 +32,7 @@ impl ResponseError for ApplicationError {
 
         let message = match self {
             ApplicationError::UnprocessableEntity { message, .. } => message.clone(),
+            ApplicationError::DatabaseError(_) => "Database error".to_string(),
             _ => self.to_string(),
         };
 
@@ -57,8 +61,28 @@ impl ResponseError for ApplicationError {
             ApplicationError::NotFound(_) => StatusCode::NOT_FOUND,
             ApplicationError::Conflict(_) => StatusCode::CONFLICT,
             ApplicationError::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+            ApplicationError::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             ApplicationError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApplicationError::InvalidMethodError(_) => StatusCode::METHOD_NOT_ALLOWED,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use actix_web::body::to_bytes;
+    use actix_web::error::ResponseError;
+
+    use super::*;
+
+    #[actix_rt::test]
+    async fn database_error_response_does_not_expose_internal_detail() {
+        let response =
+            ApplicationError::DatabaseError("secret db detail".to_string()).error_response();
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let text = std::str::from_utf8(&body).unwrap();
+
+        assert!(!text.contains("secret db detail"));
+        assert!(text.contains("Database error"));
     }
 }
