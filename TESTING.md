@@ -86,6 +86,23 @@ cargo check --tests
 ./test.sh --test-threads 4
 ```
 
+## Verificação de segurança local
+
+O repositório inclui `security-check.sh`, que executa:
+
+- `cargo check --all-targets`
+- `cargo clippy --all-targets`
+- `cargo audit`
+- `cargo deny check`
+
+Instale os pré-requisitos quando necessário:
+
+```bash
+cargo install cargo-audit --locked
+cargo install cargo-deny --locked
+./security-check.sh
+```
+
 ## Troubleshooting
 
 - `DATABASE_TEST_URL is not set` → configure no `.env` ou no ambiente.
