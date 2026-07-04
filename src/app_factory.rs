@@ -7,6 +7,7 @@ use crate::adapters::system_metrics::SysinfoSystemMetrics;
 use crate::adapters::token_generator::JwtTokenGenerator;
 use crate::config::config_env::Config;
 use crate::core::application_error::ApplicationError as AppError;
+use crate::middleware::rate_limit::{AuthRateLimiterConfig, build_auth_rate_limiter};
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::adapters::system_metrics::SystemMetricsPort;
 use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
@@ -101,6 +102,7 @@ use crate::usecases::work_sessions::{
 pub struct AppDependencies {
     pub password_hasher: Arc<dyn PasswordHasherPort>,
     config: Config,
+    auth_rate_limiter: Option<AuthRateLimiterConfig>,
     // Use cases stored as web::Data for efficient cloning into App
     usecases: Vec<Box<dyn AppDataRegistrar>>,
 }
@@ -200,6 +202,7 @@ impl AppDependencies {
         let user_usecase_deps = UserUseCaseDependencies::new(
             Arc::clone(&user_repository),
             Arc::clone(&password_hasher),
+            Arc::clone(&refresh_token_repository),
         );
         let city_usecase_deps = CityUseCaseDependencies::new(
             Arc::clone(&city_repository),
@@ -461,9 +464,12 @@ impl AppDependencies {
             Arc::clone(&city_repository),
         ));
 
+        let auth_rate_limiter = build_auth_rate_limiter(config.login_rate_limit_per_minute);
+
         AppDependencies {
             password_hasher,
             config,
+            auth_rate_limiter,
             usecases,
         }
     }
@@ -474,6 +480,6 @@ impl AppDependencies {
         }
         cfg.app_data(json_error_config());
         cfg.app_data(web::Data::new(self.config.clone()));
-        configure_routes(cfg);
+        configure_routes(cfg, self.auth_rate_limiter.as_ref());
     }
 }

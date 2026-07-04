@@ -14,6 +14,9 @@ pub struct Config {
     pub run_migrations_on_startup: bool,
     pub access_token_ttl_seconds: i64,
     pub refresh_token_ttl_seconds: i64,
+    /// Max requests per minute per client IP on the /auth endpoints.
+    /// 0 disables rate limiting (used by tests).
+    pub login_rate_limit_per_minute: u64,
 }
 
 #[derive(Debug)]
@@ -86,6 +89,11 @@ impl Config {
             .parse::<i64>()
             .unwrap_or(604800);
 
+        let login_rate_limit_per_minute = env::var("LOGIN_RATE_LIMIT_PER_MINUTE")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse::<u64>()
+            .unwrap_or(5);
+
         Ok(Self {
             database_url,
             server_addr,
@@ -98,6 +106,7 @@ impl Config {
             run_migrations_on_startup,
             access_token_ttl_seconds,
             refresh_token_ttl_seconds,
+            login_rate_limit_per_minute,
         })
     }
 }
