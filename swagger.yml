@@ -9127,6 +9127,7 @@ paths:
       description: |
         Retorna métricas em tempo real do host onde a API está em execução: CPU (nome, arquitetura, núcleos, uso, temperatura), memória (total/disponível/uso), disco (espaço total/usado/livre), IP público externo e uptime do sistema em milissegundos.
         A coleta de CPU usa duas amostragens com intervalo de 500ms, portanto a requisição leva aproximadamente esse tempo. O IP externo é consultado em api.ipify.org; em ambiente offline retorna `"Unable to obtain IP"` sem falhar a requisição.
+        **Acesso restrito ao perfil ROOT** — demais perfis recebem `403 Forbidden`.
       operationId: "getMachineInformation"
       security:
         - bearerAuth: []
@@ -9183,3 +9184,13 @@ paths:
                 error: "Unauthorized"
                 message: "Unauthorized"
                 status_code: 401
+        "403":
+          description: "Perfil sem permissão — somente ROOT pode acessar"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Forbidden"
+                message: "Forbidden: Only ROOT can access machine information"
+                status_code: 403
