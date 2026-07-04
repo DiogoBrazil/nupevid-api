@@ -5,9 +5,12 @@ use log::info;
 use nupevid_api::app_factory::AppDependencies;
 use nupevid_api::config::{config_env::Config, database::init_database};
 use nupevid_api::middleware::auth::AuthMiddleware;
+use nupevid_api::middleware::request_context::RequestContextAuditMiddleware;
+use nupevid_api::middleware::security_headers::security_headers;
 use nupevid_api::utils::seeder::seed_admin_user;
 use std::io::Write;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -26,7 +29,7 @@ async fn main() -> std::io::Result<()> {
         })
         .init();
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     let config = Config::from_env().unwrap_or_else(|e| {
         eprintln!("Configuration error: {}", e);
@@ -52,7 +55,22 @@ async fn main() -> std::io::Result<()> {
         seed_admin_user(&pool, deps.password_hasher.as_ref()).await;
     }
 
+    info!(
+        "LGPD retention policy configured: data={} days, audit={} days, enforcement={}",
+        config
+            .lgpd_retention_policy_days
+            .map(|days| days.to_string())
+            .unwrap_or_else(|| "unset".to_string()),
+        config
+            .audit_log_retention_days
+            .map(|days| days.to_string())
+            .unwrap_or_else(|| "unset".to_string()),
+        config.retention_enforcement_enabled
+    );
+
     let server_addr = config.server_addr.clone();
+    let client_request_timeout_seconds = config.client_request_timeout_seconds;
+    let keep_alive_seconds = config.keep_alive_seconds;
     info!("Server will be started at: http://{}", server_addr);
 
     HttpServer::new(move || {
@@ -70,11 +88,15 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
+            .wrap(RequestContextAuditMiddleware)
             .wrap(AuthMiddleware)
             .wrap(Logger::default())
+            .wrap(security_headers())
             .configure(|cfg: &mut web::ServiceConfig| deps.configure(cfg))
     })
     .bind(server_addr)?
+    .client_request_timeout(Duration::from_secs(client_request_timeout_seconds))
+    .keep_alive(Duration::from_secs(keep_alive_seconds))
     .run()
     .await
 }

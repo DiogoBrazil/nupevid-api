@@ -11,6 +11,7 @@ use crate::middleware::rate_limit::{AuthRateLimiterConfig, build_auth_rate_limit
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
 use crate::core::contracts::adapters::system_metrics::SystemMetricsPort;
 use crate::core::contracts::adapters::token_generator::TokenGeneratorPort;
+use crate::core::contracts::repository::audit_logs::AuditLogRepository;
 use crate::core::contracts::repository::attendance_members::AttendanceMemberRepository;
 use crate::core::contracts::repository::attendance_offenders::{
     AttendanceOffenderReadRepository, AttendanceOffenderWriteRepository,
@@ -35,6 +36,7 @@ use crate::core::contracts::repository::work_sessions::{
 use crate::presenters::protective_measures::ProtectiveMeasurePresenter;
 use crate::presenters::work_sessions::WorkSessionPresenter;
 use crate::repositories::{
+    audit_logs::PgAuditLogRepository,
     attendance_members::PgAttendanceMemberRepository,
     attendance_offenders::PgAttendanceOffenderRepository,
     attendance_victims::PgAttendanceVictimRepository, auth::PgAuthRepository,
@@ -103,6 +105,7 @@ pub struct AppDependencies {
     pub password_hasher: Arc<dyn PasswordHasherPort>,
     config: Config,
     auth_rate_limiter: Option<AuthRateLimiterConfig>,
+    audit_log_repository: Arc<dyn AuditLogRepository>,
     // Use cases stored as web::Data for efficient cloning into App
     usecases: Vec<Box<dyn AppDataRegistrar>>,
 }
@@ -137,8 +140,16 @@ fn extract_json_error_field(message: &str) -> Option<String> {
     None
 }
 
-fn json_error_config() -> web::JsonConfig {
-    web::JsonConfig::default().error_handler(|err, _req| {
+fn json_error_config(limit: usize) -> web::JsonConfig {
+    web::JsonConfig::default().limit(limit).error_handler(|err, _req| {
+        if matches!(
+            &err,
+            JsonPayloadError::Overflow { .. } | JsonPayloadError::OverflowKnownLength { .. }
+        ) {
+            return AppError::PayloadTooLarge("JSON payload exceeds configured limit".to_string())
+                .into();
+        }
+
         let message = match &err {
             JsonPayloadError::Deserialize(serde_err) => serde_err.to_string(),
             _ => err.to_string(),
@@ -159,6 +170,8 @@ impl AppDependencies {
             Arc::new(PgUserRepository::new(pool.clone()));
         let auth_repository: Arc<dyn AuthRepository> =
             Arc::new(PgAuthRepository::new(pool.clone()));
+        let audit_log_repository: Arc<dyn AuditLogRepository> =
+            Arc::new(PgAuditLogRepository::new(pool.clone()));
         let refresh_token_repository: Arc<dyn RefreshTokenRepository> =
             Arc::new(PgRefreshTokenRepository::new(pool.clone()));
         let city_repository: Arc<dyn CityRepository> =
@@ -470,6 +483,7 @@ impl AppDependencies {
             password_hasher,
             config,
             auth_rate_limiter,
+            audit_log_repository,
             usecases,
         }
     }
@@ -478,8 +492,9 @@ impl AppDependencies {
         for uc in &self.usecases {
             uc.register(cfg);
         }
-        cfg.app_data(json_error_config());
+        cfg.app_data(json_error_config(self.config.json_payload_limit_bytes));
         cfg.app_data(web::Data::new(self.config.clone()));
+        cfg.app_data(web::Data::new(Arc::clone(&self.audit_log_repository)));
         configure_routes(cfg, self.auth_rate_limiter.as_ref());
     }
 }
