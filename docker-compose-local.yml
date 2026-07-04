@@ -44,6 +44,8 @@ services:
       API_KEY: ${API_KEY:-default_api_key_change_me}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
       ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
+      # Local/e2e: rate limit de login desabilitado por padrão.
+      LOGIN_RATE_LIMIT_PER_MINUTE: ${LOGIN_RATE_LIMIT_PER_MINUTE:-0}
       RUST_LOG: info
     networks:
       - nupevid_network

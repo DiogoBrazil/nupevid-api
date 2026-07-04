@@ -45,6 +45,8 @@ services:
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
       ENABLE_BOOTSTRAP_ROOT: ${ENABLE_BOOTSTRAP_ROOT:-false}
       RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+      # Produção: proteção contra brute force ativa por padrão (5 req/min/IP).
+      LOGIN_RATE_LIMIT_PER_MINUTE: ${LOGIN_RATE_LIMIT_PER_MINUTE:-5}
       RUST_LOG: info
     networks:
       - nupevid_network
