@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
@@ -12,20 +12,20 @@ pub(crate) fn check_policy(
     city_id: Uuid,
     user_policies: &PermissionPolicies,
 ) -> Result<(), AppError> {
-    info!(
+    debug!(
         "[Authorization] Checking policy '{}' for city '{}' by user '{}'",
         policy, city_id, claims.id
     );
 
     if claims.profile == Profile::Root {
-        info!("[Authorization] ROOT user - implicit access granted");
+        debug!("[Authorization] ROOT user - implicit access granted");
         return Ok(());
     }
 
     if let Some(city_ids) = user_policies.get(policy)
         && city_ids.contains(&city_id)
     {
-        info!(
+        debug!(
             "[Authorization] Policy '{}' found for city '{}'",
             policy, city_id
         );
@@ -47,19 +47,19 @@ pub(crate) fn get_allowed_cities_for_policy(
     policy: &Policy,
     user_policies: &PermissionPolicies,
 ) -> Option<Vec<Uuid>> {
-    info!(
+    debug!(
         "[Authorization] Getting allowed cities for policy '{}' by user '{}'",
         policy, claims.id
     );
 
     if claims.profile == Profile::Root {
-        info!("[Authorization] ROOT user - access to all cities");
+        debug!("[Authorization] ROOT user - access to all cities");
         return None;
     }
 
     let allowed_cities = user_policies.get(policy).cloned().unwrap_or_default();
 
-    info!(
+    debug!(
         "[Authorization] Found {} allowed cities for policy '{}'",
         allowed_cities.len(),
         policy
