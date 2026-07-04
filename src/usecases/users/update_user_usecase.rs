@@ -160,10 +160,9 @@ impl UpdateUserUseCase {
                 AppError::InternalServerError
             })?
         {
-            return Err(AppError::BadRequest(format!(
-                "Email '{}' is already in use by another user",
-                email
-            )));
+            return Err(AppError::BadRequest(
+                "Email is already in use by another user".to_string(),
+            ));
         }
         Ok(())
     }

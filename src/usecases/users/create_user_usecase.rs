@@ -135,10 +135,9 @@ impl CreateUserUseCase {
             })?;
 
         if user_exists {
-            return Err(AppError::BadRequest(format!(
-                "Error adding user: email '{}' already exists",
-                email
-            )));
+            return Err(AppError::BadRequest(
+                "Error adding user: email already exists".to_string(),
+            ));
         }
         Ok(())
     }
