@@ -10,7 +10,7 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::User;
 use crate::core::value_objects::policies::Policy;
 use crate::core::value_objects::profiles::Profile;
-use crate::usecases::helpers_common::get_user_or_not_found;
+use crate::usecases::helpers_common::{get_user_or_not_found, user_not_found_error};
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::validators::{policy_validator::PolicyValidator, user_validator::UserValidator};
 
@@ -57,17 +57,19 @@ impl UpdateUserUseCase {
 
         let existing = get_user_or_not_found(self.deps.user_repository.as_ref(), id).await?;
 
+        // Out-of-scope access is answered with the same "not found" as a
+        // missing user, so user existence cannot be probed by ID.
         if existing.profile == Profile::Root && claims.profile != Profile::Root {
-            return Err(AppError::Forbidden(
-                "Only ROOT can modify ROOT users".to_string(),
-            ));
+            return Err(user_not_found_error(id));
         }
 
         if claims.profile != Profile::Root {
             let auth = AuthContext::load(self.deps.user_repository.as_ref(), claims).await?;
 
             if let Some(existing_city_id) = existing.city_id {
-                auth.check_policy(&Policy::UpdateUsers, existing_city_id)?;
+                auth.check_policy_or_not_found(&Policy::UpdateUsers, existing_city_id, || {
+                    user_not_found_error(id)
+                })?;
             }
 
             if let Some(new_city_id) = data.city_id

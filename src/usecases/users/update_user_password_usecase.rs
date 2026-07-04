@@ -7,6 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::entities::users::User;
 use crate::usecases::users::deps::UserUseCaseDependencies;
+use crate::validators::user_validator::UserValidator;
 
 pub struct UpdateUserPasswordUseCase {
     deps: UserUseCaseDependencies,
@@ -77,6 +78,8 @@ impl UpdateUserPasswordUseCase {
             ));
         }
 
+        UserValidator::validate_password_strength(&data.new_password, "Error updating password: ")?;
+
         let new_password_hash = self
             .deps
             .password_hasher
@@ -100,6 +103,19 @@ impl UpdateUserPasswordUseCase {
                     "[UpdateUserPasswordUseCase] Password updated successfully for user {}",
                     id
                 );
+                // Invalidate every existing session so a stolen refresh token
+                // does not survive a password change.
+                if let Err(error) = self
+                    .deps
+                    .refresh_token_repository
+                    .revoke_all_refresh_tokens_for_user(id)
+                    .await
+                {
+                    error!(
+                        "[UpdateUserPasswordUseCase] Failed to revoke refresh tokens for user {}: {:?}",
+                        id, error
+                    );
+                }
                 Ok(user)
             }
             Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(

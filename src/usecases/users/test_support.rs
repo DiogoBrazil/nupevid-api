@@ -5,8 +5,10 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::core::contracts::adapters::password_hasher::PasswordHasherPort;
+use crate::core::contracts::repository::error::RepositoryError;
+use crate::core::contracts::repository::refresh_tokens::RefreshTokenRepository;
 use crate::core::contracts::repository::users::MockUserRepository;
-use crate::core::entities::auth::UserClaims;
+use crate::core::entities::auth::{NewRefreshToken, RefreshToken, UserClaims};
 use crate::core::entities::users::User;
 use crate::core::errors::DomainError;
 use crate::core::value_objects::policies::PermissionPolicies;
@@ -96,8 +98,53 @@ impl PasswordHasherPort for FakePasswordHasher {
     }
 }
 
+#[derive(Default)]
+pub struct FakeRefreshTokenRepository {
+    pub revoked_users: Mutex<Vec<Uuid>>,
+}
+
+#[async_trait::async_trait]
+impl RefreshTokenRepository for FakeRefreshTokenRepository {
+    async fn create_refresh_token(
+        &self,
+        _new_token: NewRefreshToken,
+    ) -> Result<RefreshToken, RepositoryError> {
+        Err(RepositoryError::DatabaseError(
+            "not implemented in fake".to_string(),
+        ))
+    }
+
+    async fn get_refresh_token_by_id(&self, _id: Uuid) -> Result<RefreshToken, RepositoryError> {
+        Err(RepositoryError::NotFound)
+    }
+
+    async fn rotate_refresh_token(
+        &self,
+        _old_id: Uuid,
+        _new_token: NewRefreshToken,
+    ) -> Result<RefreshToken, RepositoryError> {
+        Err(RepositoryError::NotFound)
+    }
+
+    async fn revoke_refresh_token(&self, _id: Uuid) -> Result<(), RepositoryError> {
+        Ok(())
+    }
+
+    async fn revoke_all_refresh_tokens_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<(), RepositoryError> {
+        self.revoked_users.lock().unwrap().push(user_id);
+        Ok(())
+    }
+}
+
 pub fn deps(user_repo: MockUserRepository, hasher: FakePasswordHasher) -> UserUseCaseDependencies {
-    UserUseCaseDependencies::new(Arc::new(user_repo), Arc::new(hasher))
+    UserUseCaseDependencies::new(
+        Arc::new(user_repo),
+        Arc::new(hasher),
+        Arc::new(FakeRefreshTokenRepository::default()),
+    )
 }
 
 pub fn empty_policies() -> PermissionPolicies {
