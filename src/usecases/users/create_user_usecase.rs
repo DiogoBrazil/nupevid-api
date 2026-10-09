@@ -1,7 +1,7 @@
 use log::{error, info};
 
 use crate::core::application_error::ApplicationError as AppError;
-use crate::core::auth_helpers::{extract_city_id_from_claims, get_user_policies_strict};
+use crate::core::auth_helpers::{extract_city_id_from_claims, get_user_policies_strict, mask_email};
 use crate::core::authorization::validate_user_creation_permission;
 use crate::core::commands::users::CreateUser;
 use crate::core::contracts::repository::error::RepositoryError;
@@ -27,7 +27,7 @@ impl CreateUserUseCase {
 
         info!(
             "[CreateUserUseCase] Starting user creation for email: {}",
-            data.email
+            mask_email(&data.email)
         );
 
         self.authorize_creation(claims, &data).await?;
@@ -69,7 +69,9 @@ impl CreateUserUseCase {
             &data.email,
             Some(&data.password),
             "Error adding user: ",
-        )
+        )?;
+
+        UserValidator::validate_password_strength(&data.password, "Error adding user: ")
     }
 
     fn resolve_target_city(
@@ -126,16 +128,16 @@ impl CreateUserUseCase {
             .map_err(|error| {
                 error!(
                     "[CreateUserUseCase] Failed to check user existence for {}: {:?}",
-                    email, error
+                    mask_email(email),
+                    error
                 );
                 AppError::InternalServerError
             })?;
 
         if user_exists {
-            return Err(AppError::BadRequest(format!(
-                "Error adding user: email '{}' already exists",
-                email
-            )));
+            return Err(AppError::BadRequest(
+                "Error adding user: email already exists".to_string(),
+            ));
         }
         Ok(())
     }
@@ -148,7 +150,8 @@ impl CreateUserUseCase {
             .map_err(|error| {
                 error!(
                     "[CreateUserUseCase] Failed to hash password for {}: {:?}",
-                    data.email, error
+                    mask_email(&data.email),
+                    error
                 );
                 AppError::InternalServerError
             })?;

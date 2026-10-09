@@ -7,6 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::offenders::OffenderWithDetails;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::offender_not_found_error;
 use crate::usecases::offenders::deps::OffenderUseCaseDependencies;
 
 pub struct GetOffenderByIdUseCase {
@@ -36,7 +37,11 @@ impl GetOffenderByIdUseCase {
         {
             Ok(offender_with_details) => {
                 let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-                auth.check_policy(&Policy::ReadOffenders, offender_with_details.summary.city_id)?;
+                auth.check_policy_or_not_found(
+                    &Policy::ReadOffenders,
+                    offender_with_details.summary.city_id,
+                    || offender_not_found_error(id),
+                )?;
 
                 info!(
                     "[GetOffenderByIdUseCase] Offender with id {} found successfully",

@@ -197,7 +197,7 @@ async fn city_admin_cannot_modify_phone_in_other_city(pool: PgPool) {
     let city_b = db_fixtures::insert_city(&pool, "City B").await;
     let victim_b_id = db_fixtures::insert_victim(&pool, "Victim in City B", city_b).await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to add phone to victim in another city
@@ -212,7 +212,7 @@ async fn city_admin_cannot_modify_phone_in_other_city(pool: PgPool) {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
@@ -224,7 +224,7 @@ async fn city_admin_cannot_modify_address_in_other_city(pool: PgPool) {
     let city_b = db_fixtures::insert_city(&pool, "City B").await;
     let victim_b_id = db_fixtures::insert_victim(&pool, "Victim in City B", city_b).await;
 
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to add address to victim in another city
@@ -239,5 +239,5 @@ async fn city_admin_cannot_modify_address_in_other_city(pool: PgPool) {
     .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }

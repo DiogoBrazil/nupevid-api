@@ -326,10 +326,10 @@ def test_users_permissions(root_token, admin_token, user_token, users, city_a, c
             users["user_b_email"],
             city_b,
         ),
-        expected=403,
-        label="CITY_ADMIN update user from other city -> 403",
+        expected=404,
+        label="CITY_ADMIN update user from other city -> 404 (nao revela existencia)",
     )
-    do("GET", f"users/{user_b_id}", admin_token, expected=403, label="CITY_ADMIN get user from other city -> 403")
+    do("GET", f"users/{user_b_id}", admin_token, expected=404, label="CITY_ADMIN get user from other city -> 404 (nao revela existencia)")
 
     append_create = do(
         "POST",
@@ -451,8 +451,8 @@ def test_password(admin_token, user_token, users, current_pw="senha@123"):
         "POST",
         f"users/{user_b_id}/password/reset",
         admin_token,
-        expected=403,
-        label="CITY_ADMIN reset password cross-city -> 403",
+        expected=404,
+        label="CITY_ADMIN reset password cross-city -> 404 (nao revela existencia)",
     )
     do(
         "POST",

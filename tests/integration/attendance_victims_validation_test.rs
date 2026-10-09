@@ -108,7 +108,7 @@ async fn update_attendance_change_victim_requires_permission_on_both(pool: PgPoo
     let attendance_id = body["data"]["id"].as_str().unwrap();
 
     // CITY_ADMIN for city_a tries to change PM to one in city_b (which derives victim_b)
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     let update_payload = serde_json::json!({
@@ -140,7 +140,7 @@ async fn update_attendance_change_victim_requires_permission_on_both(pool: PgPoo
     .to_request();
 
     let update_resp = test::call_service(&app, update_req).await;
-    assert_eq!(update_resp.status(), StatusCode::FORBIDDEN);
+    assert_eq!(update_resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]

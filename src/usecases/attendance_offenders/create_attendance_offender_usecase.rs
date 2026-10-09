@@ -11,6 +11,7 @@ use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::attendance_victims::helpers::get_active_session_members;
 use crate::usecases::helpers_common::{
+    protective_measure_not_found_error,
     get_offender_or_not_found, get_protective_measure_or_not_found, get_victim_or_not_found,
 };
 use crate::validators::attendance_validator::AttendanceValidator;
@@ -52,7 +53,9 @@ impl CreateAttendanceOffenderUseCase {
         get_victim_or_not_found(&*self.deps.victim_repository, pm.victim_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::CreateAttendances, offender.summary.city_id)?;
+        auth.check_policy_or_not_found(&Policy::CreateAttendances, offender.summary.city_id, || {
+            protective_measure_not_found_error(attendance.protective_measure_id)
+        })?;
 
         let members_for_tx =
             get_active_session_members(claims, &*self.deps.work_session_repository).await?;

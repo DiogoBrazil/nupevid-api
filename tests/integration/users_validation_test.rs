@@ -312,7 +312,7 @@ async fn update_user_with_invalid_email_fails(pool: PgPool) {
         body["message"]
             .as_str()
             .unwrap()
-            .contains("not a valid email")
+            .contains("invalid email format")
     );
 }
 

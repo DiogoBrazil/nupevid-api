@@ -42,7 +42,7 @@ async fn root_cannot_end_other_user_session_without_own_active_session(pool: PgP
         .await
         .expect("Failed to check session");
 
-    assert_eq!(is_active, true);
+    assert!(is_active);
 }
 
 /// Phase 8 - Test 2: ROOT can create work session

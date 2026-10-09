@@ -57,6 +57,13 @@ pub const ROUTE_POLICY_MATRIX: &[RoutePolicyCase] = &[
         expected_profile: Some("ROOT"),
     },
     RoutePolicyCase {
+        method: "GET",
+        path: "/api/v1/machine-information",
+        is_public: false,
+        expected_policy: None,
+        expected_profile: Some("ROOT"),
+    },
+    RoutePolicyCase {
         method: "POST",
         path: "/api/v1/users",
         is_public: false,

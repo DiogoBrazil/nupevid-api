@@ -8,6 +8,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::victims::VictimWithDetails;
 use crate::core::value_objects::policies::Policy;
+use crate::usecases::helpers_common::victim_not_found_error;
 use crate::usecases::victims::deps::VictimUseCaseDependencies;
 use crate::usecases::victims::normalization::normalize_victim_input;
 use crate::validators::common::validate_person_name;
@@ -42,7 +43,11 @@ impl UpdateVictimUseCase {
 
         match self.deps.victim_read_repository.get_victim_by_id(id).await {
             Ok(existing_victim) => {
-                auth.check_policy(&Policy::UpdateVictims, existing_victim.summary.city_id)?;
+                auth.check_policy_or_not_found(
+                    &Policy::UpdateVictims,
+                    existing_victim.summary.city_id,
+                    || victim_not_found_error(id),
+                )?;
             }
             Err(RepositoryError::NotFound) => {
                 return Err(AppError::NotFound(format!(

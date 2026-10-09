@@ -55,7 +55,7 @@ async fn concurrent_valid_measure_create_same_pair_allows_one_success_and_confli
     let city_id = db_fixtures::insert_city(&pool, "Cidade Concorrencia").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima Concorrencia", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor Concorrencia", city_id).await;
-    let claims = test_helpers::build_city_admin_claims(city_id);
+    let claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let futures = (0..6).map(|_| {
@@ -96,7 +96,7 @@ async fn concurrent_valid_measure_create_same_victim_different_offenders_allows_
         }
     }))
     .await;
-    let claims = test_helpers::build_city_admin_claims(city_id);
+    let claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     let futures = offender_ids.into_iter().map(|offender_id| {

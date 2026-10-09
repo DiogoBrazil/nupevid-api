@@ -614,7 +614,7 @@ Paginação padrão: `page` (padrão `1`) e `page_size` (padrão `10`, máximo `
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/api/v1/machine-information` | CPU, memória, disco, IP externo e uptime do servidor |
+| GET | `/api/v1/machine-information` | CPU, memória, disco, IP externo e uptime do servidor (ROOT) |
 
 ### Documentação (`/api/swagger`) — público
 
@@ -698,10 +698,10 @@ Arquivo de referência: `.env.example`.
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/database
 SERVER_ADDR=0.0.0.0:8080
-JWT_SECRET=your_jwt_secret_key_here
+JWT_SECRET=change_this_jwt_secret_with_at_least_32_bytes
 JWT_ISSUER=nupevid-api
 JWT_AUDIENCE=nupevid-api
-API_KEY=your_api_key_here
+API_KEY=change_this_api_key_with_at_least_32_bytes
 ```
 
 ### Opcionais com valor padrão
@@ -712,6 +712,12 @@ ENABLE_BOOTSTRAP_ROOT=false      # cria o admin padrão no boot quando true
 RUN_MIGRATIONS_ON_STARTUP=true   # aplica migrações pendentes no boot
 ACCESS_TOKEN_TTL_SECONDS=900     # validade do access token (15 min)
 REFRESH_TOKEN_TTL_SECONDS=604800 # validade do refresh token (7 dias)
+JSON_PAYLOAD_LIMIT_BYTES=1048576 # limite de payload JSON (1 MB)
+CLIENT_REQUEST_TIMEOUT_SECONDS=15 # timeout de leitura da requisição
+KEEP_ALIVE_SECONDS=75            # keep-alive HTTP
+LGPD_RETENTION_POLICY_DAYS=      # política documental de retenção dos dados
+AUDIT_LOG_RETENTION_DAYS=        # política documental de retenção da auditoria
+RETENTION_ENFORCEMENT_ENABLED=false # sem expurgo automático neste ciclo
 ```
 
 ### Auxiliares (compose, testes e serviços de apoio)
@@ -745,6 +751,10 @@ TRAEFIK_LOG_LEVEL=INFO
 - `ENABLE_BOOTSTRAP_ROOT`: quando habilitado, cria o usuário ROOT padrão no boot caso não exista.
 - `RUN_MIGRATIONS_ON_STARTUP`: aplica migrações no startup (padrão `true`); `false` para gerenciá-las externamente.
 - `ACCESS_TOKEN_TTL_SECONDS` / `REFRESH_TOKEN_TTL_SECONDS`: validade do access e do refresh token.
+- `JSON_PAYLOAD_LIMIT_BYTES`: limite global para payloads JSON; excesso retorna 413.
+- `CLIENT_REQUEST_TIMEOUT_SECONDS` / `KEEP_ALIVE_SECONDS`: limites HTTP aplicados no servidor.
+- `LGPD_RETENTION_POLICY_DAYS` / `AUDIT_LOG_RETENTION_DAYS`: política configurada de retenção; atualmente documental.
+- `RETENTION_ENFORCEMENT_ENABLED`: reservado para futura rotina de expurgo/anonimização; manter `false` até aprovação da política.
 - `DOCKER_DATABASE_URL`: conexão usada pela API dentro do `docker compose` (host `postgres`).
 - `DATABASE_TEST_URL`: banco usado na suíte de integração.
 - `RUST_LOG`: nível de log.
@@ -861,12 +871,15 @@ A relação completa de endpoints está na seção [Referência de Endpoints](#1
 - Senhas com hash Argon2.
 - Comparação de API key em tempo constante (mitiga timing attacks).
 - Controle de senha temporária com expiração no reset.
+- Headers de segurança HTTP em todas as respostas (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`); HSTS aplicado pelo Traefik em produção.
+- Métricas do servidor (`/machine-information`) restritas ao perfil ROOT.
 
 ### Pontos de atenção
 
 - Seed de credencial ROOT padrão no startup (`admin@email.com` / `admin@123`) — alterar fora de ambiente local.
 - CORS atualmente permissivo (`allow_any_origin`, `allow_any_method`, `allow_any_header`).
-- Sem rate limit nativo para login no código atual.
+- Rate limit por IP nos endpoints de autenticação configurado por `LOGIN_RATE_LIMIT_PER_MINUTE`.
+- Trilha de auditoria persistente para eventos sensíveis e autenticação, com `X-Request-Id`.
 
 ---
 
@@ -874,9 +887,9 @@ A relação completa de endpoints está na seção [Referência de Endpoints](#1
 
 - Endurecer a política de CORS por domínio confiável.
 - Remover o seed padrão de admin e adotar bootstrap seguro (one-time setup).
-- Adicionar rate limiting e proteção anti brute-force no login.
-- Incluir trilha de auditoria para ações críticas (ex.: alterações de políticas e medidas).
-- Incluir pipeline CI com lint, testes e validação de migrações.
+- Complementar o rate limit por IP já existente com lockout por conta (`failed_login_attempts`/`locked_until`) contra brute force direcionado.
+- Implementar rotina aprovada de retenção/anonimização LGPD; hoje a política é configurada e documentada, sem expurgo automático.
+- Evoluir o script local `security-check.sh` para pipeline CI remoto quando o provedor for definido.
 
 ---
 
@@ -888,6 +901,12 @@ A relação completa de endpoints está na seção [Referência de Endpoints](#1
 
 ```bash
 ./test.sh                 # equivalente a: cargo nextest run
+```
+
+Para verificações locais de segurança, instale `cargo-audit` e `cargo-deny` e rode:
+
+```bash
+./security-check.sh
 ```
 
 Ou diretamente (com `DATABASE_TEST_URL` exportado para os testes de banco):

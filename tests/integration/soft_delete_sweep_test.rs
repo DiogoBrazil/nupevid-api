@@ -70,7 +70,7 @@ async fn cannot_update_victim_after_soft_delete(pool: PgPool) {
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
             .uri(&format!("/api/v1/victims/{}", victim_id))
-            .set_json(&build_victim_update_payload(city)),
+            .set_json(build_victim_update_payload(city)),
         &config,
         &token,
     )
@@ -106,7 +106,7 @@ async fn cannot_update_offender_after_soft_delete(pool: PgPool) {
     let update_req = test_helpers::with_auth_headers(
         test::TestRequest::put()
             .uri(&format!("/api/v1/offenders/{}", offender_id))
-            .set_json(&build_offender_update_payload(city)),
+            .set_json(build_offender_update_payload(city)),
         &config,
         &token,
     )

@@ -26,6 +26,9 @@ pub enum ApplicationError {
         field: Option<String>,
     },
 
+    #[error("Payload Too Large: {0}")]
+    PayloadTooLarge(String),
+
     #[error("Database Error: {0}")]
     DatabaseError(String),
 

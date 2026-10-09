@@ -1,3 +1,4 @@
+pub mod audit_logs;
 pub mod attendance_members;
 pub mod attendance_offenders;
 pub mod attendance_victims;

@@ -219,7 +219,7 @@ async fn login_with_expired_temporary_password_returns_unauthorized_with_specifi
     let body: serde_json::Value = test::read_body_json(login_resp).await;
     assert_eq!(
         body["message"].as_str().unwrap(),
-        "Unauthorized: Temporary password expired"
+        "Unauthorized: Invalid credentials"
     );
 }
 
@@ -279,6 +279,6 @@ async fn login_with_temporary_password_missing_expiration_returns_unauthorized(p
     let body: serde_json::Value = test::read_body_json(login_resp).await;
     assert_eq!(
         body["message"].as_str().unwrap(),
-        "Unauthorized: Temporary password expired"
+        "Unauthorized: Invalid credentials"
     );
 }

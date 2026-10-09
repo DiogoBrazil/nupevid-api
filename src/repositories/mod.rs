@@ -1,3 +1,4 @@
+pub mod audit_logs;
 pub mod attendance_members;
 pub mod attendance_offenders;
 pub mod attendance_victims;
@@ -9,6 +10,7 @@ pub mod offenders;
 pub mod protective_measures;
 pub mod queries;
 pub mod refresh_tokens;
+pub mod search;
 pub mod sqlx_types;
 pub mod users;
 pub mod victims;
