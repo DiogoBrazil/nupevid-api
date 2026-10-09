@@ -7,7 +7,7 @@ use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::UserClaims;
 use crate::core::read_models::users::ResetUserPasswordResponse;
 use crate::core::value_objects::profiles::Profile;
-use crate::usecases::helpers_common::get_user_or_not_found;
+use crate::usecases::helpers_common::{get_user_or_not_found, user_not_found_error};
 use crate::usecases::users::deps::UserUseCaseDependencies;
 use crate::usecases::users::helpers::generate_temporary_password;
 
@@ -36,9 +36,9 @@ impl ResetUserPasswordByIdUseCase {
         if claims.profile == Profile::CityAdmin {
             let admin_city_id = extract_city_id_from_claims(claims)?;
             if target_user.city_id != Some(admin_city_id) {
-                return Err(AppError::Forbidden(
-                    "CITY_ADMIN can only reset passwords for users in the same city".to_string(),
-                ));
+                // Same response as a missing user, so existence of users in
+                // other cities cannot be probed by ID.
+                return Err(user_not_found_error(id));
             }
         }
 
@@ -68,6 +68,18 @@ impl ResetUserPasswordByIdUseCase {
                     "[ResetUserPasswordByIdUseCase] Password reset successfully for user {}",
                     id
                 );
+                // Invalidate every existing session of the target user.
+                if let Err(error) = self
+                    .deps
+                    .refresh_token_repository
+                    .revoke_all_refresh_tokens_for_user(id)
+                    .await
+                {
+                    error!(
+                        "[ResetUserPasswordByIdUseCase] Failed to revoke refresh tokens for user {}: {:?}",
+                        id, error
+                    );
+                }
                 Ok(ResetUserPasswordResponse { temporary_password })
             }
             Err(RepositoryError::NotFound) => Err(AppError::NotFound(format!(

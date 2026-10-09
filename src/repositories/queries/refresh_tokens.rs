@@ -26,4 +26,10 @@ impl RefreshTokenQueries {
         SET revoked_at = NOW()
         WHERE id = $1 AND revoked_at IS NULL
     "#;
+
+    pub const REVOKE_ALL_REFRESH_TOKENS_FOR_USER: &'static str = r#"
+        UPDATE refresh_tokens
+        SET revoked_at = NOW()
+        WHERE user_id = $1 AND revoked_at IS NULL
+    "#;
 }

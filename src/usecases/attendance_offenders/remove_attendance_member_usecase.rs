@@ -7,6 +7,7 @@ use crate::core::entities::auth::UserClaims;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    attendance_offender_not_found_error,
     get_attendance_offender_or_not_found, get_offender_or_not_found,
 };
 
@@ -41,7 +42,11 @@ impl RemoveAttendanceOffenderMemberUseCase {
         let offender =
             get_offender_or_not_found(&*self.deps.offender_repository, attendance.offender_id)
                 .await?;
-        auth.check_policy(&Policy::ManageAttendanceMembers, offender.summary.city_id)?;
+        auth.check_policy_or_not_found(
+            &Policy::ManageAttendanceMembers,
+            offender.summary.city_id,
+            || attendance_offender_not_found_error(attendance_id),
+        )?;
 
         match self
             .deps

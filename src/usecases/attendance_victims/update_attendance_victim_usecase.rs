@@ -11,6 +11,7 @@ use crate::core::read_models::attendance_victims::AttendanceVictimWithAddress;
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_victims::deps::AttendanceVictimUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    attendance_victim_not_found_error, victim_not_found_error,
     get_attendance_victim_or_not_found, get_protective_measure_or_not_found,
     get_victim_or_not_found,
 };
@@ -48,7 +49,9 @@ impl UpdateAttendanceVictimUseCase {
         let existing_victim =
             get_victim_or_not_found(&*self.deps.victim_repository, existing.victim_id).await?;
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::UpdateAttendances, existing_victim.summary.city_id)?;
+        auth.check_policy_or_not_found(&Policy::UpdateAttendances, existing_victim.summary.city_id, || {
+            attendance_victim_not_found_error(id)
+        })?;
 
         let pm = get_protective_measure_or_not_found(
             &*self.deps.protective_measure_repository,
@@ -61,7 +64,9 @@ impl UpdateAttendanceVictimUseCase {
         if new_victim_id != existing.victim_id {
             let new_victim =
                 get_victim_or_not_found(&*self.deps.victim_repository, new_victim_id).await?;
-            auth.check_policy(&Policy::UpdateAttendances, new_victim.summary.city_id)?;
+            auth.check_policy_or_not_found(&Policy::UpdateAttendances, new_victim.summary.city_id, || {
+                victim_not_found_error(new_victim_id)
+            })?;
         }
 
         match self

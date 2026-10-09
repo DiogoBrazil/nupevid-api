@@ -1,5 +1,5 @@
 use chrono::Utc;
-use log::{error, info};
+use log::{error, info, warn};
 
 use crate::core::application_error::ApplicationError as AppError;
 use crate::core::contracts::repository::error::RepositoryError;
@@ -58,8 +58,25 @@ impl RefreshTokenUseCase {
         }
 
         if stored.revoked_at.is_some() {
-            // Reuse of a revoked/rotated token: reject as invalid.
-            return Err(AppError::Unauthorized("Refresh token revoked".to_string()));
+            // Reuse of a revoked/rotated token indicates the token was likely
+            // stolen: revoke every active session of the user (OWASP refresh
+            // token rotation guidance) and reject with the generic message.
+            warn!(
+                "[Security] Refresh token reuse detected for user {} (token {}). Revoking all sessions.",
+                stored.user_id, stored.id
+            );
+            if let Err(error) = self
+                .deps
+                .refresh_token_repository
+                .revoke_all_refresh_tokens_for_user(stored.user_id)
+                .await
+            {
+                error!(
+                    "[RefreshTokenUseCase] Failed to revoke all refresh tokens for user {}: {:?}",
+                    stored.user_id, error
+                );
+            }
+            return Err(AppError::Unauthorized("Invalid refresh token".to_string()));
         }
 
         if stored.expires_at <= Utc::now() {

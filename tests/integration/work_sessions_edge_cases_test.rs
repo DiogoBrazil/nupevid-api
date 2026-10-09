@@ -237,7 +237,7 @@ async fn can_create_new_session_after_ending_previous(pool: PgPool) {
     assert_eq!(create2_resp.status(), StatusCode::CREATED);
 
     let create2_body: serde_json::Value = test::read_body_json(create2_resp).await;
-    assert_eq!(create2_body["data"]["is_active"].as_bool().unwrap(), true);
+    assert!(create2_body["data"]["is_active"].as_bool().unwrap());
     assert_eq!(
         create2_body["data"]["description"].as_str().unwrap(),
         "Second session"
@@ -289,7 +289,7 @@ async fn ended_session_has_is_active_false(pool: PgPool) {
     let session_id = create_body["data"]["id"].as_str().unwrap();
 
     // Verify initially active
-    assert_eq!(create_body["data"]["is_active"].as_bool().unwrap(), true);
+    assert!(create_body["data"]["is_active"].as_bool().unwrap());
 
     // End session
     let end_req = test_helpers::with_auth_headers(
@@ -308,7 +308,7 @@ async fn ended_session_has_is_active_false(pool: PgPool) {
         .await
         .expect("Failed to check session status");
 
-    assert_eq!(is_active, false);
+    assert!(!is_active);
 }
 
 /// Phase 4 - Test 5: Can add multiple Patrollers (no limit)

@@ -36,7 +36,7 @@ async fn root_reads_any_user() {
 }
 
 #[tokio::test]
-async fn non_root_cannot_read_root_user() {
+async fn non_root_reading_root_user_gets_not_found() {
     let admin_city = Uuid::new_v4();
     let admin_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
@@ -59,7 +59,7 @@ async fn non_root_cannot_read_root_user() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]
@@ -96,7 +96,7 @@ async fn city_admin_with_read_policy_succeeds() {
 }
 
 #[tokio::test]
-async fn city_admin_without_read_policy_is_forbidden() {
+async fn city_admin_without_read_policy_gets_not_found() {
     let admin_city = Uuid::new_v4();
     let admin_id = Uuid::new_v4();
     let target_id = Uuid::new_v4();
@@ -121,7 +121,7 @@ async fn city_admin_without_read_policy_is_forbidden() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]

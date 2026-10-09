@@ -1,3 +1,4 @@
+use crate::core::auth_helpers::mask_email;
 use crate::core::{
     contracts::repository::{auth::AuthRepository, error::RepositoryError},
     entities::auth::CompleteUserData,
@@ -28,7 +29,7 @@ impl AuthRepository for PgAuthRepository {
     ) -> Result<CompleteUserData, RepositoryError> {
         info!(
             "[Repository] Executing SQL query to get user password with email: {}",
-            email
+            mask_email(email)
         );
 
         let complete_user_data: CompleteUserData =

@@ -8,6 +8,7 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    protective_measure_not_found_error,
     get_offender_or_not_found, get_protective_measure_or_not_found,
 };
 
@@ -39,7 +40,9 @@ impl GetAttendanceOffendersByMeasureUseCase {
             get_offender_or_not_found(&*self.deps.offender_repository, pm.offender_id).await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadAttendances, offender.summary.city_id)?;
+        auth.check_policy_or_not_found(&Policy::ReadAttendances, offender.summary.city_id, || {
+            protective_measure_not_found_error(protective_measure_id)
+        })?;
 
         self.deps
             .attendance_offender_read_repository

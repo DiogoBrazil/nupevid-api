@@ -119,12 +119,12 @@ async fn city_admin_cannot_get_user_from_other_city(pool: PgPool) {
 
     assert_eq!(
         get_user_resp.status(),
-        StatusCode::FORBIDDEN,
+        StatusCode::NOT_FOUND,
         "CITY_ADMIN should not access users from other cities"
     );
     let body: serde_json::Value = test::read_body_json(get_user_resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
-    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
+    assert_eq!(body["status_code"].as_u64().unwrap(), 404);
+    assert_eq!(body["error"].as_str().unwrap(), "Not Found");
 }
 
 #[sqlx::test]
@@ -248,12 +248,12 @@ async fn city_admin_cannot_update_user_from_other_city(pool: PgPool) {
 
     assert_eq!(
         update_resp.status(),
-        StatusCode::FORBIDDEN,
+        StatusCode::NOT_FOUND,
         "CITY_ADMIN should not update users from other cities"
     );
     let body: serde_json::Value = test::read_body_json(update_resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
-    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
+    assert_eq!(body["status_code"].as_u64().unwrap(), 404);
+    assert_eq!(body["error"].as_str().unwrap(), "Not Found");
 }
 
 #[sqlx::test]
@@ -367,10 +367,10 @@ async fn city_admin_cannot_delete_user_from_other_city(pool: PgPool) {
 
     assert_eq!(
         delete_resp.status(),
-        StatusCode::FORBIDDEN,
+        StatusCode::NOT_FOUND,
         "CITY_ADMIN should not delete users from other cities"
     );
     let body: serde_json::Value = test::read_body_json(delete_resp).await;
-    assert_eq!(body["status_code"].as_u64().unwrap(), 403);
-    assert_eq!(body["error"].as_str().unwrap(), "Forbidden");
+    assert_eq!(body["status_code"].as_u64().unwrap(), 404);
+    assert_eq!(body["error"].as_str().unwrap(), "Not Found");
 }

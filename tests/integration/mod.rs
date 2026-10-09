@@ -9,6 +9,7 @@ pub mod auth_validation_test;
 pub mod bug_fixes_regression_test;
 pub mod cities_integration_test;
 pub mod concurrency_invariants_test;
+pub mod machine_information_test;
 pub mod offenders_basic_test;
 pub mod offenders_phones_addresses_crud_test;
 pub mod pagination_test;

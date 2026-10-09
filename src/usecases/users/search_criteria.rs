@@ -38,8 +38,8 @@ impl UserSearchCriteria {
                 }
                 if !is_valid_registration(trimmed) {
                     return Err(ApplicationError::BadRequest(format!(
-                        "invalid registration '{}'. Registration must start with '{}' and have at most {} characters",
-                        trimmed, REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
+                        "invalid registration format. Registration must start with '{}' and have at most {} characters",
+                        REGISTRATION_PREFIX, REGISTRATION_MAX_LENGTH
                     )));
                 }
                 Ok(Self::ByRegistration(trimmed.to_string()))

@@ -45,7 +45,7 @@ async fn setup_case(pool: PgPool) -> (
     let city_id = db_fixtures::insert_city(&pool, "Cidade State").await;
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima State", city_id).await;
     let offender_id = db_fixtures::insert_offender(&pool, "Agressor State", city_id).await;
-    let claims = test_helpers::build_city_admin_claims(city_id);
+    let claims = test_helpers::seed_city_admin_claims(&pool, city_id).await;
     let token = test_helpers::generate_jwt(&claims, &config.jwt_secret);
 
     (pool, app, config, city_id, victim_id, offender_id, token)

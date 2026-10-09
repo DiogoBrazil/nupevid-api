@@ -415,7 +415,7 @@ async fn commander_non_creator_can_end_session(pool: PgPool) {
         .await
         .expect("Failed to check session");
 
-    assert_eq!(is_active, false);
+    assert!(!is_active);
 }
 
 #[sqlx::test]

@@ -683,7 +683,7 @@ async fn update_fails_without_update_policy_for_existing_victim_city() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]
@@ -726,7 +726,7 @@ async fn update_change_victim_requires_policy_for_new_victim_city() {
         )
         .await;
 
-    assert!(matches!(result.unwrap_err(), AppError::Forbidden(_)));
+    assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
 }
 
 #[tokio::test]

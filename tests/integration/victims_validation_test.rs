@@ -425,7 +425,7 @@ async fn update_victim_change_city_requires_permission_on_both_cities(pool: PgPo
     let victim_id = db_fixtures::insert_victim(&pool, "Vitima A", city_a).await;
 
     // CITY_ADMIN for city_a only
-    let admin_a_claims = test_helpers::build_city_admin_claims(city_a);
+    let admin_a_claims = test_helpers::seed_city_admin_claims(&pool, city_a).await;
     let admin_a_token = test_helpers::generate_jwt(&admin_a_claims, &config.jwt_secret);
 
     // Try to update victim to city_b (admin doesn't have permission there)

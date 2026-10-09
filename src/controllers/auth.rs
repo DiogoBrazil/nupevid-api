@@ -2,6 +2,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use log::info;
 
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::mask_email;
 use crate::core::commands::auth::{Login, LogoutRequest, RefreshTokenRequest};
 use crate::core::entities::auth::ClientMetadata;
 use crate::usecases::auth::{LoginUseCase, LogoutUseCase, RefreshTokenUseCase};
@@ -32,7 +33,7 @@ pub async fn login(
 ) -> Result<HttpResponse, AppError> {
     info!(
         "[Controller] Received request to login user with email: {}",
-        data.email
+        mask_email(&data.email)
     );
     let metadata = extract_client_metadata(&req);
     let response = usecase.execute(data.into_inner(), metadata).await?;

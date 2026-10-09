@@ -171,6 +171,32 @@ async fn reused_refresh_token_is_rejected(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn reused_refresh_token_revokes_all_user_sessions(pool: PgPool) {
+    let config = test_helpers::build_test_config();
+    let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;
+
+    let city_id = db_fixtures::insert_city(&pool, "City").await;
+    db_fixtures::insert_user(&pool, "200013", "u13@test.com", "CITY_USER", Some(city_id)).await;
+
+    let login_body = login(&app, &config, "u13@test.com").await;
+    let old_refresh = login_body["data"]["refresh_token"].as_str().unwrap();
+
+    // Rotate: old_refresh -> new_refresh.
+    let first = refresh(&app, &config, old_refresh).await;
+    assert_eq!(first.status(), StatusCode::OK);
+    let first_body: serde_json::Value = test::read_body_json(first).await;
+    let new_refresh = first_body["data"]["refresh_token"].as_str().unwrap();
+
+    // Reuse of the rotated token signals theft and is rejected...
+    let reused = refresh(&app, &config, old_refresh).await;
+    assert_eq!(reused.status(), StatusCode::UNAUTHORIZED);
+
+    // ...and the still-valid descendant token is revoked as well.
+    let after_reuse = refresh(&app, &config, new_refresh).await;
+    assert_eq!(after_reuse.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test]
 async fn expired_refresh_token_is_rejected(pool: PgPool) {
     let config = test_helpers::build_test_config();
     let app = test_helpers::create_full_test_app(pool.clone(), config.clone()).await;

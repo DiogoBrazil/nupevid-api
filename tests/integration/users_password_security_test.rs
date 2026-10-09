@@ -631,11 +631,13 @@ async fn city_admin_cannot_reset_password_for_user_in_other_city(pool: PgPool) {
     )
     .to_request();
     let reset_resp = test::call_service(&app, reset_req).await;
-    assert_eq!(reset_resp.status(), StatusCode::FORBIDDEN);
+    // Cross-city access by ID is answered as "not found" so user existence
+    // cannot be probed across cities.
+    assert_eq!(reset_resp.status(), StatusCode::NOT_FOUND);
     let reset_body: serde_json::Value = test::read_body_json(reset_resp).await;
     assert_eq!(
         reset_body["message"].as_str().unwrap(),
-        "Forbidden: CITY_ADMIN can only reset passwords for users in the same city"
+        format!("Not Found: User with id '{}' not found", user_id)
     );
 }
 

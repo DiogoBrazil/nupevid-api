@@ -3,6 +3,7 @@ use log::{error, info};
 use uuid::Uuid;
 
 use crate::core::application_error::ApplicationError as AppError;
+use crate::core::auth_helpers::mask_email;
 use crate::core::commands::auth::Login;
 use crate::core::contracts::repository::error::RepositoryError;
 use crate::core::entities::auth::ClientMetadata;
@@ -11,7 +12,7 @@ use crate::core::read_models::auth::LoginResponse;
 use crate::core::value_objects::profiles::Profile;
 use crate::usecases::auth::deps::AuthUseCaseDependencies;
 use crate::usecases::auth::helpers::{
-    AccessTokenSubject, build_new_refresh_token, issue_access_token,
+    AccessTokenSubject, build_new_refresh_token, equalize_login_timing, issue_access_token,
 };
 
 pub struct LoginUseCase {
@@ -31,7 +32,7 @@ impl LoginUseCase {
         let normalized_email = data.email.trim().to_lowercase();
         info!(
             "[LoginUseCase] Starting login process with email: {}",
-            normalized_email
+            mask_email(&normalized_email)
         );
 
         let user = match self
@@ -42,12 +43,16 @@ impl LoginUseCase {
         {
             Ok(user) => user,
             Err(RepositoryError::NotFound) => {
+                // Equalize response timing with the "wrong password" path so
+                // the login endpoint cannot be used to enumerate emails.
+                equalize_login_timing(&*self.deps.password_hasher, &data.password);
                 return Err(AppError::Unauthorized("Invalid credentials".into()));
             }
             Err(error) => {
                 error!(
                     "[LoginUseCase] Database error while finding user {}: {:?}",
-                    normalized_email, error
+                    mask_email(&normalized_email),
+                    error
                 );
                 return Err(AppError::InternalServerError);
             }
@@ -66,7 +71,15 @@ impl LoginUseCase {
         if user.is_temporary_password {
             match user.temporary_password_expires_at {
                 Some(expires_at) if Utc::now() <= expires_at => {}
-                _ => return Err(AppError::Unauthorized("Temporary password expired".into())),
+                _ => {
+                    // Generic message: revealing that a temporary password
+                    // expired would confirm the account exists.
+                    info!(
+                        "[LoginUseCase] Login rejected: temporary password expired for user {}",
+                        user.id
+                    );
+                    return Err(AppError::Unauthorized("Invalid credentials".into()));
+                }
             }
         }
 

@@ -6,17 +6,21 @@ use nupevid_api::core::entities::auth::UserClaims;
 use nupevid_api::core::value_objects::profiles::Profile;
 use nupevid_api::core::value_objects::ranks::Rank;
 use nupevid_api::middleware::auth::AuthMiddleware;
+use nupevid_api::middleware::request_context::RequestContextAuditMiddleware;
+use nupevid_api::middleware::security_headers::security_headers;
 use sqlx::PgPool;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 /// Build a Config instance suitable for tests.
 pub fn build_test_config() -> Config {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     let server_addr = std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:0".to_string());
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "test-jwt-secret".to_string());
-    let api_key = std::env::var("API_KEY").unwrap_or_else(|_| "test-api-key".to_string());
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "test-jwt-secret-at-least-32-bytes".to_string());
+    let api_key =
+        std::env::var("API_KEY").unwrap_or_else(|_| "test-api-key-at-least-32-bytes".to_string());
     let jwt_issuer = std::env::var("JWT_ISSUER").unwrap_or_else(|_| "nupevid-api".to_string());
     let jwt_audience =
         std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "nupevid-api".to_string());
@@ -33,6 +37,15 @@ pub fn build_test_config() -> Config {
         run_migrations_on_startup: false,
         access_token_ttl_seconds: 900,
         refresh_token_ttl_seconds: 604800,
+        // Rate limiting disabled in tests: many tests issue rapid sequential
+        // logins from the same loopback address.
+        login_rate_limit_per_minute: 0,
+        json_payload_limit_bytes: 1048576,
+        client_request_timeout_seconds: 15,
+        keep_alive_seconds: 75,
+        lgpd_retention_policy_days: None,
+        audit_log_retention_days: None,
+        retention_enforcement_enabled: false,
     }
 }
 
@@ -45,7 +58,9 @@ pub async fn create_full_test_app(
 
     test::init_service(
         App::new()
+            .wrap(RequestContextAuditMiddleware)
             .wrap(AuthMiddleware)
+            .wrap(security_headers())
             .configure(|cfg: &mut web::ServiceConfig| deps.configure(cfg)),
     )
     .await
@@ -101,6 +116,47 @@ pub fn build_city_user_claims(city_id: Uuid) -> UserClaims {
         full_name: "City User".to_string(),
         profile: Profile::CityUser,
         email: "city.user@test.com".to_string(),
+        city_id: Some(city_id.to_string()),
+    }
+}
+
+/// Inserts a real CITY_ADMIN user (with default policies for the profile) and
+/// returns claims referencing it. Tokens for nonexistent users are rejected by
+/// the API, so synthetic claims must always point to a persisted user.
+pub async fn seed_city_admin_claims(pool: &PgPool, city_id: Uuid) -> UserClaims {
+    seed_user_claims(pool, city_id, Profile::CityAdmin).await
+}
+
+/// Inserts a real CITY_USER user (with default policies for the profile) and
+/// returns claims referencing it.
+#[allow(dead_code)]
+pub async fn seed_city_user_claims(pool: &PgPool, city_id: Uuid) -> UserClaims {
+    seed_user_claims(pool, city_id, Profile::CityUser).await
+}
+
+async fn seed_user_claims(pool: &PgPool, city_id: Uuid, profile: Profile) -> UserClaims {
+    let unique = Uuid::new_v4().simple().to_string();
+    let registration = format!("1{}", &unique[..8]);
+    let email = format!("seed.{}@test.com", &unique[..12]);
+    let (profile_str, rank, full_name) = match profile {
+        Profile::CityAdmin => ("CITY_ADMIN", Rank::CapPm, "City Admin"),
+        _ => ("CITY_USER", Rank::SdPm, "City User"),
+    };
+
+    let user_id =
+        super::db_fixtures::insert_user(pool, &registration, &email, profile_str, Some(city_id))
+            .await;
+
+    UserClaims {
+        id: user_id.to_string(),
+        exp: default_exp(),
+        iss: "nupevid-api".to_string(),
+        aud: "nupevid-api".to_string(),
+        rank,
+        registration,
+        full_name: full_name.to_string(),
+        profile,
+        email,
         city_id: Some(city_id.to_string()),
     }
 }

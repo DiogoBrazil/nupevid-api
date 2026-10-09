@@ -8,6 +8,7 @@ use crate::core::read_models::attendance_offenders::AttendanceOffenderWithAddres
 use crate::core::value_objects::policies::Policy;
 use crate::usecases::attendance_offenders::deps::AttendanceOffenderUseCaseDependencies;
 use crate::usecases::helpers_common::{
+    attendance_offender_not_found_error,
     get_attendance_offender_or_not_found, get_offender_or_not_found,
 };
 
@@ -43,7 +44,9 @@ impl GetAttendanceOffenderByIdUseCase {
         .await?;
 
         let auth = AuthContext::load(&*self.deps.user_repository, claims).await?;
-        auth.check_policy(&Policy::ReadAttendances, offender.summary.city_id)?;
+        auth.check_policy_or_not_found(&Policy::ReadAttendances, offender.summary.city_id, || {
+            attendance_offender_not_found_error(id)
+        })?;
 
         Ok(attendance_with_address)
     }

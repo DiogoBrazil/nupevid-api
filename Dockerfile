@@ -20,8 +20,6 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /app/swagger.yml .
 COPY --from=builder /app/target/release/nupevid-api .
 
-COPY --from=builder /app/.env .
-
 RUN chmod +x ./nupevid-api
 
 CMD ["./nupevid-api"]
